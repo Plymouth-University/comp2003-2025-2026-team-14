@@ -15,6 +15,7 @@ Rounds start with a roll of 6 dice, all of which have different faces with speci
   -  Parks and schools are special structures that award 2 points for each connected structure.
   -  The tetriminos determine the shapes of the structures you can place on your board. First piece must touch the river.
   -  The river face allows for the placement of a structure next to the river and the selection of any type of structure for that tetrimino.
+
 Players choose the type and shape of structure they want to build and place it in a legal position.
 Stars are awarded if the same structure type or shape is rolled twice and used in that turn and adds a point to the player's tally.
 This cycle is then repeated until one player cannot place any more structures, which marks the end of the game. The scores are then tallied up to reveal the winner.
