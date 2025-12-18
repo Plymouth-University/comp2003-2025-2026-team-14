@@ -15,6 +15,7 @@
 # Visual Studio cache directory
 .vs/
 .vscode/
+.vsconfig
 
 # Gradle cache directory (Android builds)
 .gradle/
@@ -70,3 +71,4 @@ crashlytics-build.properties
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.md

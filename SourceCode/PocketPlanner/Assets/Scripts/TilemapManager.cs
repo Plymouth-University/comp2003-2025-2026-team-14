@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -7,7 +9,21 @@ public class TilemapManager : MonoBehaviour
     [SerializeField] private int width = 10;
     [SerializeField] private int height = 10;
     [SerializeField] private Tilemap boardTilemap;
-    [SerializeField] private TileBase tileAsset; // The "WhiteTile" 
+    [SerializeField] private TileBase tileAsset; // The "WhiteTile"
+    [SerializeField] private TileBase riverTileAsset; // The "RiverTile" 
+    private List<GridPosition> riverTiles = new List<GridPosition>{
+        new GridPosition(9, 4),
+        new GridPosition(8, 4),
+        new GridPosition(7, 4),
+        new GridPosition(6, 4),
+        new GridPosition(5, 4),
+        new GridPosition(5, 5),
+        new GridPosition(4, 5),
+        new GridPosition(3, 5),
+        new GridPosition(2, 5),
+        new GridPosition(1, 5),
+        new GridPosition(0, 5),
+    };
 
     [Header("Camera Settings")]
     [SerializeField] private float boardPadding = 1.0f;
@@ -43,6 +59,13 @@ public class TilemapManager : MonoBehaviour
                 // boardTilemap.SetTileFlags(pos, TileFlags.None);
                 // boardTilemap.SetColor(pos, Color.white);
             }
+        }
+
+        // Initialize river tiles for demonstration
+        foreach (GridPosition pos in riverTiles)
+        {
+            Vector3Int tilePos = new Vector3Int(startX + pos.x, startY + pos.y, 0);
+            boardTilemap.SetTile(tilePos, riverTileAsset);
         }
         
         // Compress bounds to ensure the Tilemap knows its exact size
