@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8916438257248954272}
   - component: {fileID: 4508582383133350212}
+  - component: {fileID: -7959314866637649062}
   m_Layer: 0
   m_Name: TShape
   m_TagString: Untagged
@@ -48,7 +49,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bec20fa8c1862db1da9b3e176ee0aab5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShapeController
+  buildingType: 0
   shapeData: {fileID: 11400000, guid: c48c9da203bbea6d480d0c05e4382724, type: 2}
+  position:
+    x: 0
+    y: 0
+  isPlacementConfirmed: 0
+--- !u!114 &-7959314866637649062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7897374587060595683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
+  m_Actions: {fileID: -944628639613478452, guid: ce74ee4456253aee4ad52eea4d2d666b, type: 3}
+  m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
+  m_DeviceLostEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_DeviceRegainedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ControlsChangedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ActionEvents: []
+  m_NeverAutoSwitchControlSchemes: 0
+  m_DefaultControlScheme: 
+  m_DefaultActionMap: Gameplay
+  m_SplitScreenIndex: -1
+  m_Camera: {fileID: 0}
 --- !u!1001 &2463941927824589464
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -109,7 +145,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -1347265063889902376, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
+    - {fileID: -1330148710534667061, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -179,7 +217,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -1347265063889902376, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
+    - {fileID: -1330148710534667061, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -249,7 +289,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -1347265063889902376, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
+    - {fileID: -1330148710534667061, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -319,7 +361,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: -1347265063889902376, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
+    - {fileID: -1330148710534667061, guid: 28e2733e966389a97b3ddcf73599bbea, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

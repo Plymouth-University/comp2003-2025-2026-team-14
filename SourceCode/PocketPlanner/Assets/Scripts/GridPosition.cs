@@ -6,7 +6,7 @@ public struct GridPosition
     public int x;
     public int y;
 
-    public GridPosition(int y, int x) 
+    public GridPosition(int x, int y) 
     {
         this.y = y;
         this.x = x;
@@ -34,6 +34,16 @@ public struct GridPosition
         if (a.y > b.y) return true;
         if (a.y == b.y && a.x > b.x) return true;
         return false;
+    }
+
+    public Vector3Int ToVector3Int()
+    {
+        return new Vector3Int(x, y, 0);
+    }
+
+    public static GridPosition FromVector3Int(Vector3Int vec)
+    {
+        return new GridPosition(vec.x, vec.y);
     }
     
     // Override Equals() and GetHashCode() is required in C# when overriding ==
