@@ -72,3 +72,4 @@ crashlytics-build.properties
 ehthumbs.db
 Thumbs.db
 *.md
+.cl*e/
