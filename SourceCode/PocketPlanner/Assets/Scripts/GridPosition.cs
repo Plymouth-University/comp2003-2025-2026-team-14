@@ -49,4 +49,6 @@ public struct GridPosition
     // Override Equals() and GetHashCode() is required in C# when overriding ==
     public override bool Equals(object obj) => obj is GridPosition other && this == other;
     public override int GetHashCode() => (x, y).GetHashCode();
+
+    public override string ToString() => $"({x},{y})";
 }

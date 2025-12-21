@@ -9,12 +9,18 @@ using UnityEngine.UI;
 
 public class TilemapManager : MonoBehaviour
 {
+    public static TilemapManager Instance { get; private set; }
+
     [Header("Board Settings")]
     [SerializeField] private int width = 10;
     [SerializeField] private int height = 10;
-    [SerializeField] private Tilemap boardTilemap;
+    [SerializeField] public Tilemap boardTilemap;
     [SerializeField] private TileBase tileAsset; // The "WhiteTile"
-    [SerializeField] private TileBase riverTileAsset; // The "RiverTile" 
+    [SerializeField] private TileBase riverTileAsset; // The "RiverTile"
+
+    // Offset to center board around (0,0)
+    private int startX;
+    private int startY;
 
     // 10x10 array of GridTiles for easy access
     public GridTile[,] gridTiles = new GridTile[10,10]; // [x,y] format
@@ -49,10 +55,35 @@ public class TilemapManager : MonoBehaviour
     [Header("Camera Settings")]
     [SerializeField] private float boardPadding = 1.0f;
 
+    private void Awake()
+    {
+        // Singleton pattern
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // Calculate offset to center board around (0,0)
+        startX = -(width / 2);
+        startY = -(height / 2);
+
+        Debug.Log($"TilemapManager: Board offset startX={startX}, startY={startY}");
+        Debug.Log($"TilemapManager: Logical (0,0) -> Tilemap cell ({startX},{startY})");
+        Debug.Log($"TilemapManager: Logical (9,9) -> Tilemap cell ({startX + 9},{startY + 9})");
+    }
+
     private void Start()
     {
         GenerateBoard();
         AdjustCamera();
+
+        // Test coordinate conversions
+        TestCoordinateConversions();
     }
 
     private void GenerateBoard()
@@ -60,12 +91,9 @@ public class TilemapManager : MonoBehaviour
         // Clear any existing tiles first
         boardTilemap.ClearAllTiles();
 
-        // Calculate offset to center the board around (0,0)
-        // With Tilemaps, coordinates are integers. 
+        // Use pre-calculated offset to center the board around (0,0)
+        // With Tilemaps, coordinates are integers.
         // If Width is 10, we go from -5 to +4 (total 10 tiles)
-        int startX = -(width / 2);
-        int startY = -(height / 2);
-
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
@@ -172,5 +200,141 @@ public class TilemapManager : MonoBehaviour
         gridTile.isStartingTile = false;
         tileObject.name = $"Tile: ({x},{y})";
         gridTiles[x, y] = gridTile;
+    }
+
+    /// <summary>
+    /// Returns the GridTile at the given grid position, or null if out of bounds.
+    /// </summary>
+    public GridTile GetTile(GridPosition pos)
+    {
+        if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height)
+            return null;
+        return gridTiles[pos.x, pos.y];
+    }
+
+    /// <summary>
+    /// Returns true if the given position is a river tile.
+    /// </summary>
+    public bool IsRiverTile(GridPosition pos)
+    {
+        return riverTiles.Contains(pos);
+    }
+
+    /// <summary>
+    /// Returns true if the given position is a starting tile.
+    /// </summary>
+    public bool IsStartingTile(GridPosition pos)
+    {
+        return startingTiles.Contains(pos);
+    }
+
+    /// <summary>
+    /// Returns the starting position number (1-8) at the given position, or 0 if not a starting tile.
+    /// </summary>
+    public int GetStartingPositionNumber(GridPosition pos)
+    {
+        int index = startingTiles.IndexOf(pos);
+        return index >= 0 ? index + 1 : 0;
+    }
+
+    /// <summary>
+    /// Returns true if the given position is occupied by a confirmed shape.
+    /// </summary>
+    public bool IsOccupied(GridPosition pos)
+    {
+        GridTile tile = GetTile(pos);
+        bool occupied = tile != null && tile.occupyingShape != null;
+        if (occupied)
+        {
+            Debug.Log($"IsOccupied: Tile at logical {pos} is occupied by shape");
+        }
+        return occupied;
+    }
+
+    /// <summary>
+    /// Returns true if the given grid position is within the board boundaries (0-9).
+    /// </summary>
+    public bool IsWithinGrid(GridPosition pos)
+    {
+        return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height;
+    }
+
+    // ===== Coordinate Conversion Methods =====
+
+    /// <summary>
+    /// Converts logical grid coordinates (0-9) to tilemap cell coordinates (-5 to +4).
+    /// </summary>
+    public Vector3Int LogicalToTilemapCell(GridPosition logicalPos)
+    {
+        return new Vector3Int(logicalPos.x + startX, logicalPos.y + startY, 0);
+    }
+
+    /// <summary>
+    /// Converts tilemap cell coordinates (-5 to +4) to logical grid coordinates (0-9).
+    /// </summary>
+    public GridPosition TilemapCellToLogical(Vector3Int cellPos)
+    {
+        return new GridPosition(cellPos.x - startX, cellPos.y - startY);
+    }
+
+    /// <summary>
+    /// Converts logical grid coordinates (0-9) to world position (center of tile).
+    /// </summary>
+    public Vector3 LogicalToWorld(GridPosition logicalPos)
+    {
+        Vector3Int cellPos = LogicalToTilemapCell(logicalPos);
+        return boardTilemap.CellToWorld(cellPos);
+    }
+
+    /// <summary>
+    /// Converts world position to logical grid coordinates (0-9).
+    /// </summary>
+    public GridPosition WorldToLogical(Vector3 worldPos)
+    {
+        Vector3Int cellPos = boardTilemap.WorldToCell(worldPos);
+        return TilemapCellToLogical(cellPos);
+    }
+
+    /// <summary>
+    /// Test method to verify coordinate conversions work correctly.
+    /// </summary>
+    private void TestCoordinateConversions()
+    {
+        Debug.Log("=== Coordinate Conversion Tests ===");
+
+        // Test basic conversions
+        GridPosition logicalCenter = new GridPosition(5, 5);
+        Vector3Int tilemapCell = LogicalToTilemapCell(logicalCenter);
+        Vector3 worldPos = LogicalToWorld(logicalCenter);
+        GridPosition convertedBack = WorldToLogical(worldPos);
+
+        Debug.Log($"Logical {logicalCenter} -> Tilemap cell {tilemapCell}");
+        Debug.Log($"Logical {logicalCenter} -> World {worldPos}");
+        Debug.Log($"World {worldPos} -> Logical {convertedBack}");
+
+        // Verify round-trip
+        if (logicalCenter == convertedBack)
+        {
+            Debug.Log("✓ Round-trip conversion successful");
+        }
+        else
+        {
+            Debug.LogError($"✗ Round-trip failed: {logicalCenter} != {convertedBack}");
+        }
+
+        // Test river tile positions (logical coordinates)
+        foreach (GridPosition riverPos in riverTiles)
+        {
+            if (IsRiverTile(riverPos))
+            {
+                Debug.Log($"✓ River tile at logical {riverPos} correctly identified");
+            }
+            else
+            {
+                Debug.LogError($"✗ River tile at logical {riverPos} not identified");
+            }
+        }
+
+        Debug.Log("=== End of Coordinate Tests ===");
     }
 }

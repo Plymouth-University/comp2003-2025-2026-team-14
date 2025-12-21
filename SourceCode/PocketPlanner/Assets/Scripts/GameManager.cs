@@ -14,6 +14,14 @@ public class GameManager : MonoBehaviour
     private int selectedStartingPosition;
     private bool firstTurnCompleted;
 
+    // Public properties for game state access
+    public int CurrentTurn => currentTurn;
+    public int Stars => stars;
+    public int WildcardsUsed => wildcardsUsed;
+    public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
+    public int SelectedStartingPosition => selectedStartingPosition;
+    public bool FirstTurnCompleted => firstTurnCompleted;
+
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
     [SerializeField] private ShapeManager shapeManager;
@@ -37,7 +45,11 @@ public class GameManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        // Initialize game state for first turn
+        selectedStartingPosition = 1; // Default starting position (player should select)
+        firstTurnCompleted = false;
+        waterDieUsedThisTurn = false;
+        currentTurn = 1;
     }
 
     // Update is called once per frame
@@ -52,6 +64,18 @@ public class GameManager : MonoBehaviour
         currentTurn++;
         waterDieUsedThisTurn = false;
         // Additional turn start logic here
+    }
+
+    /// <summary>
+    /// Marks the first turn as completed (after first shape placement).
+    /// </summary>
+    public void CompleteFirstTurn()
+    {
+        if (!firstTurnCompleted)
+        {
+            firstTurnCompleted = true;
+            Debug.Log("GameManager: First turn marked as completed");
+        }
     }
     
 }

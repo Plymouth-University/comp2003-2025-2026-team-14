@@ -66,7 +66,7 @@ public class ShapeManager : MonoBehaviour
         ShapeController shapeController = newShape.GetComponent<ShapeController>();
         activeShape = shapeController;
         activeShape.buildingType = buildingType;
-        activeShape.changeShapeColor();
+        activeShape.ChangeShapeColor();
         activeShape.position = targetPos;
         activeShape.isPlacedOnGrid = true;
     }
@@ -74,9 +74,17 @@ public class ShapeManager : MonoBehaviour
     // Helper methods for grid conversion and placement
     private Vector3 GetWorldPositionFromGridPosition(GridPosition gridPos)
     {
-        if (boardTilemap != null)
+        if (TilemapManager.Instance != null && TilemapManager.Instance.boardTilemap != null)
         {
-            Vector3 p =  boardTilemap.CellToWorld(new Vector3Int(gridPos.x, gridPos.y, 0));
+            // Use TilemapManager conversion (logical to world)
+            Vector3 p = TilemapManager.Instance.LogicalToWorld(gridPos);
+            p += centerTileWorldOffset; // Center shape within tile
+            return p;
+        }
+        else if (boardTilemap != null)
+        {
+            // Fallback for backward compatibility
+            Vector3 p = boardTilemap.CellToWorld(new Vector3Int(gridPos.x, gridPos.y, 0));
             p += centerTileWorldOffset;
             return p;
         }
@@ -92,8 +100,14 @@ public class ShapeManager : MonoBehaviour
         if (mainCamera == null) mainCamera = Camera.main;
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0));
         worldPos.z = 0;
-        if (boardTilemap != null)
+        if (TilemapManager.Instance != null && TilemapManager.Instance.boardTilemap != null)
         {
+            // Use TilemapManager conversion (world to logical)
+            return TilemapManager.Instance.WorldToLogical(worldPos);
+        }
+        else if (boardTilemap != null)
+        {
+            // Fallback for backward compatibility
             Vector3Int cellPos = boardTilemap.WorldToCell(worldPos);
             return new GridPosition(cellPos.x, cellPos.y);
         }
@@ -106,11 +120,15 @@ public class ShapeManager : MonoBehaviour
 
     public void PlaceShapeAtGridPosition(GridPosition gridPos)
     {
+        // Ensure clicked position is within grid boundaries
+        if (TilemapManager.Instance == null || !TilemapManager.Instance.IsWithinGrid(gridPos))
+            return;
+
         if (activeShape == null || activeShape.isPlacementConfirmed)
         {
             // Generate new shape at clicked position
             generateRandomShape(gridPos);
-        } 
+        }
         else if (activeShape.isPlacedOnGrid && !activeShape.isPlacementConfirmed)
         {
             return; // Shape is already placed and being manipulated, do nothing
