@@ -127,24 +127,32 @@ public class ShapeController : MonoBehaviour
 
     public void MoveUp()
     {
+        GridPosition newPos = new GridPosition(position.x, position.y + 1);
+        if (!WouldBeInBounds(newPos)) return;
         transform.position += new Vector3(0, 1, 0);
         position.y += 1;
         UpdatePositionValidity();
     }
     public void MoveDown()
     {
+        GridPosition newPos = new GridPosition(position.x, position.y - 1);
+        if (!WouldBeInBounds(newPos)) return;
         transform.position += new Vector3(0, -1, 0);
         position.y -= 1;
         UpdatePositionValidity();
     }
     public void MoveLeft()
     {
+        GridPosition newPos = new GridPosition(position.x - 1, position.y);
+        if (!WouldBeInBounds(newPos)) return;
         transform.position += new Vector3(-1, 0, 0);
         position.x -= 1;
         UpdatePositionValidity();
     }
     public void MoveRight()
     {
+        GridPosition newPos = new GridPosition(position.x + 1, position.y);
+        if (!WouldBeInBounds(newPos)) return;
         transform.position += new Vector3(1, 0, 0);
         position.x += 1;
         UpdatePositionValidity();
@@ -202,6 +210,31 @@ public class ShapeController : MonoBehaviour
             occupied.Add(new GridPosition(position.x + transformed.x, position.y + transformed.y));
         }
         return occupied;
+    }
+
+    public List<GridPosition> GetOccupiedPositions(GridPosition center)
+    {
+        List<GridPosition> occupied = new List<GridPosition>();
+        if (shapeData == null) return occupied;
+        foreach (GridPosition rel in shapeData.relativeTilePositions)
+        {
+            GridPosition transformed = TransformRelativePosition(rel);
+            occupied.Add(new GridPosition(center.x + transformed.x, center.y + transformed.y));
+        }
+        return occupied;
+    }
+
+    private bool WouldBeInBounds(GridPosition newCenter)
+    {
+        if (shapeData == null) return false;
+        foreach (GridPosition rel in shapeData.relativeTilePositions)
+        {
+            GridPosition transformed = TransformRelativePosition(rel);
+            GridPosition pos = new GridPosition(newCenter.x + transformed.x, newCenter.y + transformed.y);
+            if (pos.x < 0 || pos.x >= 10 || pos.y < 0 || pos.y >= 10)
+                return false;
+        }
+        return true;
     }
 
     public void SetGridPosition(GridPosition newPosition)
