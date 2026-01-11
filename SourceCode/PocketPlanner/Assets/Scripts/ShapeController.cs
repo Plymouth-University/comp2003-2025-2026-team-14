@@ -38,8 +38,8 @@ public class ShapeController : MonoBehaviour
     public BuildingType buildingType;
     public ShapeData shapeData;
     public GridPosition position; // Current position of the 'center' of the shape on the grid
-    private int rotationState; // 0-3 representing the rotation of the shape
-    private bool isFlipped; // Whether the shape is flipped horizontally
+    public int RotationState { get; private set; } // 0-3 representing the rotation of the shape
+    public bool IsFlipped { get; private set; } // Whether the shape is flipped horizontally
     public bool isPlacedOnGrid = false;
     public bool isPlacementConfirmed = false; // true = Shape is no longer moveable
     public bool isValidPosition = false; // true if shape position passes basic validation (boundaries, river, overlap)
@@ -123,6 +123,12 @@ public class ShapeController : MonoBehaviour
         FinalizePlacement();
         isPlacementConfirmed = true;
         Debug.Log("Shape placement confirmed.");
+
+        // Notify GameManager to award stars and start new turn
+        if (gameManager != null)
+        {
+            gameManager.OnShapePlacementConfirmed(this);
+        }
     }
 
     public void MoveUp()
@@ -161,14 +167,14 @@ public class ShapeController : MonoBehaviour
     private void UpdateVisual()
     {
         // Apply rotation and flip to transform
-        transform.localRotation = Quaternion.Euler(0, 0, -90 * rotationState); // clockwise rotation
-        transform.localScale = new Vector3(isFlipped ? -1 : 1, 1, 1);
+        transform.localRotation = Quaternion.Euler(0, 0, -90 * RotationState); // clockwise rotation
+        transform.localScale = new Vector3(IsFlipped ? -1 : 1, 1, 1);
     }
 
     public void OnShapeRotate() //Invoked by Input System
     {
         if (isPlacementConfirmed) return;
-        rotationState = (rotationState + 1) % 4;
+        RotationState = (RotationState + 1) % 4;
         UpdateVisual();
         UpdatePositionValidity();
     }
@@ -176,7 +182,23 @@ public class ShapeController : MonoBehaviour
     public void OnShapeFlip() //Invoked by Input System
     {
         if (isPlacementConfirmed) return;
-        isFlipped = !isFlipped;
+        IsFlipped = !IsFlipped;
+        UpdateVisual();
+        UpdatePositionValidity();
+    }
+
+    public void SetRotationState(int newRotationState)
+    {
+        if (isPlacementConfirmed) return;
+        RotationState = newRotationState % 4;
+        UpdateVisual();
+        UpdatePositionValidity();
+    }
+
+    public void SetFlipped(bool newFlipped)
+    {
+        if (isPlacementConfirmed) return;
+        IsFlipped = newFlipped;
         UpdateVisual();
         UpdatePositionValidity();
     }
@@ -186,12 +208,12 @@ public class ShapeController : MonoBehaviour
         // Apply flip then rotation
         int x = rel.x;
         int y = rel.y;
-        if (isFlipped)
+        if (IsFlipped)
         {
             x = -x;
         }
         // Rotate clockwise: (x, y) -> (y, -x) for 90° rotation
-        for (int i = 0; i < rotationState; i++)
+        for (int i = 0; i < RotationState; i++)
         {
             int temp = x;
             x = y;
@@ -500,12 +522,19 @@ public class ShapeController : MonoBehaviour
 
     public void ChangeShapeColor() // Temporary method to change color using sprites of child objects
     {
+        if (shapeData.shapeName == ShapeType.SingleShape) // Single shape has no child objects
+        {
+            SpriteRenderer s = transform.gameObject.GetComponent<SpriteRenderer>();
+            s.color = GetColorForBuildingType(buildingType);
+            return;
+        }
+
         for (int i = 0; i < transform.childCount; i++)
         {
             Transform child = transform.GetChild(i);
             SpriteRenderer s = child.gameObject.GetComponent<SpriteRenderer>();
             s.color = GetColorForBuildingType(buildingType);
-        }
+        } 
     }
 
     private Color GetColorForBuildingType(BuildingType type)
