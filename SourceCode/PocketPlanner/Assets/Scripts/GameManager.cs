@@ -1,4 +1,5 @@
 using UnityEngine;
+using PocketPlanner.Core;
 
 public class GameManager : MonoBehaviour
 {
@@ -9,7 +10,7 @@ public class GameManager : MonoBehaviour
     private int currentTurn;
     private int stars;
     private int wildcardsUsed;
-    //private DicePool dicePool;
+    private DicePool dicePool;
     private bool waterDieUsedThisTurn;
     private int selectedStartingPosition;
     private bool firstTurnCompleted;
@@ -21,10 +22,12 @@ public class GameManager : MonoBehaviour
     public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
+    public DicePool DicePool => dicePool;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
     [SerializeField] private ShapeManager shapeManager;
+    [SerializeField] private DiceManager diceManager;
     //private ZoneManager zoneManager;
     //private UIManager uiManager;
 
@@ -50,6 +53,17 @@ public class GameManager : MonoBehaviour
         firstTurnCompleted = false;
         waterDieUsedThisTurn = false;
         currentTurn = 1;
+
+        // Initialize dice pool
+        if (diceManager != null)
+        {
+            dicePool = diceManager.DicePool;
+        }
+        else
+        {
+            Debug.LogError("GameManager: DiceManager not assigned. Creating new DicePool.");
+            dicePool = new DicePool();
+        }
     }
 
     // Update is called once per frame
@@ -63,6 +77,18 @@ public class GameManager : MonoBehaviour
     {
         currentTurn++;
         waterDieUsedThisTurn = false;
+
+        // Roll dice for new turn
+        if (diceManager != null)
+        {
+            diceManager.RollAllDice();
+            diceManager.ClearSelection();
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: DiceManager not available, cannot roll dice.");
+        }
+
         // Additional turn start logic here
     }
 
