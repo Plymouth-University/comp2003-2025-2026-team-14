@@ -374,14 +374,15 @@ public class ShapeController : MonoBehaviour
 
         Debug.Log($"CheckPlacementRules: waterDieUsed={waterDieUsed}, firstTurnCompleted={firstTurnCompleted}, selectedStartingPos={selectedStartingPos}");
 
-        // Water die exception: must be adjacent to river tile
-        if (waterDieUsed)
-        {
-            Debug.Log("CheckPlacementRules: Water die used, checking river adjacency");
-            return IsAdjacentToRiver();
-        }
+        // ====================================================================
+        // PLACEMENT RULES LOGIC (Note: Water die does NOT bypass first turn rule)
+        // ====================================================================
+        // Order of checks:
+        // 1. First turn: must overlap selected starting position (applies regardless of water die)
+        // 2. Water die: must be adjacent to river tile
+        // 3. Subsequent turns (no water die): must be adjacent to existing building
 
-        // First turn: must overlap selected starting position
+        // First turn check (applies to ALL placements, including water die)
         if (!firstTurnCompleted)
         {
             Debug.Log("CheckPlacementRules: First turn not completed, checking starting position");
@@ -393,9 +394,28 @@ public class ShapeController : MonoBehaviour
             }
             bool overlaps = OverlapsStartingPosition(selectedStartingPos);
             Debug.Log($"CheckPlacementRules: Overlaps starting position {selectedStartingPos}: {overlaps}");
-            return overlaps;
+            if (!overlaps) return false;
+
+            // First turn passed, now check water die rule if applicable
+            if (waterDieUsed)
+            {
+                Debug.Log("CheckPlacementRules: First turn + water die used, checking river adjacency");
+                return IsAdjacentToRiver();
+            }
+
+            // First turn passed, no water die - placement valid
+            Debug.Log("CheckPlacementRules: First turn passed, no water die - placement valid");
+            return true;
         }
 
+        // First turn completed, check water die rule
+        if (waterDieUsed)
+        {
+            Debug.Log("CheckPlacementRules: Water die used (subsequent turn), checking river adjacency");
+            return IsAdjacentToRiver();
+        }
+
+        // Subsequent turn, no water die - must be adjacent to existing building
         Debug.Log("CheckPlacementRules: Subsequent turn, checking adjacency to existing buildings");
         bool adjacent = IsAdjacentToExistingBuilding();
         Debug.Log($"CheckPlacementRules: Adjacent to existing building: {adjacent}");

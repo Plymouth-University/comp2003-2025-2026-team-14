@@ -99,10 +99,17 @@ public class ShapeManager : MonoBehaviour
             return false;
 
         ShapeType? shapeType = diceManager.GetSelectedShapeType();
-        BuildingType? buildingType = diceManager.GetSelectedBuildingType();
+        BuildingType? buildingType = diceManager.GetBuildingTypeForShape();
 
         if (!shapeType.HasValue || !buildingType.HasValue)
+        {
+            // If buildingType is null, it could be because water die is selected but no building type chosen yet
+            if (diceManager.IsSelectedBuildingWater() && !diceManager.IsWaterDieChosenBuildingTypeSet())
+            {
+                Debug.Log("Water die selected but no building type chosen yet. Please choose a building type.");
+            }
             return false;
+        }
 
         CreateShape(shapeType.Value, buildingType.Value, gridPos);
         return true;
@@ -121,9 +128,16 @@ public class ShapeManager : MonoBehaviour
             return false;
 
         ShapeType? selectedShapeType = diceManager.GetSelectedShapeType();
-        BuildingType? selectedBuildingType = diceManager.GetSelectedBuildingType();
+        BuildingType? selectedBuildingType = diceManager.GetBuildingTypeForShape();
         if (!selectedShapeType.HasValue || !selectedBuildingType.HasValue)
+        {
+            // If buildingType is null, it could be because water die is selected but no building type chosen yet
+            if (diceManager.IsSelectedBuildingWater() && !diceManager.IsWaterDieChosenBuildingTypeSet())
+            {
+                Debug.Log("Water die selected but no building type chosen yet. Cannot update shape.");
+            }
             return false;
+        }
 
         // Check if shape type changed (handle null shapeData)
         bool shapeTypeChanged = activeShape.shapeData == null ||

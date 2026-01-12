@@ -152,7 +152,7 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Award stars based on double rolls matching placed shape.
+    /// Award stars based on double rolls matching selected dice faces.
     /// </summary>
     private void AwardStarsForDoubleRolls(ShapeController shape)
     {
@@ -167,9 +167,18 @@ public class GameManager : MonoBehaviour
         List<int> shapeDoubles = diceManager.GetDoubleFaces(DiceType.Shape);
         List<int> buildingDoubles = diceManager.GetDoubleFaces(DiceType.Building);
 
-        // Convert shape's type to face index
-        int shapeFaceIndex = ShapeTypeToFaceIndex(shape.shapeData.shapeName);
-        int buildingFaceIndex = BuildingTypeToFaceIndex(shape.buildingType);
+        // Get selected dice faces
+        Dice selectedShapeDie = diceManager.GetSelectedShapeDie();
+        Dice selectedBuildingDie = diceManager.GetSelectedBuildingDie();
+
+        if (selectedShapeDie == null || selectedBuildingDie == null)
+        {
+            Debug.LogWarning("Cannot award stars: no dice selected.");
+            return;
+        }
+
+        int shapeFaceIndex = selectedShapeDie.CurrentFace;
+        int buildingFaceIndex = selectedBuildingDie.CurrentFace;
 
         bool shapeMatchesDouble = shapeDoubles.Contains(shapeFaceIndex);
         bool buildingMatchesDouble = buildingDoubles.Contains(buildingFaceIndex);
@@ -218,6 +227,16 @@ public class GameManager : MonoBehaviour
             BuildingType.Water => 5,
             _ => 0
         };
+    }
+
+    /// <summary>
+    /// Set whether water die is used this turn.
+    /// Called by DiceManager when water die selection changes.
+    /// </summary>
+    public void SetWaterDieUsedThisTurn(bool used)
+    {
+        waterDieUsedThisTurn = used;
+        Debug.Log($"Water die used this turn set to: {used}");
     }
 
 }

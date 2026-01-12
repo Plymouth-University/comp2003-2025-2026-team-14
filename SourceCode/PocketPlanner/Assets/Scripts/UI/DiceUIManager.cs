@@ -30,6 +30,16 @@ namespace PocketPlanner.UI
         [SerializeField] private Color doubleColor = Color.yellow;
         [SerializeField] private Color invalidColor = Color.red;
 
+        [Header("Water Die UI")]
+        [SerializeField] private GameObject waterDiePanel;
+        [SerializeField] private Button industrialButton;
+        [SerializeField] private Button residentialButton;
+        [SerializeField] private Button commercialButton;
+        [SerializeField] private Button schoolButton;
+        [SerializeField] private Button parkButton;
+
+        private bool waterDieClickedThisFrame = false;
+
         void Start()
         {
             if (diceManager == null)
@@ -62,6 +72,22 @@ namespace PocketPlanner.UI
                 int index = i;
                 buildingDiceButtons[i].onClick.AddListener(() => OnBuildingDieClicked(index));
             }
+
+            // Setup water die building type buttons
+            if (industrialButton != null)
+                industrialButton.onClick.AddListener(() => OnWaterDieBuildingTypeClicked(BuildingType.Industrial));
+            if (residentialButton != null)
+                residentialButton.onClick.AddListener(() => OnWaterDieBuildingTypeClicked(BuildingType.Residential));
+            if (commercialButton != null)
+                commercialButton.onClick.AddListener(() => OnWaterDieBuildingTypeClicked(BuildingType.Commercial));
+            if (schoolButton != null)
+                schoolButton.onClick.AddListener(() => OnWaterDieBuildingTypeClicked(BuildingType.School));
+            if (parkButton != null)
+                parkButton.onClick.AddListener(() => OnWaterDieBuildingTypeClicked(BuildingType.Park));
+
+            // Hide water die panel initially
+            if (waterDiePanel != null)
+                waterDiePanel.SetActive(false);
 
             // Initial UI update
             UpdateDiceUI();
@@ -96,6 +122,9 @@ namespace PocketPlanner.UI
                 bool isDouble = buildingDoubles.Contains(buildingDice[i].CurrentFace);
                 buildingDiceBackgrounds[i].color = isSelected ? selectedColor : (isDouble ? doubleColor : defaultColor);
             }
+
+            // Update water die UI
+            UpdateWaterDieUI();
         }
 
         private void OnShapeDieClicked(int index)
@@ -113,7 +142,16 @@ namespace PocketPlanner.UI
         {
             if (diceManager == null) return;
 
+            // Select the building die
             diceManager.SelectBuildingDie(index);
+
+            // Check if the selected die is water
+            bool isWaterSelected = diceManager.IsSelectedBuildingWater();
+            if (isWaterSelected)
+            {
+                waterDieClickedThisFrame = true;
+            }
+
             UpdateDiceUI();
 
             if (shapeManager != null)
@@ -125,6 +163,9 @@ namespace PocketPlanner.UI
         /// </summary>
         public void OnDiceRolled()
         {
+            // Hide water die panel when dice are rolled (new turn)
+            HideWaterDiePanel();
+            waterDieClickedThisFrame = false;
             UpdateDiceUI();
         }
 
@@ -133,6 +174,9 @@ namespace PocketPlanner.UI
         /// </summary>
         public void OnSelectionCleared()
         {
+            // Hide water die panel when selection cleared
+            HideWaterDiePanel();
+            waterDieClickedThisFrame = false;
             UpdateDiceUI();
         }
 
@@ -143,6 +187,78 @@ namespace PocketPlanner.UI
         public void HighlightDoubleFaces()
         {
             UpdateDiceUI();
+        }
+
+        /// <summary>
+        /// Show the water die building type selection panel.
+        /// </summary>
+        public void ShowWaterDiePanel()
+        {
+            if (waterDiePanel != null)
+                waterDiePanel.SetActive(true);
+            Debug.Log("Water die panel shown.");
+        }
+
+        /// <summary>
+        /// Hide the water die building type selection panel.
+        /// </summary>
+        public void HideWaterDiePanel()
+        {
+            if (waterDiePanel != null)
+                waterDiePanel.SetActive(false);
+            Debug.Log("Water die panel hidden.");
+        }
+
+        /// <summary>
+        /// Called when a building type button is clicked for water die.
+        /// </summary>
+        private void OnWaterDieBuildingTypeClicked(BuildingType buildingType)
+        {
+            if (diceManager == null) return;
+
+            diceManager.SetWaterDieChosenBuildingType(buildingType);
+            Debug.Log($"Water die building type chosen: {buildingType}");
+
+            // Update shape if one is active
+            if (shapeManager != null)
+                shapeManager.UpdateActiveShapeFromSelectedDice();
+
+            // Hide panel after selection and reset click flag
+            HideWaterDiePanel();
+            waterDieClickedThisFrame = false;
+        }
+
+        /// <summary>
+        /// Update UI to reflect water die selection state.
+        /// Call this when dice selection changes.
+        /// </summary>
+        private void UpdateWaterDieUI()
+        {
+            if (diceManager == null) return;
+
+            bool isWaterSelected = diceManager.IsSelectedBuildingWater();
+            if (isWaterSelected)
+            {
+                // Show panel if either:
+                // 1. No building type has been chosen yet, OR
+                // 2. Water die was clicked this frame (user wants to change building type)
+                if (!diceManager.IsWaterDieChosenBuildingTypeSet() || waterDieClickedThisFrame)
+                {
+                    ShowWaterDiePanel();
+                }
+                else
+                {
+                    // Building type already chosen and not clicked, keep panel hidden
+                    HideWaterDiePanel();
+                }
+            }
+            else
+            {
+                HideWaterDiePanel();
+            }
+
+            // Reset the click flag after processing
+            waterDieClickedThisFrame = false;
         }
     }
 }

@@ -5,6 +5,7 @@ namespace PocketPlanner.Core
     public class DiceManager : MonoBehaviour
     {
         [SerializeField] private DicePool dicePool;
+        private BuildingType? waterDieChosenBuildingType = null;
 
         public DicePool DicePool => dicePool;
 
@@ -20,6 +21,8 @@ namespace PocketPlanner.Core
         public void RollAllDice()
         {
             dicePool.RollAll();
+            // Clear any water die chosen building type since dice have been re-rolled
+            ClearWaterDieChosenBuildingType();
             Debug.Log("Dice rolled.");
             dicePool.LogDiceFaces();
         }
@@ -61,7 +64,29 @@ namespace PocketPlanner.Core
         /// </summary>
         public void SelectBuildingDie(int index)
         {
+            // Store previous water die state to compare
+            bool wasWaterSelected = IsSelectedBuildingWater();
+
+            // Perform selection
             dicePool.SelectBuildingDie(index);
+
+            // Check if the newly selected die is water
+            bool isWaterSelected = IsSelectedBuildingWater();
+
+            // Update GameManager water die usage flag
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(isWaterSelected);
+            }
+
+            // If water die is selected, keep any previously chosen building type (if any)
+            // If water die is NOT selected, clear chosen building type
+            if (!isWaterSelected)
+            {
+                ClearWaterDieChosenBuildingType();
+            }
+
+            Debug.Log($"Building die {index} selected. Water die: {isWaterSelected}");
         }
 
         /// <summary>
@@ -70,6 +95,13 @@ namespace PocketPlanner.Core
         public void ClearSelection()
         {
             dicePool.ClearSelection();
+            // Clear water die chosen building type since no building die selected
+            ClearWaterDieChosenBuildingType();
+            // Update GameManager water die usage flag
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(false);
+            }
         }
 
         /// <summary>
@@ -103,6 +135,77 @@ namespace PocketPlanner.Core
         {
             var selected = dicePool.GetSelectedBuildingDie();
             return selected != null && selected.GetBuildingType() == BuildingType.Water;
+        }
+
+        /// <summary>
+        /// Get the selected shape die (or null if none selected).
+        /// </summary>
+        public Dice GetSelectedShapeDie()
+        {
+            return dicePool.GetSelectedShapeDie();
+        }
+
+        /// <summary>
+        /// Get the selected building die (or null if none selected).
+        /// </summary>
+        public Dice GetSelectedBuildingDie()
+        {
+            return dicePool.GetSelectedBuildingDie();
+        }
+
+        /// <summary>
+        /// Get the building type to use for shape creation.
+        /// If water die is selected and a building type has been chosen, returns that type.
+        /// Otherwise returns the selected building die's type.
+        /// Returns null if no building die selected.
+        /// </summary>
+        public BuildingType? GetBuildingTypeForShape()
+        {
+            var selected = dicePool.GetSelectedBuildingDie();
+            if (selected == null) return null;
+
+            if (selected.GetBuildingType() == BuildingType.Water)
+            {
+                // Water die selected - return chosen building type if set, otherwise null
+                return waterDieChosenBuildingType;
+            }
+            else
+            {
+                // Regular building die - return its type
+                return selected.GetBuildingType();
+            }
+        }
+
+        /// <summary>
+        /// Set the chosen building type for water die.
+        /// Only valid when water die is selected.
+        /// </summary>
+        public void SetWaterDieChosenBuildingType(BuildingType type)
+        {
+            if (!IsSelectedBuildingWater())
+            {
+                Debug.LogWarning("SetWaterDieChosenBuildingType called but water die is not selected.");
+                return;
+            }
+            waterDieChosenBuildingType = type;
+            Debug.Log($"Water die chosen building type set to: {type}");
+        }
+
+        /// <summary>
+        /// Clear the chosen building type for water die.
+        /// Should be called when water die is deselected or when dice are rolled.
+        /// </summary>
+        public void ClearWaterDieChosenBuildingType()
+        {
+            waterDieChosenBuildingType = null;
+        }
+
+        /// <summary>
+        /// Check if a building type has been chosen for water die.
+        /// </summary>
+        public bool IsWaterDieChosenBuildingTypeSet()
+        {
+            return waterDieChosenBuildingType.HasValue;
         }
     }
 }
