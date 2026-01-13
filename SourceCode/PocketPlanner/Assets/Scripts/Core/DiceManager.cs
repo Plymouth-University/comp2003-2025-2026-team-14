@@ -129,6 +129,15 @@ namespace PocketPlanner.Core
         }
 
         /// <summary>
+        /// Get original double faces for a given dice type (based on roll, not wildcard overrides).
+        /// Used for star awarding.
+        /// </summary>
+        public System.Collections.Generic.List<int> GetOriginalDoubleFaces(DiceType type)
+        {
+            return dicePool.GetOriginalDoubleFaces(type);
+        }
+
+        /// <summary>
         /// Check if the selected building die is Water.
         /// </summary>
         public bool IsSelectedBuildingWater()
@@ -206,6 +215,39 @@ namespace PocketPlanner.Core
         public bool IsWaterDieChosenBuildingTypeSet()
         {
             return waterDieChosenBuildingType.HasValue;
+        }
+
+        /// <summary>
+        /// Apply a wildcard override to a specific die.
+        /// </summary>
+        public void ApplyWildcardOverride(DiceType diceType, int dieIndex, int overrideFace)
+        {
+            if (diceType == DiceType.Shape)
+            {
+                var shapeDice = dicePool.GetShapeDice();
+                if (dieIndex >= 0 && dieIndex < shapeDice.Count)
+                {
+                    shapeDice[dieIndex].OverrideFace(overrideFace);
+                    Debug.Log($"Wildcard applied to shape die {dieIndex}: override face {overrideFace}");
+                }
+                else
+                {
+                    Debug.LogError($"Invalid shape die index for wildcard: {dieIndex}");
+                }
+            }
+            else if (diceType == DiceType.Building)
+            {
+                var buildingDice = dicePool.GetBuildingDice();
+                if (dieIndex >= 0 && dieIndex < buildingDice.Count)
+                {
+                    buildingDice[dieIndex].OverrideFace(overrideFace);
+                    Debug.Log($"Wildcard applied to building die {dieIndex}: override face {overrideFace}");
+                }
+                else
+                {
+                    Debug.LogError($"Invalid building die index for wildcard: {dieIndex}");
+                }
+            }
         }
     }
 }

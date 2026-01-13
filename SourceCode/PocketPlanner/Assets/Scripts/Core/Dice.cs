@@ -5,8 +5,10 @@ namespace PocketPlanner.Core
     public class Dice
     {
         public DiceType Type { get; private set; }
-        public int CurrentFace { get; private set; } // 0-5 index
+        public int CurrentFace { get; private set; } // 0-5 index (may be overridden)
         public bool Selected { get; set; }
+        public bool IsOverridden { get; private set; }
+        public int OriginalFace { get; private set; } // Face from last roll
 
         public Dice(DiceType type)
         {
@@ -21,6 +23,8 @@ namespace PocketPlanner.Core
         public void Roll()
         {
             CurrentFace = Random.Range(0, 6);
+            OriginalFace = CurrentFace;
+            IsOverridden = false;
         }
 
         /// <summary>
@@ -80,6 +84,31 @@ namespace PocketPlanner.Core
                 return GetShapeType().ToString();
             else
                 return GetBuildingType().ToString();
+        }
+
+        /// <summary>
+        /// Override the current face with a specific face index.
+        /// Used for wildcards. Resets on next roll.
+        /// </summary>
+        public void OverrideFace(int faceIndex)
+        {
+            if (faceIndex < 0 || faceIndex > 5)
+            {
+                Debug.LogError($"Invalid face index for override: {faceIndex}");
+                return;
+            }
+
+            CurrentFace = faceIndex;
+            IsOverridden = true;
+        }
+
+        /// <summary>
+        /// Get the original face from last roll (not affected by overrides).
+        /// Used for star awarding.
+        /// </summary>
+        public int GetOriginalFace()
+        {
+            return OriginalFace;
         }
     }
 }

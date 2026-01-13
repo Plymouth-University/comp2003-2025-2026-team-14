@@ -77,15 +77,17 @@ namespace PocketPlanner.Core
 
         /// <summary>
         /// Returns list of face indices that appear exactly three times in the given dice list.
+        /// Uses original faces (wildcards shouldn't trigger auto-rerolls).
         /// </summary>
         private List<int> GetTripleFaces(List<Dice> diceList)
         {
             var faceCounts = new Dictionary<int, int>();
             foreach (var dice in diceList)
             {
-                if (!faceCounts.ContainsKey(dice.CurrentFace))
-                    faceCounts[dice.CurrentFace] = 0;
-                faceCounts[dice.CurrentFace]++;
+                int originalFace = dice.GetOriginalFace();
+                if (!faceCounts.ContainsKey(originalFace))
+                    faceCounts[originalFace] = 0;
+                faceCounts[originalFace]++;
             }
 
             return faceCounts.Where(kvp => kvp.Value == 3).Select(kvp => kvp.Key).ToList();
@@ -94,6 +96,7 @@ namespace PocketPlanner.Core
         /// <summary>
         /// Get dice that appear exactly twice in the given pool.
         /// Returns list of face indices that are doubles.
+        /// Uses current faces (including wildcard overrides).
         /// </summary>
         public List<int> GetDoubleFaces(DiceType type)
         {
@@ -104,6 +107,25 @@ namespace PocketPlanner.Core
                 if (!faceCounts.ContainsKey(dice.CurrentFace))
                     faceCounts[dice.CurrentFace] = 0;
                 faceCounts[dice.CurrentFace]++;
+            }
+
+            return faceCounts.Where(kvp => kvp.Value == 2).Select(kvp => kvp.Key).ToList();
+        }
+
+        /// <summary>
+        /// Get dice that appear exactly twice in the given pool based on original roll faces.
+        /// Used for star awarding (wildcards should not affect star eligibility).
+        /// </summary>
+        public List<int> GetOriginalDoubleFaces(DiceType type)
+        {
+            var diceList = type == DiceType.Shape ? shapeDice : buildingDice;
+            var faceCounts = new Dictionary<int, int>();
+            foreach (var dice in diceList)
+            {
+                int originalFace = dice.GetOriginalFace();
+                if (!faceCounts.ContainsKey(originalFace))
+                    faceCounts[originalFace] = 0;
+                faceCounts[originalFace]++;
             }
 
             return faceCounts.Where(kvp => kvp.Value == 2).Select(kvp => kvp.Key).ToList();

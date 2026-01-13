@@ -17,6 +17,10 @@ public class GameManager : MonoBehaviour
     private int selectedStartingPosition;
     private bool firstTurnCompleted;
 
+    // Wildcard constants
+    public const int MAX_WILDCARDS = 3;
+    private static readonly int[] WILDCARD_COSTS = { -1, -2, -3 };
+
     // Public properties for game state access
     public int CurrentTurn => currentTurn;
     public int Stars => stars;
@@ -56,6 +60,7 @@ public class GameManager : MonoBehaviour
         firstTurnCompleted = false;
         waterDieUsedThisTurn = false;
         currentTurn = 1;
+        wildcardsUsed = 0;
 
         // Initialize dice pool
         if (diceManager != null)
@@ -163,11 +168,11 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // Get double faces from current roll
-        List<int> shapeDoubles = diceManager.GetDoubleFaces(DiceType.Shape);
-        List<int> buildingDoubles = diceManager.GetDoubleFaces(DiceType.Building);
+        // Get original double faces from current roll (wildcards don't affect star eligibility)
+        List<int> shapeDoubles = diceManager.GetOriginalDoubleFaces(DiceType.Shape);
+        List<int> buildingDoubles = diceManager.GetOriginalDoubleFaces(DiceType.Building);
 
-        // Get selected dice faces
+        // Get selected dice
         Dice selectedShapeDie = diceManager.GetSelectedShapeDie();
         Dice selectedBuildingDie = diceManager.GetSelectedBuildingDie();
 
@@ -177,8 +182,9 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        int shapeFaceIndex = selectedShapeDie.CurrentFace;
-        int buildingFaceIndex = selectedBuildingDie.CurrentFace;
+        // Use original faces for star eligibility (not wildcard overrides)
+        int shapeFaceIndex = selectedShapeDie.GetOriginalFace();
+        int buildingFaceIndex = selectedBuildingDie.GetOriginalFace();
 
         bool shapeMatchesDouble = shapeDoubles.Contains(shapeFaceIndex);
         bool buildingMatchesDouble = buildingDoubles.Contains(buildingFaceIndex);
@@ -237,6 +243,52 @@ public class GameManager : MonoBehaviour
     {
         waterDieUsedThisTurn = used;
         Debug.Log($"Water die used this turn set to: {used}");
+    }
+
+    /// <summary>
+    /// Check if a wildcard can be used (max 3 per game).
+    /// </summary>
+    public bool CanUseWildcard()
+    {
+        return wildcardsUsed < MAX_WILDCARDS;
+    }
+
+    /// <summary>
+    /// Get the cost for the next wildcard use.
+    /// Returns -1, -2, or -3 based on how many have been used.
+    /// </summary>
+    public int GetNextWildcardCost()
+    {
+        if (wildcardsUsed >= MAX_WILDCARDS)
+            return 0; // No more wildcards available
+
+        return WILDCARD_COSTS[wildcardsUsed];
+    }
+
+    /// <summary>
+    /// Use a wildcard. Returns true if successful, false if no wildcards remaining.
+    /// </summary>
+    public bool UseWildcard()
+    {
+        if (!CanUseWildcard())
+            return false;
+
+        wildcardsUsed++;
+        Debug.Log($"Wildcard used. Total used: {wildcardsUsed}, next cost: {GetNextWildcardCost()}");
+        return true;
+    }
+
+    /// <summary>
+    /// Get total wildcard cost penalty for all wildcards used so far.
+    /// </summary>
+    public int GetWildcardCostTotal()
+    {
+        int total = 0;
+        for (int i = 0; i < wildcardsUsed && i < WILDCARD_COSTS.Length; i++)
+        {
+            total += WILDCARD_COSTS[i];
+        }
+        return total;
     }
 
 }

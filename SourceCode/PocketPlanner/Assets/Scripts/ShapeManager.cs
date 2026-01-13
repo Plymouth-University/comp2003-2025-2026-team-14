@@ -246,7 +246,7 @@ public class ShapeManager : MonoBehaviour
             {
                 Debug.LogWarning("Cannot create shape: no valid dice selection.");
                 // Fallback to random shape for testing (remove later)
-                generateRandomShape(gridPos);
+                // generateRandomShape(gridPos);
             }
         }
         else if (activeShape.isPlacedOnGrid && !activeShape.isPlacementConfirmed)
