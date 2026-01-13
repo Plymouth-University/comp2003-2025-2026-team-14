@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
     public bool FirstTurnCompleted => firstTurnCompleted;
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
+    public ScoreManager ScoreManager => scoreManager;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
@@ -37,6 +38,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DiceManager diceManager;
     [SerializeField] private DiceUIManager diceUIManager;
     [SerializeField] private ZoneManager zoneManager;
+    [SerializeField] private ScoreManager scoreManager;
     //private UIManager uiManager;
 
     void Awake()
@@ -89,6 +91,17 @@ public class GameManager : MonoBehaviour
         else
         {
             zoneManager = ZoneManager.Instance;
+        }
+
+        // Ensure ScoreManager exists
+        if (ScoreManager.Instance == null)
+        {
+            GameObject scoreManagerObj = new GameObject("ScoreManager");
+            scoreManager = scoreManagerObj.AddComponent<ScoreManager>();
+        }
+        else
+        {
+            scoreManager = ScoreManager.Instance;
         }
 
         // Roll dice for first turn
@@ -311,6 +324,19 @@ public class GameManager : MonoBehaviour
             total += WILDCARD_COSTS[i];
         }
         return total;
+    }
+
+    /// <summary>
+    /// Calculate final score breakdown for the current game state.
+    /// </summary>
+    public ScoreComponents CalculateFinalScore()
+    {
+        if (scoreManager == null)
+        {
+            Debug.LogError("GameManager: ScoreManager not available!");
+            return new ScoreComponents();
+        }
+        return scoreManager.CalculateScore();
     }
 
 }

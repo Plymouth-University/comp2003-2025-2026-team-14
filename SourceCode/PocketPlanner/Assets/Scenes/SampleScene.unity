@@ -2907,6 +2907,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &549545960
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 549545962}
+  - component: {fileID: 549545961}
+  m_Layer: 0
+  m_Name: ScoreManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &549545961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549545960}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2a609f36822933b0a077893518c767b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScoreManager
+--- !u!4 &549545962
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549545960}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.13267, y: -1.76392, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &646164627
 GameObject:
   m_ObjectHideFlags: 0
@@ -7256,6 +7300,7 @@ MonoBehaviour:
   diceManager: {fileID: 479134401}
   diceUIManager: {fileID: 1992021483}
   zoneManager: {fileID: 322279403}
+  scoreManager: {fileID: 549545961}
 --- !u!4 &1563126060
 Transform:
   m_ObjectHideFlags: 0
@@ -9958,6 +10003,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2082906700}
+  - component: {fileID: 2082906701}
   m_Layer: 0
   m_Name: UIManagers
   m_TagString: Untagged
@@ -9981,6 +10027,20 @@ Transform:
   - {fileID: 1992021484}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2082906701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2082906699}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0d7906bb1d48915488d8bc3f31ae514, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Test.ScoreTester
+  gameManager: {fileID: 1563126059}
+  scoreManager: {fileID: 549545961}
 --- !u!1 &2111599658
 GameObject:
   m_ObjectHideFlags: 0
@@ -10185,6 +10245,7 @@ SceneRoots:
   - {fileID: 2071748403}
   - {fileID: 479134402}
   - {fileID: 322279404}
+  - {fileID: 549545962}
   - {fileID: 200645586}
   - {fileID: 2082906700}
   - {fileID: 1383881993}

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 
 public class ZoneManager : MonoBehaviour
@@ -204,5 +205,68 @@ public class ZoneManager : MonoBehaviour
     public void ClearZones()
     {
         zones.Clear();
+    }
+
+    /// <summary>
+    /// Returns all zones orthogonally adjacent to a shape.
+    /// </summary>
+    public List<Zone> GetAdjacentZones(ShapeController shape)
+    {
+        if (shape == null || tilemapManager == null) return new List<Zone>();
+
+        HashSet<Zone> adjacentZones = new HashSet<Zone>();
+        List<GridPosition> occupiedPositions = shape.GetOccupiedPositions();
+
+        foreach (GridPosition pos in occupiedPositions)
+        {
+            GridPosition[] neighbors = new GridPosition[]
+            {
+                new GridPosition(pos.x + 1, pos.y),
+                new GridPosition(pos.x - 1, pos.y),
+                new GridPosition(pos.x, pos.y + 1),
+                new GridPosition(pos.x, pos.y - 1)
+            };
+
+            foreach (GridPosition neighbor in neighbors)
+            {
+                GridTile tile = tilemapManager.GetTile(neighbor);
+                if (tile == null) continue;
+                if (tile.zone != null)
+                {
+                    adjacentZones.Add(tile.zone);
+                }
+            }
+        }
+
+        return adjacentZones.ToList();
+    }
+
+    /// <summary>
+    /// Returns all zones orthogonally adjacent to a specific grid position.
+    /// </summary>
+    public List<Zone> GetZonesAdjacentToPosition(GridPosition position)
+    {
+        if (tilemapManager == null) return new List<Zone>();
+
+        HashSet<Zone> adjacentZones = new HashSet<Zone>();
+        GridPosition[] neighbors = new GridPosition[]
+        {
+            new GridPosition(position.x + 1, position.y),
+            new GridPosition(position.x - 1, position.y),
+            new GridPosition(position.x, position.y + 1),
+            new GridPosition(position.x, position.y - 1)
+        };
+
+        foreach (GridPosition neighbor in neighbors)
+        {
+            GridTile tile = tilemapManager.GetTile(neighbor);
+            if (tile == null) continue;
+            if (tile.zone != null)
+            {
+                adjacentZones.Add(tile.zone);
+            }
+        }
+
+        return adjacentZones.ToList();
     }
 }
