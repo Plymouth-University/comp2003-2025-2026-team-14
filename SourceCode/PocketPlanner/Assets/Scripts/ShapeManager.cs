@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System;
 using UnityEngine.InputSystem;
+using PocketPlanner.Core;
 
 public class ShapeManager : MonoBehaviour
 {
@@ -16,6 +17,7 @@ public class ShapeManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private Tilemap boardTilemap;
+    [SerializeField] private DiceManager diceManager;
     private InputAction mouseClickAction;
     private InputAction mousePositionAction;
     private Camera mainCamera;
@@ -42,6 +44,14 @@ public class ShapeManager : MonoBehaviour
                 Debug.LogError("ShapeManager: No Tilemap found in scene!");
             }
         }
+        if (diceManager == null)
+        {
+            diceManager = FindAnyObjectByType<DiceManager>();
+            if (diceManager == null)
+            {
+                Debug.LogError("ShapeManager: DiceManager not found in scene!");
+            }
+        }
     }
 
     // Update is called once per frame
@@ -58,7 +68,15 @@ public class ShapeManager : MonoBehaviour
         BuildingType buildingType = (BuildingType)UnityEngine.Random.Range(0, 5);
         ShapeType shapeType = (ShapeType)UnityEngine.Random.Range(0, 5);
 
-        // Calculate world position from grid position
+        CreateShape(shapeType, buildingType, targetPos);
+    }
+
+    /// <summary>
+    /// Create a shape with specified type and building at grid position.
+    /// </summary>
+    public void CreateShape(ShapeType shapeType, BuildingType buildingType, GridPosition? gridPos = null)
+    {
+        GridPosition targetPos = gridPos.HasValue ? gridPos.Value : new GridPosition(5, 5);
         Vector3 worldPos = GetWorldPositionFromGridPosition(targetPos);
 
         GameObject newShape = Instantiate(getShapePrefab(shapeType), worldPos, Quaternion.identity);
@@ -69,6 +87,102 @@ public class ShapeManager : MonoBehaviour
         activeShape.ChangeShapeColor();
         activeShape.position = targetPos;
         activeShape.isPlacedOnGrid = true;
+    }
+
+    /// <summary>
+    /// Try to create a shape using the currently selected dice.
+    /// Returns true if shape was created, false if no valid dice selection.
+    /// </summary>
+    public bool TryCreateShapeFromSelectedDice(GridPosition? gridPos = null)
+    {
+        if (diceManager == null || !diceManager.HasValidSelection())
+            return false;
+
+        ShapeType? shapeType = diceManager.GetSelectedShapeType();
+        BuildingType? buildingType = diceManager.GetBuildingTypeForShape();
+
+        if (!shapeType.HasValue || !buildingType.HasValue)
+        {
+            // If buildingType is null, it could be because water die is selected but no building type chosen yet
+            if (diceManager.IsSelectedBuildingWater() && !diceManager.IsWaterDieChosenBuildingTypeSet())
+            {
+                Debug.Log("Water die selected but no building type chosen yet. Please choose a building type.");
+            }
+            return false;
+        }
+
+        CreateShape(shapeType.Value, buildingType.Value, gridPos);
+        return true;
+    }
+
+    /// <summary>
+    /// Update the active shape to match currently selected dice.
+    /// Only works if shape is placed but not yet confirmed.
+    /// Returns true if shape was updated.
+    /// </summary>
+    public bool UpdateActiveShapeFromSelectedDice()
+    {
+        if (activeShape == null || !activeShape.isPlacedOnGrid || activeShape.isPlacementConfirmed)
+            return false;
+        if (diceManager == null || !diceManager.HasValidSelection())
+            return false;
+
+        ShapeType? selectedShapeType = diceManager.GetSelectedShapeType();
+        BuildingType? selectedBuildingType = diceManager.GetBuildingTypeForShape();
+        if (!selectedShapeType.HasValue || !selectedBuildingType.HasValue)
+        {
+            // If buildingType is null, it could be because water die is selected but no building type chosen yet
+            if (diceManager.IsSelectedBuildingWater() && !diceManager.IsWaterDieChosenBuildingTypeSet())
+            {
+                Debug.Log("Water die selected but no building type chosen yet. Cannot update shape.");
+            }
+            return false;
+        }
+
+        // Check if shape type changed (handle null shapeData)
+        bool shapeTypeChanged = activeShape.shapeData == null ||
+                                activeShape.shapeData.shapeName != selectedShapeType.Value;
+        bool buildingTypeChanged = activeShape.buildingType != selectedBuildingType.Value;
+
+        if (!shapeTypeChanged && !buildingTypeChanged)
+            return false; // No changes needed
+
+        if (shapeTypeChanged)
+        {
+            // Need to replace shape prefab
+            ReplaceShapeWithNewType(selectedShapeType.Value, selectedBuildingType.Value);
+        }
+        else
+        {
+            // Only building type changed - update color
+            activeShape.buildingType = selectedBuildingType.Value;
+            activeShape.ChangeShapeColor();
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Replace the active shape with a new shape type while preserving position, rotation, and flip.
+    /// </summary>
+    private void ReplaceShapeWithNewType(ShapeType newShapeType, BuildingType newBuildingType)
+    {
+        if (activeShape == null) return;
+
+        // Save current state
+        GridPosition oldPos = activeShape.position;
+        int oldRotation = activeShape.RotationState;
+        bool oldFlipped = activeShape.IsFlipped;
+
+        // Destroy old shape
+        Destroy(activeShape.gameObject);
+
+        // Create new shape
+        CreateShape(newShapeType, newBuildingType, oldPos);
+        if (activeShape == null) return;
+
+        // Restore rotation and flip
+        activeShape.SetRotationState(oldRotation);
+        activeShape.SetFlipped(oldFlipped);
     }
 
     // Helper methods for grid conversion and placement
@@ -126,8 +240,14 @@ public class ShapeManager : MonoBehaviour
 
         if (activeShape == null || activeShape.isPlacementConfirmed)
         {
-            // Generate new shape at clicked position
-            generateRandomShape(gridPos);
+            // Try to create shape from selected dice at clicked position
+            bool shapeCreated = TryCreateShapeFromSelectedDice(gridPos);
+            if (!shapeCreated)
+            {
+                Debug.LogWarning("Cannot create shape: no valid dice selection.");
+                // Fallback to random shape for testing (remove later)
+                // generateRandomShape(gridPos);
+            }
         }
         else if (activeShape.isPlacedOnGrid && !activeShape.isPlacementConfirmed)
         {

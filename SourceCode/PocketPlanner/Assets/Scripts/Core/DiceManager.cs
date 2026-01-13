@@ -1,0 +1,253 @@
+using UnityEngine;
+
+namespace PocketPlanner.Core
+{
+    public class DiceManager : MonoBehaviour
+    {
+        [SerializeField] private DicePool dicePool;
+        private BuildingType? waterDieChosenBuildingType = null;
+
+        public DicePool DicePool => dicePool;
+
+        void Awake()
+        {
+            if (dicePool == null)
+                dicePool = new DicePool();
+        }
+
+        /// <summary>
+        /// Roll all dice and perform auto-rerolls.
+        /// </summary>
+        public void RollAllDice()
+        {
+            dicePool.RollAll();
+            // Clear any water die chosen building type since dice have been re-rolled
+            ClearWaterDieChosenBuildingType();
+            Debug.Log("Dice rolled.");
+            dicePool.LogDiceFaces();
+        }
+
+        /// <summary>
+        /// Get the selected shape type.
+        /// </summary>
+        public ShapeType? GetSelectedShapeType()
+        {
+            return dicePool.GetSelectedShapeType();
+        }
+
+        /// <summary>
+        /// Get the selected building type.
+        /// </summary>
+        public BuildingType? GetSelectedBuildingType()
+        {
+            return dicePool.GetSelectedBuildingType();
+        }
+
+        /// <summary>
+        /// Check if a valid selection exists.
+        /// </summary>
+        public bool HasValidSelection()
+        {
+            return dicePool.HasValidSelection();
+        }
+
+        /// <summary>
+        /// Select a shape die by index.
+        /// </summary>
+        public void SelectShapeDie(int index)
+        {
+            dicePool.SelectShapeDie(index);
+        }
+
+        /// <summary>
+        /// Select a building die by index.
+        /// </summary>
+        public void SelectBuildingDie(int index)
+        {
+            // Store previous water die state to compare
+            bool wasWaterSelected = IsSelectedBuildingWater();
+
+            // Perform selection
+            dicePool.SelectBuildingDie(index);
+
+            // Check if the newly selected die is water
+            bool isWaterSelected = IsSelectedBuildingWater();
+
+            // Update GameManager water die usage flag
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(isWaterSelected);
+            }
+
+            // If water die is selected, keep any previously chosen building type (if any)
+            // If water die is NOT selected, clear chosen building type
+            if (!isWaterSelected)
+            {
+                ClearWaterDieChosenBuildingType();
+            }
+
+            Debug.Log($"Building die {index} selected. Water die: {isWaterSelected}");
+        }
+
+        /// <summary>
+        /// Clear all dice selections.
+        /// </summary>
+        public void ClearSelection()
+        {
+            dicePool.ClearSelection();
+            // Clear water die chosen building type since no building die selected
+            ClearWaterDieChosenBuildingType();
+            // Update GameManager water die usage flag
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(false);
+            }
+        }
+
+        /// <summary>
+        /// Get list of shape dice.
+        /// </summary>
+        public System.Collections.Generic.List<Dice> GetShapeDice()
+        {
+            return dicePool.GetShapeDice();
+        }
+
+        /// <summary>
+        /// Get list of building dice.
+        /// </summary>
+        public System.Collections.Generic.List<Dice> GetBuildingDice()
+        {
+            return dicePool.GetBuildingDice();
+        }
+
+        /// <summary>
+        /// Get double faces for a given dice type.
+        /// </summary>
+        public System.Collections.Generic.List<int> GetDoubleFaces(DiceType type)
+        {
+            return dicePool.GetDoubleFaces(type);
+        }
+
+        /// <summary>
+        /// Get original double faces for a given dice type (based on roll, not wildcard overrides).
+        /// Used for star awarding.
+        /// </summary>
+        public System.Collections.Generic.List<int> GetOriginalDoubleFaces(DiceType type)
+        {
+            return dicePool.GetOriginalDoubleFaces(type);
+        }
+
+        /// <summary>
+        /// Check if the selected building die is Water.
+        /// </summary>
+        public bool IsSelectedBuildingWater()
+        {
+            var selected = dicePool.GetSelectedBuildingDie();
+            return selected != null && selected.GetBuildingType() == BuildingType.Water;
+        }
+
+        /// <summary>
+        /// Get the selected shape die (or null if none selected).
+        /// </summary>
+        public Dice GetSelectedShapeDie()
+        {
+            return dicePool.GetSelectedShapeDie();
+        }
+
+        /// <summary>
+        /// Get the selected building die (or null if none selected).
+        /// </summary>
+        public Dice GetSelectedBuildingDie()
+        {
+            return dicePool.GetSelectedBuildingDie();
+        }
+
+        /// <summary>
+        /// Get the building type to use for shape creation.
+        /// If water die is selected and a building type has been chosen, returns that type.
+        /// Otherwise returns the selected building die's type.
+        /// Returns null if no building die selected.
+        /// </summary>
+        public BuildingType? GetBuildingTypeForShape()
+        {
+            var selected = dicePool.GetSelectedBuildingDie();
+            if (selected == null) return null;
+
+            if (selected.GetBuildingType() == BuildingType.Water)
+            {
+                // Water die selected - return chosen building type if set, otherwise null
+                return waterDieChosenBuildingType;
+            }
+            else
+            {
+                // Regular building die - return its type
+                return selected.GetBuildingType();
+            }
+        }
+
+        /// <summary>
+        /// Set the chosen building type for water die.
+        /// Only valid when water die is selected.
+        /// </summary>
+        public void SetWaterDieChosenBuildingType(BuildingType type)
+        {
+            if (!IsSelectedBuildingWater())
+            {
+                Debug.LogWarning("SetWaterDieChosenBuildingType called but water die is not selected.");
+                return;
+            }
+            waterDieChosenBuildingType = type;
+            Debug.Log($"Water die chosen building type set to: {type}");
+        }
+
+        /// <summary>
+        /// Clear the chosen building type for water die.
+        /// Should be called when water die is deselected or when dice are rolled.
+        /// </summary>
+        public void ClearWaterDieChosenBuildingType()
+        {
+            waterDieChosenBuildingType = null;
+        }
+
+        /// <summary>
+        /// Check if a building type has been chosen for water die.
+        /// </summary>
+        public bool IsWaterDieChosenBuildingTypeSet()
+        {
+            return waterDieChosenBuildingType.HasValue;
+        }
+
+        /// <summary>
+        /// Apply a wildcard override to a specific die.
+        /// </summary>
+        public void ApplyWildcardOverride(DiceType diceType, int dieIndex, int overrideFace)
+        {
+            if (diceType == DiceType.Shape)
+            {
+                var shapeDice = dicePool.GetShapeDice();
+                if (dieIndex >= 0 && dieIndex < shapeDice.Count)
+                {
+                    shapeDice[dieIndex].OverrideFace(overrideFace);
+                    Debug.Log($"Wildcard applied to shape die {dieIndex}: override face {overrideFace}");
+                }
+                else
+                {
+                    Debug.LogError($"Invalid shape die index for wildcard: {dieIndex}");
+                }
+            }
+            else if (diceType == DiceType.Building)
+            {
+                var buildingDice = dicePool.GetBuildingDice();
+                if (dieIndex >= 0 && dieIndex < buildingDice.Count)
+                {
+                    buildingDice[dieIndex].OverrideFace(overrideFace);
+                    Debug.Log($"Wildcard applied to building die {dieIndex}: override face {overrideFace}");
+                }
+                else
+                {
+                    Debug.LogError($"Invalid building die index for wildcard: {dieIndex}");
+                }
+            }
+        }
+    }
+}
