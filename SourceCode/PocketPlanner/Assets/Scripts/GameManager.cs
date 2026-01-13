@@ -29,13 +29,14 @@ public class GameManager : MonoBehaviour
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
     public DicePool DicePool => dicePool;
+    public ZoneManager ZoneManager => zoneManager;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
     [SerializeField] private ShapeManager shapeManager;
     [SerializeField] private DiceManager diceManager;
     [SerializeField] private DiceUIManager diceUIManager;
-    //private ZoneManager zoneManager;
+    [SerializeField] private ZoneManager zoneManager;
     //private UIManager uiManager;
 
     void Awake()
@@ -77,6 +78,17 @@ public class GameManager : MonoBehaviour
         if (diceUIManager == null)
         {
             diceUIManager = FindAnyObjectByType<DiceUIManager>();
+        }
+
+        // Ensure ZoneManager exists
+        if (ZoneManager.Instance == null)
+        {
+            GameObject zoneManagerObj = new GameObject("ZoneManager");
+            zoneManager = zoneManagerObj.AddComponent<ZoneManager>();
+        }
+        else
+        {
+            zoneManager = ZoneManager.Instance;
         }
 
         // Roll dice for first turn
@@ -151,6 +163,16 @@ public class GameManager : MonoBehaviour
     {
         // Award stars for double rolls if applicable
         AwardStarsForDoubleRolls(shape);
+
+        // Add shape to zone system
+        if (zoneManager != null)
+        {
+            zoneManager.AddShape(shape);
+        }
+        else
+        {
+            Debug.LogWarning("ZoneManager not found, zone detection skipped.");
+        }
 
         // Start new turn (will roll dice and clear selection)
         startNewTurn();
