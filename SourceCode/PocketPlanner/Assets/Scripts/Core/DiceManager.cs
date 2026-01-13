@@ -197,6 +197,10 @@ namespace PocketPlanner.Core
                 return;
             }
             waterDieChosenBuildingType = type;
+            if ( GameManager.Instance != null )
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(true);
+            }
             Debug.Log($"Water die chosen building type set to: {type}");
         }
 
@@ -207,6 +211,10 @@ namespace PocketPlanner.Core
         public void ClearWaterDieChosenBuildingType()
         {
             waterDieChosenBuildingType = null;
+            if ( GameManager.Instance != null )
+            {
+                GameManager.Instance.SetWaterDieUsedThisTurn(false);
+            }
         }
 
         /// <summary>
