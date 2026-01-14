@@ -7,6 +7,7 @@ using PocketPlanner.UI;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEngine.InputSystem;
 
 public class GameManager : MonoBehaviour
 {
@@ -20,6 +21,7 @@ public class GameManager : MonoBehaviour
     private DicePool dicePool;
     private bool waterDieUsedThisTurn;
     private int selectedStartingPosition;
+    private int previouslySelectedStartingPosition = 0;
     private bool firstTurnCompleted;
     private bool gameEnded;
 
@@ -62,6 +64,18 @@ public class GameManager : MonoBehaviour
             Instance = this;
             DontDestroyOnLoad(gameObject); // Persist across scenes
             SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Ensure PlayerInput component exists for input system callbacks
+            PlayerInput playerInput = GetComponent<PlayerInput>();
+            if (playerInput == null)
+            {
+                playerInput = gameObject.AddComponent<PlayerInput>();
+                Debug.LogWarning("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
+            }
+            else
+            {
+                Debug.Log("GameManager: PlayerInput component found.");
+            }
         }
         else
         {
@@ -458,6 +472,21 @@ public class GameManager : MonoBehaviour
         TriggerGameEnd();
     }
 
+    // Input system callback for mouse click (starting position selection).
+    public void OnMouseClick()
+    {
+        if (firstTurnCompleted) return; // Only allow selection before first turn
+        Vector2 screenPos = Mouse.current.position.ReadValue();
+        GridPosition gridPos = ScreenToGridPosition(screenPos);
+        HandleStartingPositionSelection(gridPos);
+    }
+
+    // Input system callback for mouse position (required for input system).
+    public void OnMousePosition()
+    {
+        // No action needed, but method must exist for input system to call.
+    }
+
     /// <summary>
     /// Initialize end game UI elements (button listeners).
     /// Call this in Start() after UI references are set.
@@ -570,6 +599,7 @@ public class GameManager : MonoBehaviour
     {
         // Reset all game state variables to initial values
         selectedStartingPosition = 1; // Default starting position (player should select)
+        previouslySelectedStartingPosition = 0;
         firstTurnCompleted = false;
         waterDieUsedThisTurn = false;
         currentTurn = 1;
@@ -577,7 +607,84 @@ public class GameManager : MonoBehaviour
         gameEnded = false;
         stars = 0;
 
+        // Unhighlight any highlighted starting tiles
+        if (TilemapManager.Instance != null)
+        {
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+
         Debug.Log("GameManager: Game state reset for new game.");
+    }
+
+    /// <summary>
+    /// Convert screen position to grid position using TilemapManager.
+    /// </summary>
+    private GridPosition ScreenToGridPosition(Vector2 screenPos)
+    {
+        if (Camera.main == null) return new GridPosition(-1, -1);
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0));
+        worldPos.z = 0;
+        if (TilemapManager.Instance != null)
+        {
+            return TilemapManager.Instance.WorldToLogical(worldPos);
+        }
+        else
+        {
+            // Fallback: round to nearest integer
+            return new GridPosition(Mathf.RoundToInt(worldPos.x), Mathf.RoundToInt(worldPos.y));
+        }
+    }
+
+    /// <summary>
+    /// Handle selection of a starting position tile.
+    /// </summary>
+    private void HandleStartingPositionSelection(GridPosition gridPos)
+    {
+        if (firstTurnCompleted)
+        {
+            Debug.Log("Starting position already selected (first turn completed).");
+            return;
+        }
+
+        // Check if clicked tile is a starting tile
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("TilemapManager instance not found.");
+            return;
+        }
+
+        if (!TilemapManager.Instance.IsStartingTile(gridPos))
+        {
+            Debug.Log($"Clicked tile at {gridPos} is not a starting position.");
+            return;
+        }
+
+        int startingNumber = TilemapManager.Instance.GetStartingPositionNumber(gridPos);
+        if (startingNumber < 1 || startingNumber > 8)
+        {
+            Debug.LogError($"Invalid starting position number: {startingNumber}");
+            return;
+        }
+
+        // If same starting position already selected, do nothing
+        if (selectedStartingPosition == startingNumber)
+        {
+            Debug.Log($"Starting position {startingNumber} already selected.");
+            return;
+        }
+
+        // Unhighlight previously selected starting tile
+        if (previouslySelectedStartingPosition != 0 && previouslySelectedStartingPosition != startingNumber)
+        {
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+
+        selectedStartingPosition = startingNumber;
+        Debug.Log($"Starting position selected: {selectedStartingPosition} at {gridPos}");
+
+        // Highlight the newly selected starting tile
+        TilemapManager.Instance.HighlightStartingTile(selectedStartingPosition);
+        previouslySelectedStartingPosition = selectedStartingPosition;
     }
 
     void RefreshManagerReferences()
