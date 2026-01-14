@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
@@ -51,6 +52,8 @@ public class TilemapManager : MonoBehaviour
         new GridPosition(9,7),
         new GridPosition(7,9),
     };
+
+    private Dictionary<int, Color> originalStartingTileColors = new Dictionary<int, Color>();
 
     [Header("Camera Settings")]
     [SerializeField] private float boardPadding = 1.0f;
@@ -235,6 +238,78 @@ public class TilemapManager : MonoBehaviour
     {
         int index = startingTiles.IndexOf(pos);
         return index >= 0 ? index + 1 : 0;
+    }
+
+    /// <summary>
+    /// Get the grid position of a starting tile by its number (1-8).
+    /// </summary>
+    public GridPosition GetStartingTilePosition(int number)
+    {
+        if (number < 1 || number > 8) return new GridPosition(-1, -1);
+        return startingTiles[number - 1];
+    }
+
+    /// <summary>
+    /// Highlight a starting tile by number (1-8). Changes its Tilemap color tint.
+    /// </summary>
+    public void HighlightStartingTile(int number)
+    {
+        Debug.Log($"TilemapManager: Attempting to highlight starting tile {number}");
+        GridPosition pos = GetStartingTilePosition(number);
+        if (pos.x < 0 || pos.y < 0)
+        {
+            Debug.LogWarning($"TilemapManager: Invalid starting tile number {number}");
+            return;
+        }
+        Vector3Int cellPos = LogicalToTilemapCell(pos);
+        if (boardTilemap == null)
+        {
+            Debug.LogError("TilemapManager: boardTilemap is null");
+            return;
+        }
+
+        // Get current color from tilemap
+        Color originalColor = boardTilemap.GetColor(cellPos);
+
+        // Store original color if not already stored
+        if (!originalStartingTileColors.ContainsKey(number))
+        {
+            originalStartingTileColors[number] = originalColor;
+            Debug.Log($"TilemapManager: Stored original color {originalColor} for tile {number}");
+        }
+
+        // Ensure tile flags allow color changes
+        boardTilemap.SetTileFlags(cellPos, TileFlags.None);
+
+        // Set highlight color
+        boardTilemap.SetColor(cellPos, Color.yellow);
+        Debug.Log($"TilemapManager: Highlighted starting tile {number} at {pos} (cell {cellPos})");
+    }
+
+    /// <summary>
+    /// Unhighlight all starting tiles, restoring original colors.
+    /// </summary>
+    public void UnhighlightAllStartingTiles()
+    {
+        Debug.Log($"TilemapManager: Unhighlighting all starting tiles (count: {originalStartingTileColors.Count})");
+        foreach (var kvp in originalStartingTileColors)
+        {
+            GridPosition pos = GetStartingTilePosition(kvp.Key);
+            Vector3Int cellPos = LogicalToTilemapCell(pos);
+            if (boardTilemap == null)
+            {
+                Debug.LogWarning("TilemapManager: boardTilemap is null during unhighlight");
+                continue;
+            }
+
+            // Ensure tile flags allow color changes
+            boardTilemap.SetTileFlags(cellPos, TileFlags.None);
+
+            // Restore original color from dictionary
+            boardTilemap.SetColor(cellPos, kvp.Value);
+            Debug.Log($"TilemapManager: Restored original color {kvp.Value} for tile {kvp.Key} at cell {cellPos}");
+        }
+        originalStartingTileColors.Clear();
     }
 
     /// <summary>

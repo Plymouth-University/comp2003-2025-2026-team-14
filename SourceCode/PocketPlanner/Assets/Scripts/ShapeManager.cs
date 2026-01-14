@@ -265,6 +265,15 @@ public class ShapeManager : MonoBehaviour
         // Read the current mouse position when click is performed
         Vector2 screenPosition = mousePositionAction.ReadValue<Vector2>();
         GridPosition gridPos = GetGridPositionFromScreen(screenPosition);
+
+        // If first turn not completed and clicking a starting tile, skip shape placement
+        // (starting tile clicks are for starting position selection)
+        if (GameManager.Instance != null && !GameManager.Instance.FirstTurnCompleted &&
+            TilemapManager.Instance != null && TilemapManager.Instance.IsStartingTile(gridPos))
+        {
+            return;
+        }
+
         PlaceShapeAtGridPosition(gridPos);
     }
 

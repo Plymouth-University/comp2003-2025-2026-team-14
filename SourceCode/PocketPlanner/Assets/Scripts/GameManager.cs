@@ -1,7 +1,13 @@
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using TMPro;
 using PocketPlanner.Core;
 using PocketPlanner.UI;
+using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEngine.InputSystem;
 
 public class GameManager : MonoBehaviour
 {
@@ -15,7 +21,9 @@ public class GameManager : MonoBehaviour
     private DicePool dicePool;
     private bool waterDieUsedThisTurn;
     private int selectedStartingPosition;
+    private int previouslySelectedStartingPosition = 0;
     private bool firstTurnCompleted;
+    private bool gameEnded;
 
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
@@ -28,8 +36,10 @@ public class GameManager : MonoBehaviour
     public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
+    public bool GameEnded => gameEnded;
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
+    public ScoreManager ScoreManager => scoreManager;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
@@ -37,7 +47,14 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DiceManager diceManager;
     [SerializeField] private DiceUIManager diceUIManager;
     [SerializeField] private ZoneManager zoneManager;
+    [SerializeField] private ScoreManager scoreManager;
     //private UIManager uiManager;
+
+    [Header("End Game UI")]
+    [SerializeField] private GameObject endGamePanel;
+    [SerializeField] private TextMeshProUGUI scoreBreakdownText;
+    [SerializeField] private Button restartButton;
+    [SerializeField] private Button mainMenuButton;
 
     void Awake()
     {
@@ -46,10 +63,83 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject); // Persist across scenes
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Ensure PlayerInput component exists for input system callbacks
+            PlayerInput playerInput = GetComponent<PlayerInput>();
+            if (playerInput == null)
+            {
+                playerInput = gameObject.AddComponent<PlayerInput>();
+                Debug.LogWarning("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
+            }
+            else
+            {
+                Debug.Log("GameManager: PlayerInput component found.");
+            }
         }
         else
         {
             Destroy(gameObject); // Kill this duplicate
+        }
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log($"GameManager: Scene loaded: {scene.name}");
+        RefreshManagerReferences();
+        FindAndAssignUIReferences();
+        HideEndGameScreen();
+
+        // If this is the game scene, roll dice for first turn
+        if (scene.name == "SampleScene")
+        {
+            if (diceManager != null)
+            {
+                diceManager.RollAllDice();
+                diceManager.ClearSelection();
+                Debug.Log("GameManager: Dice rolled for new game.");
+            }
+
+            // Update dice UI if available
+            if (diceUIManager != null)
+            {
+                diceUIManager.OnDiceRolled();
+                diceUIManager.HighlightDoubleFaces();
+            }
+        }
+    }
+
+    void FindAndAssignUIReferences()
+    {
+        // Find EndGamePanel by name
+        GameObject panelObj = GameObject.Find("EndGamePanel");
+        if (panelObj != null)
+        {
+            endGamePanel = panelObj;
+            // Find child objects
+            Transform scoreText = panelObj.transform.Find("ScoreBreakdownText");
+            if (scoreText != null)
+                scoreBreakdownText = scoreText.GetComponent<TextMeshProUGUI>();
+
+            Transform restartBtn = panelObj.transform.Find("RestartButton");
+            if (restartBtn != null)
+                restartButton = restartBtn.GetComponent<Button>();
+
+            Transform mainMenuBtn = panelObj.transform.Find("MainMenuButton");
+            if (mainMenuBtn != null)
+                mainMenuButton = mainMenuBtn.GetComponent<Button>();
+
+            // Reinitialize button listeners
+            InitializeEndGameUI();
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Could not find EndGamePanel in scene.");
         }
     }
 
@@ -62,6 +152,7 @@ public class GameManager : MonoBehaviour
         waterDieUsedThisTurn = false;
         currentTurn = 1;
         wildcardsUsed = 0;
+        gameEnded = false;
 
         // Initialize dice pool
         if (diceManager != null)
@@ -90,6 +181,20 @@ public class GameManager : MonoBehaviour
         {
             zoneManager = ZoneManager.Instance;
         }
+
+        // Ensure ScoreManager exists
+        if (ScoreManager.Instance == null)
+        {
+            GameObject scoreManagerObj = new GameObject("ScoreManager");
+            scoreManager = scoreManagerObj.AddComponent<ScoreManager>();
+        }
+        else
+        {
+            scoreManager = ScoreManager.Instance;
+        }
+
+        // Initialize end game UI
+        InitializeEndGameUI();
 
         // Roll dice for first turn
         if (diceManager != null)
@@ -311,6 +416,298 @@ public class GameManager : MonoBehaviour
             total += WILDCARD_COSTS[i];
         }
         return total;
+    }
+
+    /// <summary>
+    /// Calculate final score breakdown for the current game state.
+    /// </summary>
+    public ScoreComponents CalculateFinalScore()
+    {
+        if (scoreManager == null)
+        {
+            Debug.LogError("GameManager: ScoreManager not available!");
+            return new ScoreComponents();
+        }
+        return scoreManager.CalculateScore();
+    }
+
+    /// <summary>
+    /// Check if game should end (no valid placements exist).
+    /// Placeholder implementation - always returns false.
+    /// </summary>
+    public bool CheckGameEndCondition()
+    {
+        // TODO: Implement actual check for valid placements
+        // For now, return false (game continues)
+        return false;
+    }
+
+    /// <summary>
+    /// Trigger game end sequence: calculate score, show UI, stop game.
+    /// </summary>
+    public void TriggerGameEnd()
+    {
+        if (gameEnded) return;
+
+        gameEnded = true;
+        Debug.Log("Game ended! Calculating final score...");
+
+        // Calculate final score
+        ScoreComponents score = CalculateFinalScore();
+
+        // Show end game UI
+        ShowEndGameScreen(score);
+
+        // Disable further game interactions
+        // (Optional) Disable dice UI, shape movement, etc.
+    }
+
+    /// <summary>
+    /// Input system callback for ending the game (button press).
+    /// This method will be automatically called by Unity's new input system.
+    /// </summary>
+    public void OnGameEndInput()
+    {
+        Debug.Log("Game end input received");
+        TriggerGameEnd();
+    }
+
+    // Input system callback for mouse click (starting position selection).
+    public void OnMouseClick()
+    {
+        if (firstTurnCompleted) return; // Only allow selection before first turn
+        Vector2 screenPos = Mouse.current.position.ReadValue();
+        GridPosition gridPos = ScreenToGridPosition(screenPos);
+        HandleStartingPositionSelection(gridPos);
+    }
+
+    // Input system callback for mouse position (required for input system).
+    public void OnMousePosition()
+    {
+        // No action needed, but method must exist for input system to call.
+    }
+
+    /// <summary>
+    /// Initialize end game UI elements (button listeners).
+    /// Call this in Start() after UI references are set.
+    /// </summary>
+    private void InitializeEndGameUI()
+    {
+        if (restartButton != null)
+        {
+            restartButton.onClick.RemoveListener(RestartGame);
+            restartButton.onClick.AddListener(RestartGame);
+        }
+        else
+            Debug.LogWarning("GameManager: Restart button not assigned.");
+
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+            mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+        else
+            Debug.LogWarning("GameManager: Main menu button not assigned.");
+
+        // Hide panel initially
+        if (endGamePanel != null)
+            endGamePanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Show end game screen with score breakdown.
+    /// </summary>
+    private void ShowEndGameScreen(ScoreComponents score)
+    {
+        if (endGamePanel == null)
+        {
+            Debug.LogError("GameManager: End game panel not assigned!");
+            return;
+        }
+
+        // Update score breakdown text
+        if (scoreBreakdownText != null)
+        {
+            scoreBreakdownText.text = FormatScoreBreakdown(score);
+        }
+
+        // Show panel
+        endGamePanel.SetActive(true);
+
+        // Optional: pause game time
+        // Time.timeScale = 0f;
+    }
+
+    /// <summary>
+    /// Hide end game screen.
+    /// </summary>
+    private void HideEndGameScreen()
+    {
+        if (endGamePanel != null)
+            endGamePanel.SetActive(false);
+
+        // Resume game time if paused
+        // Time.timeScale = 1f;
+    }
+
+    /// <summary>
+    /// Format score breakdown for display.
+    /// </summary>
+    private string FormatScoreBreakdown(ScoreComponents score)
+    {
+        return $"FINAL SCORE: {score.totalScore}\n\n" +
+               $"Industrial Zones: {score.industrialZoneScore}\n" +
+               $"Residential Zones: {score.residentialZoneScore}\n" +
+               $"Commercial Zones: {score.commercialZoneScore}\n" +
+               $"Parks: {score.parkScore}\n" +
+               $"Schools: {score.schoolScore}\n" +
+               $"Stars: {score.starScore}\n" +
+               $"Empty Cell Penalty: {score.emptyCellPenalty}\n" +
+               $"Wildcard Costs: {score.wildcardCostTotal}\n\n" +
+               $"Total: {score.totalScore}";
+    }
+
+    /// <summary>
+    /// Restart the current game (reload scene).
+    /// </summary>
+    public void RestartGame()
+    {
+        Debug.Log("Restarting game...");
+        // Hide end game panel before scene reload
+        HideEndGameScreen();
+
+        // Reset game state before loading new scene
+        ResetGameState();
+
+        // Reload current scene
+        Scene currentScene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(currentScene.name);
+    }
+
+    /// <summary>
+    /// Return to main menu (placeholder).
+    /// </summary>
+    public void ReturnToMainMenu()
+    {
+        Debug.Log("Returning to main menu (not implemented)");
+        // TODO: Load main menu scene when available
+        // For now, just restart
+        RestartGame();
+    }
+
+    void ResetGameState()
+    {
+        // Reset all game state variables to initial values
+        selectedStartingPosition = 1; // Default starting position (player should select)
+        previouslySelectedStartingPosition = 0;
+        firstTurnCompleted = false;
+        waterDieUsedThisTurn = false;
+        currentTurn = 1;
+        wildcardsUsed = 0;
+        gameEnded = false;
+        stars = 0;
+
+        // Unhighlight any highlighted starting tiles
+        if (TilemapManager.Instance != null)
+        {
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+
+        Debug.Log("GameManager: Game state reset for new game.");
+    }
+
+    /// <summary>
+    /// Convert screen position to grid position using TilemapManager.
+    /// </summary>
+    private GridPosition ScreenToGridPosition(Vector2 screenPos)
+    {
+        if (Camera.main == null) return new GridPosition(-1, -1);
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0));
+        worldPos.z = 0;
+        if (TilemapManager.Instance != null)
+        {
+            return TilemapManager.Instance.WorldToLogical(worldPos);
+        }
+        else
+        {
+            // Fallback: round to nearest integer
+            return new GridPosition(Mathf.RoundToInt(worldPos.x), Mathf.RoundToInt(worldPos.y));
+        }
+    }
+
+    /// <summary>
+    /// Handle selection of a starting position tile.
+    /// </summary>
+    private void HandleStartingPositionSelection(GridPosition gridPos)
+    {
+        if (firstTurnCompleted)
+        {
+            Debug.Log("Starting position already selected (first turn completed).");
+            return;
+        }
+
+        // Check if clicked tile is a starting tile
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("TilemapManager instance not found.");
+            return;
+        }
+
+        if (!TilemapManager.Instance.IsStartingTile(gridPos))
+        {
+            Debug.Log($"Clicked tile at {gridPos} is not a starting position.");
+            return;
+        }
+
+        int startingNumber = TilemapManager.Instance.GetStartingPositionNumber(gridPos);
+        if (startingNumber < 1 || startingNumber > 8)
+        {
+            Debug.LogError($"Invalid starting position number: {startingNumber}");
+            return;
+        }
+
+        // If same starting position already selected, do nothing
+        if (selectedStartingPosition == startingNumber)
+        {
+            Debug.Log($"Starting position {startingNumber} already selected.");
+            return;
+        }
+
+        // Unhighlight previously selected starting tile
+        if (previouslySelectedStartingPosition != 0 && previouslySelectedStartingPosition != startingNumber)
+        {
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+
+        selectedStartingPosition = startingNumber;
+        Debug.Log($"Starting position selected: {selectedStartingPosition} at {gridPos}");
+
+        // Highlight the newly selected starting tile
+        TilemapManager.Instance.HighlightStartingTile(selectedStartingPosition);
+        previouslySelectedStartingPosition = selectedStartingPosition;
+    }
+
+    void RefreshManagerReferences()
+    {
+        // Find manager references in the newly loaded scene
+        boardManager = FindAnyObjectByType<TilemapManager>();
+        shapeManager = FindAnyObjectByType<ShapeManager>();
+        diceManager = FindAnyObjectByType<DiceManager>();
+        diceUIManager = FindAnyObjectByType<DiceUIManager>();
+
+        // Use singleton instances for ZoneManager and ScoreManager
+        if (ZoneManager.Instance != null)
+            zoneManager = ZoneManager.Instance;
+        if (ScoreManager.Instance != null)
+            scoreManager = ScoreManager.Instance;
+
+        // Update dice pool reference
+        if (diceManager != null)
+            dicePool = diceManager.DicePool;
+        else
+            Debug.LogWarning("GameManager: DiceManager not found after scene load.");
+
+        Debug.Log("GameManager: Manager references refreshed after scene load.");
     }
 
 }
