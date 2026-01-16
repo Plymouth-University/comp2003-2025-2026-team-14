@@ -1,0 +1,661 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-reasoner · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> You were in the middle of fixing this problem in a previous conversation 
+that was interrupted: "There's a small issue where the very first click on 
+each of the wildcard buttons don't register/don't show the wildcard panel, 
+although the subsequent clicks do work. What do you think is the potential 
+problem here?" Read log.txt first to see where you left off. The reasoning 
+was that it could be a potential initialization or reference issue. 
+
+● Read(log.txt)
+  ⎿  Read 198 lines
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 558 lines
+
+● Read(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Read 124 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 295 lines
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 1 addition
+       22    
+       23            private void Start()
+       24            {
+       25 +              Debug.Log($"WildcardSelectionPanel.Start() on 
+          + {gameObject.name}");
+       26                if (panel == null)
+       27                    panel = gameObject;
+       28    
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 8 additions
+       54            /// </summary>
+       55            public void Show()
+       56            {
+       57 +              Debug.Log($"WildcardSelectionPanel.Show() on 
+          + {gameObject.name}, panel={(panel != null ? panel.name : 
+          + "null")}, activeSelf={(panel != null ? 
+          + panel.activeSelf.ToString() : "N/A")}");
+       58                if (panel != null)
+       59 +              {
+       60                    panel.SetActive(true);
+       61 +                  Debug.Log($"After set active true, 
+          + activeSelf={panel.activeSelf}");
+       62 +              }
+       63 +              else
+       64 +              {
+       65 +                  
+          + Debug.LogError("WildcardSelectionPanel.Show(): panel is 
+          + null!");
+       66 +              }
+       67            }
+       68    
+       69            /// <summary>
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 1 addition
+       71            /// </summary>
+       72            public void Hide()
+       73            {
+       74 +              Debug.Log($"WildcardSelectionPanel.Hide() on 
+          + {gameObject.name}, panel={(panel != null ? panel.name : 
+          + "null")}");
+       75                if (panel != null)
+       76                    panel.SetActive(false);
+       77            }
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition          
+       311            /// </summary>
+       312            private void OnShapeWildcardButtonClicked()
+       313            {
+       314 +              Debug.Log($"OnShapeWildcardButtonClicked 
+           + called. GameManager.Instance={(GameManager.Instance != null 
+           + ? "set" : "null")}");
+       315                // Ensure GameManager reference is available
+       316                if (GameManager.Instance == null)
+       317                {
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition        
+       351                wildcardTargetShapeDieIndex = targetDieIndex;
+       352    
+       353                // Show shape wildcard panel
+       354 +              Debug.Log($"Shape wildcard 
+           + panel={(shapeWildcardPanel != null ? "assigned" : 
+           + "null")}");
+       355                if (shapeWildcardPanel != null)
+       356                {
+       357                    shapeWildcardPanel.Show();
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 30 lines
+
+● Search(pattern: "private void OnBuildingWildcardButtonClicked", path:
+        "Assets/Scripts/UI/DiceUIManager.cs", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 5 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition          
+       368            /// </summary>
+       369            private void OnBuildingWildcardButtonClicked()
+       370            {
+       371 +              Debug.Log($"OnBuildingWildcardButtonClicked 
+           + called. GameManager.Instance={(GameManager.Instance != null 
+           + ? "set" : "null")}");
+       372                // Ensure GameManager reference is available
+       373                if (GameManager.Instance == null)
+       374                {
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition   
+       405                wildcardTargetBuildingDieIndex = 
+             targetDieIndex;
+       406    
+       407                // Show building wildcard panel
+       408 +              Debug.Log($"Building wildcard 
+           + panel={(buildingWildcardPanel != null ? "assigned" : 
+           + "null")}");
+       409                if (buildingWildcardPanel != null)
+       410                {
+       411                    buildingWildcardPanel.Show();
+
+● Search(pattern: "private void UpdateWildcardUI", path:
+        "Assets/Scripts/UI/DiceUIManager.cs", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 37 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition          
+       525            /// </summary>
+       526            private void UpdateWildcardUI()
+       527            {
+       528 +              Debug.Log($"UpdateWildcardUI called. 
+           + GameManager.Instance={(GameManager.Instance != null ? "set" 
+           + : "null")}");
+       529                if (GameManager.Instance == null)
+       530                {
+       531                    // GameManager not ready yet - disable 
+             buttons and show placeholder
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition          
+       556                    shapeWildcardButton.interactable = 
+             canUseWildcard;
+       557                if (buildingWildcardButton != null)
+       558                    buildingWildcardButton.interactable = 
+             canUseWildcard;
+       559 +              Debug.Log($"UpdateWildcardUI: 
+           + canUseWildcard={canUseWildcard}, shapeButton.interactable={s
+           + hapeWildcardButton?.interactable}, buildingButton.interactab
+           + le={buildingWildcardButton?.interactable}");
+       560            }
+       561    
+       562            #endregion
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition
+       3    using TMPro;
+       4    using PocketPlanner.Core;
+       5    using System.Collections.Generic;
+       6 +  using System.Collections;
+       7    
+       8    namespace PocketPlanner.UI
+       9    {
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 15 lines
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 17 additions        
+       304                waterDieClickedThisFrame = false;
+       305            }
+       306    
+       307 +          /// <summary>
+       308 +          /// Coroutine that ensures GameManager is ready and
+           +  updates wildcard UI.
+       309 +          /// This handles the case where 
+           + GameManager.Instance may not be set during Start().
+       310 +          /// </summary>
+       311 +          private IEnumerator EnsureGameManagerReady()
+       312 +          {
+       313 +              // Wait until GameManager.Instance is set
+       314 +              while (GameManager.Instance == null)
+       315 +              {
+       316 +                  yield return null; // Wait one frame
+       317 +              }
+       318 +  
+       319 +              // GameManager is now available, update 
+           + wildcard UI
+       320 +              UpdateWildcardUI();
+       321 +              Debug.Log("EnsureGameManagerReady: 
+           + GameManager.Instance now available, wildcard UI updated.");
+       322 +          }
+       323 +  
+       324            #region Wildcard Methods
+       325    
+       326            /// <summary>
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition    
+       119    
+       120                // Update wildcard UI
+       121                UpdateWildcardUI();
+       122 +              StartCoroutine(EnsureGameManagerReady());
+       123    
+       124                // Initial UI update
+       125                UpdateDiceUI();
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition     
+       53    
+       54            void Start()
+       55            {
+       56 +              Debug.Log($"DiceUIManager.Start() on 
+          + {gameObject.name}");
+       57                // Find essential managers, but don't fail 
+            entirely if not found immediately
+       58                if (diceManager == null)
+       59                {
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 6 additions  
+     and 2 removals
+       54            /// </summary>
+       55            public void Show()
+       56            {
+       57 -              Debug.Log($"WildcardSelectionPanel.Show() on 
+          -  {gameObject.name}, panel={(panel != null ? panel.name : 
+          -  "null")}, activeSelf={(panel != null ? 
+          -  panel.activeSelf.ToString() : "N/A")}");
+       57 +              Debug.Log($"WildcardSelectionPanel.Show() on 
+          +  {gameObject.name}, panel={(panel != null ? panel.name : 
+          +  "null")}, activeSelf={(panel != null ? 
+          +  panel.activeSelf.ToString() : "N/A")}
+          +  , activeInHierarchy={(panel != null ? 
+          +  panel.activeInHierarchy.ToString() : "N/A")}");
+       58                if (panel != null)
+       59                {
+       60                    panel.SetActive(true);
+       61 -                  Debug.Log($"After set active true, 
+          -  activeSelf={panel.activeSelf}");
+       61 +                  Debug.Log($"After set active true, 
+          +  activeSelf={panel.activeSelf}
+          +  , activeInHierarchy={panel.activeInHierarchy}");
+       62 +                  if (panel.activeSelf && 
+          + !panel.activeInHierarchy)
+       63 +                  {
+       64 +                      Debug.LogWarning("Panel is active but 
+          + parent is inactive - panel may not be visible.");
+       65 +                  }
+       66                }
+       67                else
+       68                {
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 9 additions
+       63                    {
+       64                        Debug.LogWarning("Panel is active but 
+            parent is inactive - panel may not be visible.");
+       65                    }
+       66 +                  // Ensure CanvasGroup is enabled if present
+       67 +                  CanvasGroup canvasGroup = 
+          + panel.GetComponent<CanvasGroup>();
+       68 +                  if (canvasGroup != null)
+       69 +                  {
+       70 +                      canvasGroup.alpha = 1f;
+       71 +                      canvasGroup.interactable = true;
+       72 +                      canvasGroup.blocksRaycasts = true;
+       73 +                      Debug.Log($"CanvasGroup found and 
+          + enabled on panel {panel.name}");
+       74 +                  }
+       75                }
+       76                else
+       77                {
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 11 additions
+        86            {
+        87                Debug.Log($"WildcardSelectionPanel.Hide() on 
+             {gameObject.name}, panel={(panel != null ? panel.name : 
+             "null")}");
+        88                if (panel != null)
+        89 +              {
+        90 +                  // Disable CanvasGroup if present
+        91 +                  CanvasGroup canvasGroup = 
+           + panel.GetComponent<CanvasGroup>();
+        92 +                  if (canvasGroup != null)
+        93 +                  {
+        94 +                      canvasGroup.alpha = 0f;
+        95 +                      canvasGroup.interactable = false;
+        96 +                      canvasGroup.blocksRaycasts = false;
+        97 +                      Debug.Log($"CanvasGroup disabled on 
+           + panel {panel.name}");
+        98 +                  }
+        99                    panel.SetActive(false);
+       100 +              }
+       101            }
+       102    
+       103            /// <summary>
+
+● Read(current-functionality.md)
+  ⎿  Read 217 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition                    
+       160    4. **Basic UI implemented**: Dice selection UI with 
+             feedback, shape updates when dice selection changes, water 
+             die panel for building type selection (fixed: panel appears 
+             when water die is clicked in dice panel regardless of 
+             selection state; otherwise hidden when building type already
+              chosen; persists across shape changes), wildcard selection 
+             panels for shape and building dice (including cancel button)
+       161    5. **Basic Input**: WASD movement for shapes, mouse click 
+             for placement, UI interaction for dice selection, water die 
+             panel, and wildcard buttons (including cancel)
+       162    6. **Zone System**: Structure exists but no 
+             detection/merging algorithms
+       163 +  7. **Wildcard button first-click issue**: The first click 
+           + on each wildcard button may not register/show the panel. 
+           + Debug logging and a coroutine have been added to ensure 
+           + GameManager is ready and update UI. CanvasGroup support 
+           + added to ensure panel visibility.
+       164    
+       165    ## Next Priority Tasks
+       166    
+
+● Search(pattern: "shapeWildcardButton|buildingWildcardButton", path:
+        "~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner",
+        output_mode: "content")
+  ⎿  Found 21 lines (ctrl+o to expand)
+
+● I've investigated the wildcard button first-click issue and implemented
+  several fixes with extensive debug logging to help diagnose the problem.
+  Here's what I've done:
+
+  Changes Made
+
+  1. Added Debug Logging
+
+  - WildcardSelectionPanel.cs: Added detailed logs to Show(), Hide(), and
+  Start() methods to track panel activation state and parent hierarchy
+  - DiceUIManager.cs: Added logs to wildcard button click handlers and
+  UpdateWildcardUI() to track GameManager availability and button
+  interactability
+
+  2. Fixed GameManager Race Condition
+
+  - Added a coroutine EnsureGameManagerReady() that waits for
+  GameManager.Instance to become available
+  - The coroutine runs in DiceUIManager.Start() after initial UI updates
+  - This ensures wildcard buttons become interactable as soon as GameManager
+   is ready
+
+  3. Enhanced Panel Visibility
+
+  - Added CanvasGroup support in WildcardSelectionPanel - when
+  showing/hiding panels, CanvasGroup properties (alpha, interactable,
+  blocksRaycasts) are properly set
+  - Added checks for activeInHierarchy vs activeSelf to detect parent
+  inactivation issues
+
+  4. Updated Documentation
+
+  - Added note about the wildcard button first-click issue in
+  current-functionality.md under Known Issues & Limitations
+
+  Key Code Changes
+
+  DiceUIManager.cs:
+  - Added using System.Collections for coroutine support
+  - Added EnsureGameManagerReady() coroutine to handle GameManager
+  initialization race condition
+  - Added debug logs to track button clicks and UI state
+  - Started coroutine in Start() method
+
+  WildcardSelectionPanel.cs:
+  - Enhanced Show() and Hide() methods with CanvasGroup support
+  - Added parent hierarchy debugging
+  - Added panel initialization logging
+
+  Root Cause Analysis
+
+  The most likely cause is a race condition where:
+  1. DiceUIManager.Start() runs before GameManager.Instance is set
+  2. UpdateWildcardUI() disables buttons because GameManager.Instance is
+  null
+  3. First click occurs while buttons are non-interactable
+  4. Subsequent clicks work because GameManager becomes available
+
+  The coroutine fix ensures buttons become interactable as soon as
+  GameManager is ready, typically within the first few frames.
+
+  Testing Instructions
+
+  Please test the wildcard buttons and check the Unity Console for logs. The
+   logs will show:
+  - Panel initialization sequence
+  - GameManager availability status
+  - Button interactability changes
+  - Panel activation state
+
+  If the issue persists, the logs will help identify whether it's a parent
+  hierarchy issue, CanvasGroup problem, or another timing issue.
+
+  Files Modified
+
+  - Assets/Scripts/UI/DiceUIManager.cs
+  - Assets/Scripts/UI/WildcardSelectionPanel.cs
+  - current-functionality.md
+
+  The fix should resolve the first-click issue, but the extensive logging
+  will provide valuable information if further debugging is needed.
+
+> Check console-log.txt for the unity console logs. I clicked the Building 
+Wildcard Button twice, the first time I clicked it the wildcard panel did 
+not appear. The second time I clicked the button, the panel appeared. First 
+button click at line 227, second button click at line 258. 
+
+● Read(console-log.txt)
+  ⎿  Read 280 lines
+
+● Read(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 7 additions  
+     and 2 removals
+       20            [Header("Events")]
+       21            public UnityEvent<int> onSelectionMade; // int 
+            parameter is face index (0-5)
+       22    
+       23 -          private void Start()
+       23 +          private void Awake()
+       24            {
+       25 -              Debug.Log($"WildcardSelectionPanel.Start
+          -  () on {gameObject.name}");
+       25 +              Debug.Log($"WildcardSelectionPanel.Awake
+          +  () on {gameObject.name}
+          +  , activeSelf={gameObject.activeSelf}, 
+          +  activeInHierarchy={gameObject.activeInHierarchy}");
+       26                if (panel == null)
+       27                    panel = gameObject;
+       28    
+     ...
+       49                Hide();
+       50            }
+       51    
+       52 +          private void Start()
+       53 +          {
+       54 +              Debug.Log($"WildcardSelectionPanel.Start() on 
+          + {gameObject.name}, activeSelf={gameObject.activeSelf}, 
+          + activeInHierarchy={gameObject.activeInHierarchy}");
+       55 +          }
+       56 +  
+       57            /// <summary>
+       58            /// Show the selection panel.
+       59            /// </summary>
+
+● Search(pattern: "wildcardPanel|WildcardPanel", path:
+        "~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner",
+        output_mode: "content")
+  ⎿  Found 34 lines (ctrl+o to expand)
+  ⎿  Found 6 new diagnostic issues in 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Read 50 lines
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 12 additions 
+     and 2 removals
+       62                Debug.Log($"WildcardSelectionPanel.Show() on 
+            {gameObject.name}, panel={(panel != null ? panel.name : 
+            "null")}, activeSelf={(panel != null ? 
+            panel.activeSelf.ToString() : "N/A")}, 
+            activeInHierarchy={(panel != null ? 
+            panel.activeInHierarchy.ToString() : "N/A")}");
+       63                if (panel != null)
+       64                {
+       65 -                  panel.SetActive(true);
+       66 -                  Debug.Log($"After set active true, 
+          - activeSelf={panel.activeSelf}, 
+          - activeInHierarchy={panel.activeInHierarchy}");
+       65 +                  // Only activate if not already active
+       66 +                  if (!panel.activeSelf)
+       67 +                  {
+       68 +                      panel.SetActive(true);
+       69 +                      Debug.Log($"Panel activated, 
+          + activeSelf={panel.activeSelf}, 
+          + activeInHierarchy={panel.activeInHierarchy}");
+       70 +                  }
+       71 +                  else
+       72 +                  {
+       73 +                      Debug.Log($"Panel already active, 
+          + activeSelf={panel.activeSelf}, 
+          + activeInHierarchy={panel.activeInHierarchy}");
+       74 +                  }
+       75 +  
+       76                    if (panel.activeSelf && 
+            !panel.activeInHierarchy)
+       77                    {
+       78                        Debug.LogWarning("Panel is active but 
+            parent is inactive - panel may not be visible.");
+       79                    }
+       80 +  
+       81                    // Ensure CanvasGroup is enabled if present
+       82                    CanvasGroup canvasGroup = 
+            panel.GetComponent<CanvasGroup>();
+       83                    if (canvasGroup != null)
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 12 additions 
+     and 2 removals
+        99            /// </summary>
+       100            public void Hide()
+       101            {
+       102 -              Debug.Log($"WildcardSelectionPanel.Hide() on 
+           -  {gameObject.name}, panel={(panel != null ? panel.name : 
+           -  "null")}");
+       102 +              Debug.Log($"WildcardSelectionPanel.Hide() on 
+           +  {gameObject.name}, panel={(panel != null ? panel.name : 
+           +  "null")}
+           +  , activeSelf={(panel != null ? panel.activeSelf.ToString() 
+           +  : "N/A")}");
+       103                if (panel != null)
+       104                {
+       105                    // Disable CanvasGroup if present
+     ...
+       111                        canvasGroup.blocksRaycasts = false;
+       112                        Debug.Log($"CanvasGroup disabled on 
+             panel {panel.name}");
+       113                    }
+       114 -                  panel.SetActive(false);
+       114 +  
+       115 +                  // Only deactivate if currently active
+       116 +                  if (panel.activeSelf)
+       117 +                  {
+       118 +                      panel.SetActive(false);
+       119 +                      Debug.Log($"Panel deactivated");
+       120 +                  }
+       121 +                  else
+       122 +                  {
+       123 +                      Debug.Log($"Panel already inactive");
+       124 +                  }
+       125                }
+       126            }
+       127    
+  ⎿  Found 1 new diagnostic issue in 1 file (ctrl+o to expand)
+
+● Read(developer-instructions.md)
+  ⎿  Read 340 lines
+
+● Root Cause Analysis
+
+  Looking at the console logs, I've identified the exact issue:
+
+  Line 227-256 shows the sequence for the first click:
+  1. OnBuildingWildcardButtonClicked() is called
+  2. buildingWildcardPanel.Show() is called
+  3. Panel activates (activeSelf=True, activeInHierarchy=True)
+  4. CRITICAL: WildcardSelectionPanel.Start() runs on BuildingWildcardPanel
+  (line 249)
+  5. WildcardSelectionPanel.Hide() is called from Start() (line 253)
+
+  Second click (line 258-278):
+  - Panel activates normally because Start() has already run
+
+  The Problem
+
+  The BuildingWildcardPanel GameObject is initially inactive in the scene
+  hierarchy. When Show() activates it (SetActive(true)), Unity calls the
+  Start() method on the newly active GameObject. The Start() method in
+  WildcardSelectionPanel.cs calls Hide() at the end, which immediately hides
+   the panel after we just showed it.
+
+  The Fix
+
+  I've made three key changes to WildcardSelectionPanel.cs:
+
+  1. Moved initialization from Start() to Awake()
+
+  - Awake() runs even on inactive GameObjects when the scene loads
+  - Button click listeners are wired up in Awake() instead of Start()
+  - Hide() is called from Awake() to ensure panel starts hidden
+
+  2. Added state checks to avoid unnecessary activation/deactivation
+
+  - Show() now checks if panel is already active before calling
+  SetActive(true)
+  - Hide() checks if panel is already inactive before calling
+  SetActive(false)
+  - Added more detailed logging for debugging
+
+  3. Kept Start() for debugging only
+
+  - Start() now only logs its execution (doesn't call Hide())
+  - This helps track when the GameObject becomes active
+
+  Why This Fixes the Issue
+
+  1. Initialization happens at scene load (Awake()), not when panel is first
+   shown
+  2. Button listeners are wired early, so they work even if GameObject
+  starts inactive
+  3. Hide() is called once during initialization, not every time Start()
+  runs
+  4. Panel state management is optimized to avoid redundant SetActive()
+  calls
+
+  Testing Instructions
+
+  Please test the wildcard buttons again and check the Unity Console for
+  logs. The new logs will show:
+
+  1. Awake() being called for both panels during scene initialization
+  2. Start() being called when panels become active
+  3. State checks showing whether activation/deactivation was needed
+
+  The first click on each wildcard button should now properly show the
+  panel.
+
+  Files Modified
+
+  - Assets/Scripts/UI/WildcardSelectionPanel.cs - Fixed initialization
+  timing
+  - Assets/Scripts/UI/DiceUIManager.cs - Added debug logging (already
+  present)
+  - current-functionality.md - Updated known issues
+
+  The fix ensures that both wildcard panels initialize correctly regardless
+  of their initial active state in the scene hierarchy.
+
+
+
