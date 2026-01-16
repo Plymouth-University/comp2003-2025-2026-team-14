@@ -1,0 +1,236 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+namespace PocketPlanner.Core
+{
+    public class DicePool
+    {
+        private List<Dice> shapeDice = new List<Dice>(3);
+        private List<Dice> buildingDice = new List<Dice>(3);
+
+        public DicePool()
+        {
+            InitializeDice();
+        }
+
+        private void InitializeDice()
+        {
+            shapeDice.Clear();
+            buildingDice.Clear();
+
+            for (int i = 0; i < 3; i++)
+            {
+                shapeDice.Add(new Dice(DiceType.Shape));
+                buildingDice.Add(new Dice(DiceType.Building));
+            }
+        }
+
+        /// <summary>
+        /// Roll all 6 dice.
+        /// </summary>
+        public void RollAll()
+        {
+            foreach (var dice in shapeDice)
+                dice.Roll();
+            foreach (var dice in buildingDice)
+                dice.Roll();
+
+            PerformAutoRerolls();
+        }
+
+        /// <summary>
+        /// Check for triples in either pool and reroll those dice recursively.
+        /// </summary>
+        public void PerformAutoRerolls()
+        {
+            bool rerolled;
+            do
+            {
+                rerolled = false;
+
+                // Check shape dice for triples
+                var shapeTriples = GetTripleFaces(shapeDice);
+                if (shapeTriples.Count > 0)
+                {
+                    foreach (var dice in shapeDice)
+                    {
+                        dice.Roll();
+                    }
+                    rerolled = true;
+                }
+
+                // Check building dice for triples
+                var buildingTriples = GetTripleFaces(buildingDice);
+                if (buildingTriples.Count > 0)
+                {
+                    foreach (var dice in buildingDice)
+                    {
+                        dice.Roll();
+                    }
+                    rerolled = true;
+                }
+
+                // Continue loop if any triples were found (recursive reroll)
+            } while (rerolled);
+        }
+
+        /// <summary>
+        /// Returns list of face indices that appear exactly three times in the given dice list.
+        /// Uses original faces (wildcards shouldn't trigger auto-rerolls).
+        /// </summary>
+        private List<int> GetTripleFaces(List<Dice> diceList)
+        {
+            var faceCounts = new Dictionary<int, int>();
+            foreach (var dice in diceList)
+            {
+                int originalFace = dice.GetOriginalFace();
+                if (!faceCounts.ContainsKey(originalFace))
+                    faceCounts[originalFace] = 0;
+                faceCounts[originalFace]++;
+            }
+
+            return faceCounts.Where(kvp => kvp.Value == 3).Select(kvp => kvp.Key).ToList();
+        }
+
+        /// <summary>
+        /// Get dice that appear exactly twice in the given pool.
+        /// Returns list of face indices that are doubles.
+        /// Uses current faces (including wildcard overrides).
+        /// </summary>
+        public List<int> GetDoubleFaces(DiceType type)
+        {
+            var diceList = type == DiceType.Shape ? shapeDice : buildingDice;
+            var faceCounts = new Dictionary<int, int>();
+            foreach (var dice in diceList)
+            {
+                if (!faceCounts.ContainsKey(dice.CurrentFace))
+                    faceCounts[dice.CurrentFace] = 0;
+                faceCounts[dice.CurrentFace]++;
+            }
+
+            return faceCounts.Where(kvp => kvp.Value == 2).Select(kvp => kvp.Key).ToList();
+        }
+
+        /// <summary>
+        /// Get dice that appear exactly twice in the given pool based on original roll faces.
+        /// Used for star awarding (wildcards should not affect star eligibility).
+        /// </summary>
+        public List<int> GetOriginalDoubleFaces(DiceType type)
+        {
+            var diceList = type == DiceType.Shape ? shapeDice : buildingDice;
+            var faceCounts = new Dictionary<int, int>();
+            foreach (var dice in diceList)
+            {
+                int originalFace = dice.GetOriginalFace();
+                if (!faceCounts.ContainsKey(originalFace))
+                    faceCounts[originalFace] = 0;
+                faceCounts[originalFace]++;
+            }
+
+            return faceCounts.Where(kvp => kvp.Value == 2).Select(kvp => kvp.Key).ToList();
+        }
+
+        /// <summary>
+        /// Get all shape dice.
+        /// </summary>
+        public List<Dice> GetShapeDice() => new List<Dice>(shapeDice);
+
+        /// <summary>
+        /// Get all building dice.
+        /// </summary>
+        public List<Dice> GetBuildingDice() => new List<Dice>(buildingDice);
+
+        /// <summary>
+        /// Get the selected shape die (should be exactly one selected).
+        /// </summary>
+        public Dice GetSelectedShapeDie()
+        {
+            return shapeDice.FirstOrDefault(d => d.Selected);
+        }
+
+        /// <summary>
+        /// Get the selected building die (should be exactly one selected).
+        /// </summary>
+        public Dice GetSelectedBuildingDie()
+        {
+            return buildingDice.FirstOrDefault(d => d.Selected);
+        }
+
+        /// <summary>
+        /// Select a shape die by index (0-2). Deselects others.
+        /// </summary>
+        public void SelectShapeDie(int index)
+        {
+            if (index < 0 || index >= shapeDice.Count)
+                return;
+
+            foreach (var dice in shapeDice)
+                dice.Selected = false;
+
+            shapeDice[index].Selected = true;
+        }
+
+        /// <summary>
+        /// Select a building die by index (0-2). Deselects others.
+        /// </summary>
+        public void SelectBuildingDie(int index)
+        {
+            if (index < 0 || index >= buildingDice.Count)
+                return;
+
+            foreach (var dice in buildingDice)
+                dice.Selected = false;
+
+            buildingDice[index].Selected = true;
+        }
+
+        /// <summary>
+        /// Clear all dice selection.
+        /// </summary>
+        public void ClearSelection()
+        {
+            foreach (var dice in shapeDice)
+                dice.Selected = false;
+            foreach (var dice in buildingDice)
+                dice.Selected = false;
+        }
+
+        /// <summary>
+        /// Check if a valid selection exists (exactly one shape and one building die selected).
+        /// </summary>
+        public bool HasValidSelection()
+        {
+            return GetSelectedShapeDie() != null && GetSelectedBuildingDie() != null;
+        }
+
+        /// <summary>
+        /// Get the selected shape type. Returns null if none selected.
+        /// </summary>
+        public ShapeType? GetSelectedShapeType()
+        {
+            var selected = GetSelectedShapeDie();
+            return selected?.GetShapeType();
+        }
+
+        /// <summary>
+        /// Get the selected building type. Returns null if none selected.
+        /// </summary>
+        public BuildingType? GetSelectedBuildingType()
+        {
+            var selected = GetSelectedBuildingDie();
+            return selected?.GetBuildingType();
+        }
+
+        /// <summary>
+        /// Debug log all dice faces.
+        /// </summary>
+        public void LogDiceFaces()
+        {
+            string shapeFaces = string.Join(", ", shapeDice.Select(d => d.GetFaceName()));
+            string buildingFaces = string.Join(", ", buildingDice.Select(d => d.GetFaceName()));
+            Debug.Log($"Shape Dice: {shapeFaces}");
+            Debug.Log($"Building Dice: {buildingFaces}");
+        }
+    }
+}

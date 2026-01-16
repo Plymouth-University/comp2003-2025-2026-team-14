@@ -1,0 +1,1457 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-reasoner · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> I want to explore potential options as to how the wildcard system could be
+ implemented and I'm open to suggestions. One of the more attractive options
+ I've considered is to allow use of a wildcard by "clicking and holding" on 
+one of the buttons (dice faces) in the dice selection panel, this would 
+display a panel very similar to the water die panel to allow selection of 
+another type depending on the dice selected (shape types panel if shape dice
+ selected or building types panel if building dice selected). The advantage 
+of this option is that no extra UI elements for a separate wildcard button 
+have to be implemented, saving screen space. How easy is it to implement 
+this option and would there be any obvious problems with this system? 
+
+● 3 Explore agents finished (ctrl+o to expand)
+   ├─ Find dice UI and water panel · 0 tool uses
+   │  ⎿  Done
+   ├─ Explore input handling patterns · 0 tool uses
+   │  ⎿  Done
+   └─ Find wildcard and game logic · 0 tool uses
+      ⎿  Done
+
+● Updated plan
+  ⎿  /plan to preview · ~/.claude/plans/hazy-jingling-goblet.md
+                                                                           
+● User answered Claude's questions:
+  ⎿  · Which wildcard implementation approach do you prefer? → Both - start 
+     with button add long-press later
+
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 218 lines
+                                                                           
+● User answered Claude's questions:
+  ⎿  · How should the wildcard selection panel work? → Separate panels for 
+     shape/building
+                                                                           
+● User answered Claude's questions:
+  ⎿  · Where should the wildcard button be placed in the UI? → Near dice 
+     tray
+     · When should wildcards be usable? → Will wildcard the currently 
+     selected shape or building die, but if die is not selected default to 
+     changing the first shape or building die.
+
+● Updated plan
+  ⎿  /plan to preview · ~/.claude/plans/hazy-jingling-goblet.md
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 38 lines
+
+● Updated plan
+  ⎿  /plan to preview · ~/.claude/plans/hazy-jingling-goblet.md
+                                                                           
+● User answered Claude's questions:
+  ⎿  · Does this implementation plan address your requirements for the 
+     wildcard system? → Need minor adjustments
+                                                                        
+● User answered Claude's questions:
+  ⎿  · What specific adjustments would you like to make to the wildcard 
+     implementation plan? → Modify UI/UX decisions
+                                                                           
+● User answered Claude's questions:
+  ⎿  · Which UI/UX aspects would you like to adjust? → Clarification that 
+     there should be 2 wildcard UI buttons, one for  the shape dice and one 
+     for the building dice. 
+
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 20 lines
+
+● Updated plan
+  ⎿  /plan to preview · ~/.claude/plans/hazy-jingling-goblet.md
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 30 lines
+
+● Updated plan
+  ⎿  /plan to preview · ~/.claude/plans/hazy-jingling-goblet.md
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 25 lines
+
+● Reading Plan(~/.claude/plans/hazy-jingling-goblet.md)
+  ⎿  Read 80 lines
+                                                                           
+● User answered Claude's questions:
+  ⎿  · With the two-button approach incorporated, is the wildcard 
+     implementation plan now acceptable? → Yes, proceed with Phase 1 
+     implementation
+                                                                           
+● User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/hazy-jingling-goblet.md · /plan to edit
+     Wildcard System Implementation Plan
+
+     Current State Analysis
+
+     Existing Dice System Architecture
+
+     1. DiceUIManager.cs - Handles all dice UI interactions
+       - Uses standard Unity UI Button components with onClick listeners
+       - Manages 6 dice buttons (3 shape + 3 building)
+       - Implements water die panel with 5 building type buttons
+       - No long-press detection currently implemented
+     2. DiceManager.cs & DicePool.cs - Core dice logic
+       - Fully implemented dice selection, rolling, auto-reroll for triples
+       - Water die handling with building type selection
+       - Star awarding for double rolls
+     3. GameManager.cs - Game state
+       - Has wildcardsUsed field but no implementation
+       - No wildcard cost tracking or UI
+     4. Input System - Unity's new Input System
+       - Currently used for shape manipulation (movement, rotation, 
+     placement)
+       - Not used for UI/dice interactions (UI uses legacy Button system)
+
+     Water Die Panel Reference Implementation
+
+     - Trigger: Click on water die building face
+     - UI: Modal panel with 5 building type buttons
+     - Flow: Click → Show panel → Select building type → Hide panel → Apply 
+     selection
+     - Storage: waterDieChosenBuildingType in DiceManager
+
+     Proposed Long-Press Wildcard Implementation
+
+     Option 1: Long-Press on Dice Faces (User's Preference)
+
+     Implementation Steps:
+     1. Add Long-Press Detection to DiceUIManager
+       - Use Unity's EventTrigger component with IPointerDownHandler and 
+     IPointerUpHandler
+       - Implement coroutine-based timing (e.g., 1-second hold)
+       - Add visual feedback (button scaling, color change, timer ring)
+     2. Create Wildcard Selection Panel
+       - Two variants: Shape Type panel (6 options) and Building Type panel 
+     (5 options)
+       - Reuse water die panel pattern with appropriate buttons
+       - Show correct panel based on which dice type was long-pressed
+     3. Update Game Logic
+       - Track wildcard usage count (max 3) in GameManager
+       - Calculate escalating costs (-1, -2, -3 points)
+       - Override selected die face with wildcard choice
+       - Update validation to allow wildcard overrides
+     4. UI Feedback & State
+       - Add wildcard counter display
+       - Show next wildcard cost
+       - Visual indicator on dice eligible for wildcard
+       - Disable wildcard when 3 used
+
+     Pros:
+     - Saves screen space (no extra UI button)
+     - Intuitive interaction (long-press to access special options)
+     - Consistent with mobile app patterns
+
+     Cons:
+     - More complex implementation (timing, visual feedback)
+     - Discoverability issue (users might not find long-press feature)
+     - Potential conflict with existing click handlers
+
+     Option 2: Dedicated Wildcard Button
+
+     Implementation Steps:
+     1. Add Wildcard Button to UI
+       - Simple button next to dice tray
+       - Enabled/disabled based on wildcard count
+       - Shows remaining uses and next cost
+     2. Create Combined Selection Panel
+       - Single panel with both shape and building type selection
+       - Two-step or combined selection UI
+     3. Same Game Logic Updates as Option 1
+
+     Pros:
+     - Simple implementation
+     - Highly discoverable
+     - Clear user feedback
+
+     Cons:
+     - Uses screen space
+     - Less elegant than long-press
+
+     Feasibility Assessment
+
+     Technical Feasibility: MODERATE
+
+     Challenges:
+     1. No existing long-press infrastructure - Must implement from scratch
+     2. Input system mismatch - UI uses legacy Buttons, not Input System
+     3. Visual feedback complexity - Need timer, progress indicators
+     4. State management - Handling concurrent click vs long-press
+
+     Mitigations:
+     1. Use EventTrigger components (Unity built-in)
+     2. Implement simple coroutine timer
+     3. Reuse water die panel patterns
+     4. Leverage existing color coding system
+
+     Implementation Complexity Breakdown
+
+     Easy Components:
+     - Wildcard selection panel UI (similar to water die panel)
+     - GameManager wildcard tracking
+     - Cost calculation logic
+
+     Moderate Components:
+     - Long-press detection with visual feedback
+     - Panel type switching (shape vs building)
+     - Integration with existing dice selection logic
+
+     Complex Components:
+     - Preventing conflicts between click and long-press
+     - Handling state during long-press (what happens if user drags finger?)
+     - Visual polish (smooth animations, feedback)
+
+     Potential Problems & Edge Cases
+
+     1. Input Conflicts
+
+     - Problem: Click vs long-press ambiguity
+     - Solution: Clear timing threshold (e.g., 1s), cancel on drag
+
+     2. State Management
+
+     - Problem: What if user long-presses during water die selection?
+     - Solution: Disable wildcard when water die panel active
+
+     3. Visual Feedback
+
+     - Problem: Users might not understand long-press action
+     - Solution: Tutorial hint, visual timer, haptic feedback
+
+     4. Game Rules Integration
+
+     - Problem: Wildcard should affect star awarding for doubles
+     - Solution: Check original roll faces for star eligibility, not 
+     wildcard choices
+
+     5. Multiplayer Sync
+
+     - Problem: Wildcard usage needs to sync across players
+     - Solution: Include in game state sync (future consideration)
+
+     Final Implementation Plan (Based on User Choices)
+
+     Approach: Button First, Long-Press Later
+
+     User Selection: Start with dedicated wildcard button, add long-press as
+      enhancement later.
+
+     Design Decisions Finalized:
+
+     1. Panel Design: Separate panels for shape/building (context-sensitive)
+     2. UI Placement: Near dice tray (integrated with dice UI)
+     3. Button Design: TWO wildcard buttons - one for shape dice, one for 
+     building dice
+     4. Eligibility: Wildcard currently selected die of appropriate type; if
+      none selected, default to first die in that pool
+     5. Long-press: 1-second hold duration with visual feedback
+     6. Feedback: Timer ring with button scaling during hold
+
+     Phase 1: Core Wildcard System with Button (MVP)
+
+     Goal: Functional wildcard system using dedicated button
+
+     1. Extend GameManager.cs
+       - Add constants: MAX_WILDCARDS = 3, WILDCARD_COSTS = new int[] { -1, 
+     -2, -3 }
+       - Implement UseWildcard() method (increments wildcardsUsed, applies 
+     cost)
+       - Implement GetWildcardCost() method (returns current cost based on 
+     usage)
+       - Add CanUseWildcard() method (checks wildcardsUsed < MAX_WILDCARDS)
+     2. Create WildcardSelectionPanel System
+       - WildcardSelectionPanel.cs: Generic controller that can show shape 
+     or building options
+       - Two panel prefabs: ShapeWildcardPanel.prefab (6 shape buttons) and 
+     BuildingWildcardPanel.prefab (5 building type buttons)
+       - Reuse water die panel prefab structure and styling
+       - Panel shows appropriate options based on context (shape die vs 
+     building die)
+     3. Update DiceUIManager.cs
+       - Add TWO wildcard buttons: shapeWildcardButton and 
+     buildingWildcardButton
+       - Add wildcardCountText (TextMeshPro) to show remaining uses "3/3", 
+     "2/3", etc.
+       - Add wildcardCostText (TextMeshPro) to show next cost "Cost: -1", 
+     etc.
+       - Implement OnShapeWildcardButtonClicked() method:
+           - Determine target shape die (selected shape die, or first shape 
+     die if none selected)
+         - Show shape wildcard panel (6 shape options)
+         - On panel selection: call GameManager.UseWildcard(), override die 
+     face
+       - Implement OnBuildingWildcardButtonClicked() method:
+           - Determine target building die (selected building die, or first 
+     building die if none selected)
+         - Show building wildcard panel (5 building type options)
+         - On panel selection: call GameManager.UseWildcard(), override die 
+     face
+       - Update UI state based on wildcardsUsed count
+       - Disable both wildcard buttons when wildcardsUsed >= MAX_WILDCARDS
+     4. Update DiceManager.cs
+       - Add ApplyWildcardOverride(DiceType diceType, int dieIndex, int 
+     overrideFace) method
+       - Handle wildcard face override (temporary for current turn)
+       - Maintain compatibility with star awarding (check original roll 
+     faces, not overrides)
+     5. Update DiceUIManager Visuals
+       - Add visual indicator for wildcard-eligible dice (different 
+     border/glow)
+       - Update dice colors when wildcarded (maybe purple tint)
+       - Position wildcard buttons near respective dice pools (shape button 
+     near shape dice, building button near building dice)
+
+     Phase 2: Long-Press Enhancement
+
+     Goal: Add long-press alternative to button
+
+     6. Create LongPressHandler.cs Utility
+       - Reusable MonoBehaviour for any UI element
+       - Configurable hold duration (default: 1 second)
+       - Events: OnLongPressStart, OnLongPressProgress, OnLongPressComplete,
+      OnLongPressCancel
+       - Visual feedback: timer ring Image component, button scale animation
+     7. Integrate Long-Press with DiceUIManager
+       - Add EventTrigger components to all 6 dice buttons
+       - Attach LongPressHandler to each dice button
+       - Wire up events:
+           - OnLongPressStart: Start visual feedback (timer ring, button 
+     scale)
+         - OnLongPressComplete: Trigger wildcard panel for that specific die
+         - OnLongPressCancel: Cancel visual feedback
+       - Handle click vs long-press conflict: If long-press starts, suppress
+      normal click
+     8. Update Wildcard Flow
+       - Long-press on dice button → Show wildcard panel for that specific 
+     die
+       - Button click → Use default targeting logic (selected die or first 
+     die)
+       - Both methods use same panel system and game logic
+
+     Phase 3: Polish & User Experience
+
+     9. Visual Polish
+       - Smooth animations for panel show/hide
+       - Particle effects for wildcard usage
+       - Sound effects for long-press start/complete/cancel
+       - Haptic feedback on mobile devices
+     10. Tutorial & Discoverability
+       - First-time wildcard usage: show tooltip explaining both methods 
+     (button and long-press)
+       - Always-visible hint: subtle "Hold for wildcard" text on dice when 
+     wildcards available
+       - Wildcard button tooltip on hover
+     11. Edge Case Handling
+       - Disable long-press when water die panel is active
+       - Handle wildcard usage after dice selection but before placement
+       - Update star awarding to consider original dice faces, not wildcard 
+     overrides
+
+     Critical Files to Modify (Phased)
+
+     Phase 1 Files (Button Implementation):
+
+     1. /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlan
+     ner/Assets/Scripts/GameManager.cs
+       - Add wildcard constants and methods
+       - Track wildcard usage and costs
+     2. /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlan
+     ner/Assets/Scripts/UI/DiceUIManager.cs
+       - Add wildcard button and UI elements
+       - Implement wildcard activation flow
+       - Integrate wildcard selection panels
+     3. /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlan
+     ner/Assets/Scripts/Core/DiceManager.cs
+       - Add wildcard override handling
+       - Apply face overrides for current turn
+     4. New: /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/Pocke
+     tPlanner/Assets/Scripts/UI/WildcardSelectionPanel.cs
+       - Controller for wildcard selection panels
+       - Manages shape and building type selection
+     5. New Prefabs (in Assets/Prefabs/UI/):
+       - ShapeWildcardPanel.prefab (6 shape buttons)
+       - BuildingWildcardPanel.prefab (5 building type buttons)
+
+     Phase 2 Files (Long-Press Enhancement):
+
+     6. New: /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/Pocke
+     tPlanner/Assets/Scripts/UI/LongPressHandler.cs
+       - Reusable long-press component with visual feedback
+     7. Updated: /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/P
+     ocketPlanner/Assets/Scripts/UI/DiceUIManager.cs
+       - Add EventTrigger components to dice buttons
+       - Integrate long-press handlers
+       - Handle click vs long-press conflicts
+
+     Phase 3 Files (Polish):
+
+     8. New: /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/Pocke
+     tPlanner/Assets/Scripts/UI/WildcardTutorial.cs (optional)
+       - First-time tutorial and hints
+     9. Audio/SFX additions (in Assets/Audio/SFX/):
+       - wildcard_use.wav
+       - longpress_start.wav, longpress_complete.wav, longpress_cancel.wav
+
+     Implementation Complexity Assessment
+
+     Ease of Implementation:
+
+     - Phase 1 (Button): MODERATE - Building on existing water die patterns
+     - Phase 2 (Long-press): MODERATE to DIFFICULT - New input handling 
+     patterns
+     - Phase 3 (Polish): EASY - Visual/audio enhancements
+
+     Biggest Challenges:
+
+     1. Long-press timing and visual feedback - No existing infrastructure
+     2. Click vs long-press conflict resolution - Need to suppress normal 
+     click when long-press starts
+     3. Wildcard state tracking - Must persist across turns but reset on new
+      game
+     4. Star awarding with wildcards - Must check original roll faces, not 
+     overrides
+
+     Mitigation Strategies:
+
+     1. Start with simple button implementation first
+     2. Test long-press thoroughly on mobile devices
+     3. Add extensive logging for wildcard usage debugging
+     4. Reuse water die panel patterns for selection UI
+
+     Final Recommendations
+
+     1. Start with Phase 1 to get functional wildcards quickly
+     2. Test thoroughly before adding long-press complexity
+     3. Consider mobile usability - 1-second hold is standard for mobile 
+     long-press
+     4. Reuse existing patterns - Follow water die implementation closely
+     5. Add to current-functionality.md after each phase completion
+
+     The long-press approach is feasible but will require careful 
+     implementation to avoid conflicts with existing click handlers.
+     Starting with a button provides immediate value while allowing time to
+     design a robust long-press solution.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 243 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 4 additions              
+       17        private int selectedStartingPosition;
+       18        private bool firstTurnCompleted;
+       19    
+       20 +      // Wildcard constants
+       21 +      public const int MAX_WILDCARDS = 3;
+       22 +      private static readonly int[] WILDCARD_COSTS = { -1, -2,
+          +  -3 };
+       23 +  
+       24        // Public properties for game state access
+       25        public int CurrentTurn => currentTurn;
+       26        public int Stars => stars;
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 13 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 46 additions            
+       243            Debug.Log($"Water die used this turn set to: 
+             {used}");
+       244        }
+       245    
+       246 +      /// <summary>
+       247 +      /// Check if a wildcard can be used (max 3 per game).
+       248 +      /// </summary>
+       249 +      public bool CanUseWildcard()
+       250 +      {
+       251 +          return wildcardsUsed < MAX_WILDCARDS;
+       252 +      }
+       253 +  
+       254 +      /// <summary>
+       255 +      /// Get the cost for the next wildcard use.
+       256 +      /// Returns -1, -2, or -3 based on how many have been 
+           + used.
+       257 +      /// </summary>
+       258 +      public int GetNextWildcardCost()
+       259 +      {
+       260 +          if (wildcardsUsed >= MAX_WILDCARDS)
+       261 +              return 0; // No more wildcards available
+       262 +  
+       263 +          return WILDCARD_COSTS[wildcardsUsed];
+       264 +      }
+       265 +  
+       266 +      /// <summary>
+       267 +      /// Use a wildcard. Returns true if successful, false 
+           + if no wildcards remaining.
+       268 +      /// </summary>
+       269 +      public bool UseWildcard()
+       270 +      {
+       271 +          if (!CanUseWildcard())
+       272 +              return false;
+       273 +  
+       274 +          wildcardsUsed++;
+       275 +          Debug.Log($"Wildcard used. Total used: 
+           + {wildcardsUsed}, next cost: {GetNextWildcardCost()}");
+       276 +          return true;
+       277 +      }
+       278 +  
+       279 +      /// <summary>
+       280 +      /// Get total wildcard cost penalty for all wildcards 
+           + used so far.
+       281 +      /// </summary>
+       282 +      public int GetWildcardCostTotal()
+       283 +      {
+       284 +          int total = 0;
+       285 +          for (int i = 0; i < wildcardsUsed && i < 
+           + WILDCARD_COSTS.Length; i++)
+       286 +          {
+       287 +              total += WILDCARD_COSTS[i];
+       288 +          }
+       289 +          return total;
+       290 +      }
+       291 +  
+       292    }
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 1 addition
+       60            firstTurnCompleted = false;
+       61            waterDieUsedThisTurn = false;
+       62            currentTurn = 1;
+       63 +          wildcardsUsed = 0;
+       64    
+       65            // Initialize dice pool
+       66            if (diceManager != null)
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 264 lines
+
+● Write(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Wrote 99 lines to Assets/Scripts/UI/WildcardSelectionPanel.cs         
+     using UnityEngine;
+     using UnityEngine.Events;
+     using UnityEngine.UI;
+     namespace PocketPlanner.UI
+     {
+         /// <summary>
+         /// Generic panel for wildcard selection (shape or building type).
+         /// Manages a set of buttons and fires an event when a selection is
+      made.
+         /// </summary>
+     … +89 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Read 99 lines
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 2 additions
+       1    using UnityEngine;
+       2    using UnityEngine.Events;
+       3    using UnityEngine.UI;
+       4 +  using TMPro;
+       5 +  using System.Collections.Generic;
+       6    
+       7    namespace PocketPlanner.UI
+       8    {
+
+● Update(Assets/Scripts/UI/WildcardSelectionPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/WildcardSelectionPanel.cs with 6 additions
+       27                // Wire up button click events
+       28                for (int i = 0; i < selectionButtons.Count; i++)
+       29                {
+       30 +                  if (selectionButtons[i] == null)
+       31 +                  {
+       32 +                      
+          + Debug.LogWarning($"WildcardSelectionPanel: Button at index 
+          + {i} is null.");
+       33 +                      continue;
+       34 +                  }
+       35 +  
+       36                    int index = i; // Capture for closure
+       37                    selectionButtons[i].onClick.AddListener(() 
+            => OnButtonClicked(index));
+       38                }
+
+● Read(developer-instructions.md)
+  ⎿  Read 226 lines
+
+● Read(developer-instructions.md)
+  ⎿  Read 7 lines
+
+● Update(developer-instructions.md)
+  ⎿  Updated developer-instructions.md with 105 additions and 1 removal  
+       223    - Star awarding now uses selected dice faces (not shape 
+             building type), so water die double rolls correctly award 
+             stars.
+       224    
+       225    ---
+       226 -  *Last Updated: 2026-01-11*
+       226   \ No newline at end of file
+       227 +  *Last Updated: 2026-01-11*
+       228 +  
+       229 +  ## Wildcard System Implementation [Phase 1: Button-Based]
+       230 +  
+       231 +  The wildcard system allows players to override dice faces 
+           + up to 3 times per game with escalating costs (-1, -2, -3 
+           + points). Phase 1 implements two dedicated wildcard buttons 
+           + (shape and building) with selection panels.
+       232 +  
+       233 +  ### Code Changes Made:
+       234 +  
+       235 +  1. **GameManager.cs** - Added wildcard tracking:
+       236 +     - Constants: `MAX_WILDCARDS = 3`, `WILDCARD_COSTS = [-1,
+           +  -2, -3]`
+       237 +     - Methods: `CanUseWildcard()`, `GetNextWildcardCost()`, 
+           + `UseWildcard()`, `GetWildcardCostTotal()`
+       238 +     - `wildcardsUsed` field initialized to 0 in `Start()`
+       239 +  
+       240 +  2. **WildcardSelectionPanel.cs** - New generic panel 
+           + controller:
+       241 +     - Manages a panel with multiple buttons (for shape or 
+           + building selection)
+       242 +     - Fires `onSelectionMade` event with button index (0-5)
+       243 +     - Provides `Show()`, `Hide()`, `SetButtonText()` methods
+       244 +     - Attach this script to wildcard panel prefabs
+       245 +  
+       246 +  ### Steps to Set Up Wildcard UI in Unity Editor:
+       247 +  
+       248 +  #### 1. Create Wildcard Buttons
+       249 +  - In the Canvas (same as dice UI), create two new Buttons:
+       250 +    - **Shape Wildcard Button**: Name "ShapeWildcardButton", 
+           + set text "Wildcard Shape"
+       251 +    - **Building Wildcard Button**: Name 
+           + "BuildingWildcardButton", set text "Wildcard Building"
+       252 +  - Position near respective dice pools (shape button near 
+           + shape dice, building button near building dice)
+       253 +  - Style consistently with existing dice buttons
+       254 +  
+       255 +  #### 2. Create Wildcard Selection Panels
+       256 +  **Shape Wildcard Panel**:
+       257 +  - Create a new Panel child of Canvas, name 
+           + "ShapeWildcardPanel"
+       258 +  - Add `WildcardSelectionPanel` component to it
+       259 +  - Inside panel, create 6 Buttons (for T, Z, Square, L, 
+           + Line, Single shapes)
+       260 +  - Arrange in grid (2×3 or 3×2) using Layout Group
+       261 +  - Set button texts to shape names (or use icons later)
+       262 +  - In Inspector, assign the Panel GameObject to "Panel" 
+           + field (or leave null to use self)
+       263 +  - Drag all 6 buttons into "Selection Buttons" list (order 
+           + matters: 0=T, 1=Z, 2=Square, 3=L, 4=Line, 5=Single)
+       264 +  - Hide panel initially (uncheck GameObject active)
+       265 +  
+       266 +  **Building Wildcard Panel**:
+       267 +  - Create another Panel, name "BuildingWildcardPanel"
+       268 +  - Add `WildcardSelectionPanel` component
+       269 +  - Create 5 Buttons (Industrial, Residential, Commercial, 
+           + School, Park)
+       270 +  - Set button texts to building type names
+       271 +  - Drag buttons into "Selection Buttons" list (order: 
+           + 0=Industrial, 1=Residential, 2=Commercial, 3=School, 4=Park)
+       272 +  - Hide initially
+       273 +  
+       274 +  #### 3. Update DiceUIManager References
+       275 +  - Select the GameObject with `DiceUIManager` script
+       276 +  - In Inspector, add the following new serialized fields 
+           + (code already updated):
+       277 +    - **Shape Wildcard Button** (Button) - assign shape 
+           + wildcard button
+       278 +    - **Building Wildcard Button** (Button) - assign building
+           +  wildcard button
+       279 +    - **Shape Wildcard Panel** (WildcardSelectionPanel) - 
+           + assign shape panel component
+       280 +    - **Building Wildcard Panel** (WildcardSelectionPanel) - 
+           + assign building panel component
+       281 +    - **Wildcard Count Text** (TextMeshProUGUI) - create text
+           +  element showing "3/3", "2/3", etc.
+       282 +    - **Wildcard Cost Text** (TextMeshProUGUI) - create text 
+           + showing "Cost: -1", etc.
+       283 +  - Position text elements near wildcard buttons
+       284 +  
+       285 +  #### 4. Set Up Button Wiring (Automated)
+       286 +  The updated `DiceUIManager.Start()` will:
+       287 +  - Wire wildcard button click events to 
+           + `OnShapeWildcardButtonClicked()` and 
+           + `OnBuildingWildcardButtonClicked()`
+       288 +  - Subscribe to panel selection events
+       289 +  - Update UI state based on wildcard count
+       290 +  
+       291 +  #### 5. Update DiceManager for Wildcard Overrides
+       292 +  - `DiceManager` now has `ApplyWildcardOverride(DiceType 
+           + diceType, int dieIndex, int overrideFace)` method
+       293 +  - Called when wildcard selection is made
+       294 +  - Overrides die face for current turn (does not affect 
+           + original roll for star awarding)
+       295 +  
+       296 +  ### Testing Wildcard Functionality:
+       297 +  
+       298 +  1. **Enter Play Mode**
+       299 +  2. **Check wildcard buttons are visible and enabled** 
+           + (should show "3/3" and "Cost: -1")
+       300 +  3. **Click Shape Wildcard Button**:
+       301 +     - Shape wildcard panel should appear with 6 shape 
+           + buttons
+       302 +     - Click a shape (e.g., "T")
+       303 +     - Panel should hide
+       304 +     - Selected shape die (or first shape die if none 
+           + selected) should change to chosen shape
+       305 +     - Wildcard count should update to "2/3", cost to "Cost: 
+           + -2"
+       306 +  4. **Click Building Wildcard Button**:
+       307 +     - Building wildcard panel appears with 5 building type 
+           + buttons
+       308 +     - Selection updates building die face
+       309 +     - Count updates to "1/3", cost to "Cost: -3"
+       310 +  5. **Test max limit**:
+       311 +     - After 3 uses, both wildcard buttons should be disabled
+       312 +     - Panels should not appear when clicked
+       313 +  6. **Test with dice selection**:
+       314 +     - Select a specific shape die (turns green)
+       315 +     - Click shape wildcard button → should override selected
+           +  die
+       316 +     - Select a specific building die → wildcard building 
+           + should override that die
+       317 +  7. **Test star awarding with wildcards**:
+       318 +     - Wildcard overrides should NOT affect star eligibility
+       319 +     - Stars awarded based on original dice faces, not 
+           + wildcard choices
+       320 +  
+       321 +  ### Notes:
+       322 +  - Wildcard costs are applied at game end (via 
+           + `GetWildcardCostTotal()`)
+       323 +  - Wildcard usage persists across turns within a game
+       324 +  - Reset on new game (GameManager.Start() resets 
+           + `wildcardsUsed`)
+       325 +  - Phase 2 will add long-press on dice faces as alternative 
+           + activation method
+       326 +  
+       327 +  ### Next Steps (Phase 2):
+       328 +  - Implement `LongPressHandler.cs` utility for hold gestures
+       329 +  - Add long-press detection to dice buttons
+       330 +  - Add visual feedback (timer ring, button scaling)
+       331 +  - Add sound effects and haptic feedback
+       332   \ No newline at end of file
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 8 additions         
+       38            [SerializeField] private Button schoolButton;
+       39            [SerializeField] private Button parkButton;
+       40    
+       41 +          [Header("Wildcard UI")]
+       42 +          [SerializeField] private Button shapeWildcardButton;
+       43 +          [SerializeField] private Button 
+          + buildingWildcardButton;
+       44 +          [SerializeField] private WildcardSelectionPanel 
+          + shapeWildcardPanel;
+       45 +          [SerializeField] private WildcardSelectionPanel 
+          + buildingWildcardPanel;
+       46 +          [SerializeField] private TextMeshProUGUI 
+          + wildcardCountText;
+       47 +          [SerializeField] private TextMeshProUGUI 
+          + wildcardCostText;
+       48 +  
+       49            private bool waterDieClickedThisFrame = false;
+       50    
+       51            void Start()
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 20 additions        
+        93                if (parkButton != null)
+        94                    parkButton.onClick.AddListener(() => 
+             OnWaterDieBuildingTypeClicked(BuildingType.Park));
+        95    
+        96 +              // Setup wildcard buttons and panels
+        97 +              if (shapeWildcardButton != null)
+        98 +                  shapeWildcardButton.onClick.AddListener(OnS
+           + hapeWildcardButtonClicked);
+        99 +              if (buildingWildcardButton != null)
+       100 +                  buildingWildcardButton.onClick.AddListener(
+           + OnBuildingWildcardButtonClicked);
+       101 +  
+       102 +              if (shapeWildcardPanel != null)
+       103 +                  shapeWildcardPanel.onSelectionMade.AddListe
+           + ner(OnShapeWildcardSelected);
+       104 +              if (buildingWildcardPanel != null)
+       105 +                  buildingWildcardPanel.onSelectionMade.AddLi
+           + stener(OnBuildingWildcardSelected);
+       106 +  
+       107                // Hide water die panel initially
+       108                if (waterDiePanel != null)
+       109                    waterDiePanel.SetActive(false);
+       110    
+       111 +              // Hide wildcard panels initially
+       112 +              if (shapeWildcardPanel != null)
+       113 +                  shapeWildcardPanel.Hide();
+       114 +              if (buildingWildcardPanel != null)
+       115 +                  buildingWildcardPanel.Hide();
+       116 +  
+       117 +              // Update wildcard UI
+       118 +              UpdateWildcardUI();
+       119 +  
+       120                // Initial UI update
+       121                UpdateDiceUI();
+       122            }
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 20 lines
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 23 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 202 additions       
+       288                // Reset the click flag after processing
+       289                waterDieClickedThisFrame = false;
+       290            }
+       291 +  
+       292 +          #region Wildcard Methods
+       293 +  
+       294 +          /// <summary>
+       295 +          /// Called when shape wildcard button is clicked.
+       296 +          /// Shows shape wildcard panel if wildcards 
+           + available.
+       297 +          /// </summary>
+       298 +          private void OnShapeWildcardButtonClicked()
+       299 +          {
+       300 +              if (GameManager.Instance == null || 
+           + !GameManager.Instance.CanUseWildcard())
+       301 +              {
+       302 +                  Debug.Log("Cannot use wildcard: no 
+           + wildcards remaining or GameManager not available.");
+       303 +                  return;
+       304 +              }
+       305 +  
+       306 +              // Determine target die index (selected shape 
+           + die, or first shape die if none selected)
+       307 +              int targetDieIndex = GetTargetShapeDieIndex();
+       308 +              if (targetDieIndex < 0 || targetDieIndex >= 3)
+       309 +              {
+       310 +                  Debug.LogWarning($"Invalid target shape die
+           +  index: {targetDieIndex}");
+       311 +                  return;
+       312 +              }
+       313 +  
+       314 +              // Store target die index for when selection is
+           +  made
+       315 +              // We'll use a temporary variable or pass it to
+           +  the panel
+       316 +              // For simplicity, we'll store in a field
+       317 +              wildcardTargetShapeDieIndex = targetDieIndex;
+       318 +  
+       319 +              // Show shape wildcard panel
+       320 +              if (shapeWildcardPanel != null)
+       321 +              {
+       322 +                  shapeWildcardPanel.Show();
+       323 +              }
+       324 +              else
+       325 +              {
+       326 +                  Debug.LogError("Shape wildcard panel not 
+           + assigned.");
+       327 +              }
+       328 +          }
+       329 +  
+       330 +          /// <summary>
+       331 +          /// Called when building wildcard button is 
+           + clicked.
+       332 +          /// Shows building wildcard panel if wildcards 
+           + available.
+       333 +          /// </summary>
+       334 +          private void OnBuildingWildcardButtonClicked()
+       335 +          {
+       336 +              if (GameManager.Instance == null || 
+           + !GameManager.Instance.CanUseWildcard())
+       337 +              {
+       338 +                  Debug.Log("Cannot use wildcard: no 
+           + wildcards remaining or GameManager not available.");
+       339 +                  return;
+       340 +              }
+       341 +  
+       342 +              // Determine target die index (selected 
+           + building die, or first building die if none selected)
+       343 +              int targetDieIndex = 
+           + GetTargetBuildingDieIndex();
+       344 +              if (targetDieIndex < 0 || targetDieIndex >= 3)
+       345 +              {
+       346 +                  Debug.LogWarning($"Invalid target building 
+           + die index: {targetDieIndex}");
+       347 +                  return;
+       348 +              }
+       349 +  
+       350 +              wildcardTargetBuildingDieIndex = 
+           + targetDieIndex;
+       351 +  
+       352 +              // Show building wildcard panel
+       353 +              if (buildingWildcardPanel != null)
+       354 +              {
+       355 +                  buildingWildcardPanel.Show();
+       356 +              }
+       357 +              else
+       358 +              {
+       359 +                  Debug.LogError("Building wildcard panel not
+           +  assigned.");
+       360 +              }
+       361 +          }
+       362 +  
+       363 +          /// <summary>
+       364 +          /// Called when a shape is selected from shape 
+           + wildcard panel.
+       365 +          /// </summary>
+       366 +          private void OnShapeWildcardSelected(int faceIndex)
+       367 +          {
+       368 +              Debug.Log($"Shape wildcard selected: face index
+           +  {faceIndex} for die index {wildcardTargetShapeDieIndex}");
+       369 +  
+       370 +              if (diceManager == null || GameManager.Instance
+           +  == null)
+       371 +              {
+       372 +                  Debug.LogError("Missing references for 
+           + wildcard application.");
+       373 +                  return;
+       374 +              }
+       375 +  
+       376 +              // Apply wildcard override
+       377 +              
+           + diceManager.ApplyWildcardOverride(DiceType.Shape, 
+           + wildcardTargetShapeDieIndex, faceIndex);
+       378 +  
+       379 +              // Use wildcard (increment count, apply cost)
+       380 +              bool success = 
+           + GameManager.Instance.UseWildcard();
+       381 +              if (!success)
+       382 +              {
+       383 +                  Debug.LogError("Failed to use wildcard.");
+       384 +                  return;
+       385 +              }
+       386 +  
+       387 +              // Update UI
+       388 +              UpdateDiceUI();
+       389 +              UpdateWildcardUI();
+       390 +  
+       391 +              // Update shape if one is active
+       392 +              if (shapeManager != null)
+       393 +                  
+           + shapeManager.UpdateActiveShapeFromSelectedDice();
+       394 +          }
+       395 +  
+       396 +          /// <summary>
+       397 +          /// Called when a building type is selected from 
+           + building wildcard panel.
+       398 +          /// </summary>
+       399 +          private void OnBuildingWildcardSelected(int 
+           + faceIndex)
+       400 +          {
+       401 +              Debug.Log($"Building wildcard selected: face 
+           + index {faceIndex} for die index 
+           + {wildcardTargetBuildingDieIndex}");
+       402 +  
+       403 +              if (diceManager == null || GameManager.Instance
+           +  == null)
+       404 +              {
+       405 +                  Debug.LogError("Missing references for 
+           + wildcard application.");
+       406 +                  return;
+       407 +              }
+       408 +  
+       409 +              // Apply wildcard override
+       410 +              
+           + diceManager.ApplyWildcardOverride(DiceType.Building, 
+           + wildcardTargetBuildingDieIndex, faceIndex);
+       411 +  
+       412 +              // Use wildcard
+       413 +              bool success = 
+           + GameManager.Instance.UseWildcard();
+       414 +              if (!success)
+       415 +              {
+       416 +                  Debug.LogError("Failed to use wildcard.");
+       417 +                  return;
+       418 +              }
+       419 +  
+       420 +              // Update UI
+       421 +              UpdateDiceUI();
+       422 +              UpdateWildcardUI();
+       423 +  
+       424 +              // Update shape if one is active
+       425 +              if (shapeManager != null)
+       426 +                  
+           + shapeManager.UpdateActiveShapeFromSelectedDice();
+       427 +          }
+       428 +  
+       429 +          /// <summary>
+       430 +          /// Get target shape die index for wildcard.
+       431 +          /// Returns selected shape die index, or first 
+           + shape die index if none selected.
+       432 +          /// </summary>
+       433 +          private int GetTargetShapeDieIndex()
+       434 +          {
+       435 +              if (diceManager == null) return 0;
+       436 +  
+       437 +              var shapeDice = diceManager.GetShapeDice();
+       438 +              for (int i = 0; i < shapeDice.Count; i++)
+       439 +              {
+       440 +                  if (shapeDice[i].Selected)
+       441 +                      return i;
+       442 +              }
+       443 +  
+       444 +              // No shape die selected, return first die
+       445 +              return 0;
+       446 +          }
+       447 +  
+       448 +          /// <summary>
+       449 +          /// Get target building die index for wildcard.
+       450 +          /// Returns selected building die index, or first 
+           + building die index if none selected.
+       451 +          /// </summary>
+       452 +          private int GetTargetBuildingDieIndex()
+       453 +          {
+       454 +              if (diceManager == null) return 0;
+       455 +  
+       456 +              var buildingDice = 
+           + diceManager.GetBuildingDice();
+       457 +              for (int i = 0; i < buildingDice.Count; i++)
+       458 +              {
+       459 +                  if (buildingDice[i].Selected)
+       460 +                      return i;
+       461 +              }
+       462 +  
+       463 +              // No building die selected, return first die
+       464 +              return 0;
+       465 +          }
+       466 +  
+       467 +          /// <summary>
+       468 +          /// Update wildcard UI elements (count, cost, 
+           + button interactability).
+       469 +          /// </summary>
+       470 +          private void UpdateWildcardUI()
+       471 +          {
+       472 +              if (GameManager.Instance == null) return;
+       473 +  
+       474 +              bool canUseWildcard = 
+           + GameManager.Instance.CanUseWildcard();
+       475 +              int remaining = GameManager.MAX_WILDCARDS - 
+           + GameManager.Instance.WildcardsUsed;
+       476 +              int nextCost = 
+           + GameManager.Instance.GetNextWildcardCost();
+       477 +  
+       478 +              // Update text
+       479 +              if (wildcardCountText != null)
+       480 +                  wildcardCountText.text = 
+           + $"{remaining}/{GameManager.MAX_WILDCARDS}";
+       481 +  
+       482 +              if (wildcardCostText != null)
+       483 +                  wildcardCostText.text = $"Cost: 
+           + {nextCost}";
+       484 +  
+       485 +              // Update button interactability
+       486 +              if (shapeWildcardButton != null)
+       487 +                  shapeWildcardButton.interactable = 
+           + canUseWildcard;
+       488 +              if (buildingWildcardButton != null)
+       489 +                  buildingWildcardButton.interactable = 
+           + canUseWildcard;
+       490 +          }
+       491 +  
+       492 +          #endregion
+       493        }
+       494    }
+       495   \ No newline at end of file
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 2 additions    
+       47            [SerializeField] private TextMeshProUGUI 
+            wildcardCostText;
+       48    
+       49            private bool waterDieClickedThisFrame = false;
+       50 +          private int wildcardTargetShapeDieIndex = 0;
+       51 +          private int wildcardTargetBuildingDieIndex = 0;
+       52    
+       53            void Start()
+       54            {
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 25 lines
+
+● Read(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition
+       197                HideWaterDiePanel();
+       198                waterDieClickedThisFrame = false;
+       199                UpdateDiceUI();
+       200 +              UpdateWildcardUI();
+       201            }
+       202    
+       203            /// <summary>
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 1 addition
+       209                HideWaterDiePanel();
+       210                waterDieClickedThisFrame = false;
+       211                UpdateDiceUI();
+       212 +              UpdateWildcardUI();
+       213            }
+       214    
+       215            /// <summary>
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 5 additions       
+       196                // Hide water die panel when dice are rolled 
+             (new turn)
+       197                HideWaterDiePanel();
+       198                waterDieClickedThisFrame = false;
+       199 +  
+       200 +              // Hide wildcard panels
+       201 +              if (shapeWildcardPanel != null) 
+           + shapeWildcardPanel.Hide();
+       202 +              if (buildingWildcardPanel != null) 
+           + buildingWildcardPanel.Hide();
+       203 +  
+       204                UpdateDiceUI();
+       205                UpdateWildcardUI();
+       206            }
+
+● Update(Assets/Scripts/UI/DiceUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/DiceUIManager.cs with 5 additions        
+       213                // Hide water die panel when selection cleared
+       214                HideWaterDiePanel();
+       215                waterDieClickedThisFrame = false;
+       216 +  
+       217 +              // Hide wildcard panels
+       218 +              if (shapeWildcardPanel != null) 
+           + shapeWildcardPanel.Hide();
+       219 +              if (buildingWildcardPanel != null) 
+           + buildingWildcardPanel.Hide();
+       220 +  
+       221                UpdateDiceUI();
+       222                UpdateWildcardUI();
+       223            }
+
+● Read(Assets/Scripts/Core/DiceManager.cs)
+  ⎿  Read 211 lines
+
+● Read(Assets/Scripts/Core/Dice.cs)
+  ⎿  Read 85 lines
+
+● Update(Assets/Scripts/Core/Dice.cs)
+  ⎿  Updated Assets/Scripts/Core/Dice.cs with 3 additions and 1 removal  
+        5        public class Dice
+        6        {
+        7            public DiceType Type { get; private set; }
+        8 -          public int CurrentFace { get; private set; } // 0-5 
+          -  index
+        8 +          public int CurrentFace { get; private set; } // 0-5 
+          +  index (may be overridden)
+        9            public bool Selected { get; set; }
+       10 +          public bool IsOverridden { get; private set; }
+       11 +          public int OriginalFace { get; private set; } // 
+          + Face from last roll
+       12    
+       13            public Dice(DiceType type)
+       14            {
+
+● Update(Assets/Scripts/Core/Dice.cs)
+  ⎿  Updated Assets/Scripts/Core/Dice.cs with 2 additions 
+       23            public void Roll()
+       24            {
+       25                CurrentFace = Random.Range(0, 6);
+       26 +              OriginalFace = CurrentFace;
+       27 +              IsOverridden = false;
+       28            }
+       29    
+       30            /// <summary>
+  ⎿  API Error: terminated
+
+> continue from where you left off 
+
+● Update(Assets/Scripts/Core/Dice.cs)
+  ⎿  Updated Assets/Scripts/Core/Dice.cs with 25 additions               
+        85                else
+        86                    return GetBuildingType().ToString();
+        87            }
+        88 +  
+        89 +          /// <summary>
+        90 +          /// Override the current face with a specific face 
+           + index.
+        91 +          /// Used for wildcards. Resets on next roll.
+        92 +          /// </summary>
+        93 +          public void OverrideFace(int faceIndex)
+        94 +          {
+        95 +              if (faceIndex < 0 || faceIndex > 5)
+        96 +              {
+        97 +                  Debug.LogError($"Invalid face index for 
+           + override: {faceIndex}");
+        98 +                  return;
+        99 +              }
+       100 +  
+       101 +              CurrentFace = faceIndex;
+       102 +              IsOverridden = true;
+       103 +          }
+       104 +  
+       105 +          /// <summary>
+       106 +          /// Get the original face from last roll (not 
+           + affected by overrides).
+       107 +          /// Used for star awarding.
+       108 +          /// </summary>
+       109 +          public int GetOriginalFace()
+       110 +          {
+       111 +              return OriginalFace;
+       112 +          }
+       113        }
+       114    }
+       115   \ No newline at end of file
+
+● Read(Assets/Scripts/Core/DiceManager.cs)
+  ⎿  Read 17 lines
+
+● Update(Assets/Scripts/Core/DiceManager.cs)
+  ⎿  Updated Assets/Scripts/Core/DiceManager.cs with 33 additions       
+       207            {
+       208                return waterDieChosenBuildingType.HasValue;
+       209            }
+       210 +  
+       211 +          /// <summary>
+       212 +          /// Apply a wildcard override to a specific die.
+       213 +          /// </summary>
+       214 +          public void ApplyWildcardOverride(DiceType 
+           + diceType, int dieIndex, int overrideFace)
+       215 +          {
+       216 +              if (diceType == DiceType.Shape)
+       217 +              {
+       218 +                  var shapeDice = dicePool.GetShapeDice();
+       219 +                  if (dieIndex >= 0 && dieIndex < 
+           + shapeDice.Count)
+       220 +                  {
+       221 +                      
+           + shapeDice[dieIndex].OverrideFace(overrideFace);
+       222 +                      Debug.Log($"Wildcard applied to shape 
+           + die {dieIndex}: override face {overrideFace}");
+       223 +                  }
+       224 +                  else
+       225 +                  {
+       226 +                      Debug.LogError($"Invalid shape die 
+           + index for wildcard: {dieIndex}");
+       227 +                  }
+       228 +              }
+       229 +              else if (diceType == DiceType.Building)
+       230 +              {
+       231 +                  var buildingDice = 
+           + dicePool.GetBuildingDice();
+       232 +                  if (dieIndex >= 0 && dieIndex < 
+           + buildingDice.Count)
+       233 +                  {
+       234 +                      
+           + buildingDice[dieIndex].OverrideFace(overrideFace);
+       235 +                      Debug.Log($"Wildcard applied to 
+           + building die {dieIndex}: override face {overrideFace}");
+       236 +                  }
+       237 +                  else
+       238 +                  {
+       239 +                      Debug.LogError($"Invalid building die 
+           + index for wildcard: {dieIndex}");
+       240 +                  }
+       241 +              }
+       242 +          }
+       243        }
+       244    }
+       245   \ No newline at end of file
+
+● Read(Assets/Scripts/Core/DicePool.cs)
+  ⎿  Read 214 lines
+
+● Update(Assets/Scripts/Core/DicePool.cs)
+  ⎿  Updated Assets/Scripts/Core/DicePool.cs with 20 additions           
+        94            /// <summary>
+        95            /// Get dice that appear exactly twice in the given
+              pool.
+        96            /// Returns list of face indices that are doubles.
+        97 +          /// Uses current faces (including wildcard 
+           + overrides).
+        98            /// </summary>
+        99            public List<int> GetDoubleFaces(DiceType type)
+       100            {
+     ...
+       110            }
+       111    
+       112            /// <summary>
+       113 +          /// Get dice that appear exactly twice in the given
+           +  pool based on original roll faces.
+       114 +          /// Used for star awarding (wildcards should not 
+           + affect star eligibility).
+       115 +          /// </summary>
+       116 +          public List<int> GetOriginalDoubleFaces(DiceType 
+           + type)
+       117 +          {
+       118 +              var diceList = type == DiceType.Shape ? 
+           + shapeDice : buildingDice;
+       119 +              var faceCounts = new Dictionary<int, int>();
+       120 +              foreach (var dice in diceList)
+       121 +              {
+       122 +                  int originalFace = dice.GetOriginalFace();
+       123 +                  if (!faceCounts.ContainsKey(originalFace))
+       124 +                      faceCounts[originalFace] = 0;
+       125 +                  faceCounts[originalFace]++;
+       126 +              }
+       127 +  
+       128 +              return faceCounts.Where(kvp => kvp.Value == 
+           + 2).Select(kvp => kvp.Key).ToList();
+       129 +          }
+       130 +  
+       131 +          /// <summary>
+       132            /// Get all shape dice.
+       133            /// </summary>
+       134            public List<Dice> GetShapeDice() => new 
+             List<Dice>(shapeDice);
+
+● Read(Assets/Scripts/Core/DiceManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/Core/DiceManager.cs)
+  ⎿  Updated Assets/Scripts/Core/DiceManager.cs with 9 additions         
+       129            }
+       130    
+       131            /// <summary>
+       132 +          /// Get original double faces for a given dice type
+           +  (based on roll, not wildcard overrides).
+       133 +          /// Used for star awarding.
+       134 +          /// </summary>
+       135 +          public System.Collections.Generic.List<int> 
+           + GetOriginalDoubleFaces(DiceType type)
+       136 +          {
+       137 +              return dicePool.GetOriginalDoubleFaces(type);
+       138 +          }
+       139 +  
+       140 +          /// <summary>
+       141            /// Check if the selected building die is Water.
+       142            /// </summary>
+       143            public bool IsSelectedBuildingWater()
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 45 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 7 additions and 6 removals
+       168                return;
+       169            }
+       170    
+       171 -          // Get double faces from current roll
+       172 -          List<int> shapeDoubles = diceManager.GetDoubleFaces
+           -  (DiceType.Shape);
+       173 -          List<int> buildingDoubles = diceManager.
+           -  GetDoubleFaces(DiceType.Building);
+       171 +          // Get original double faces from current roll
+           +   (wildcards don't affect star eligibility)
+       172 +          List<int> shapeDoubles = diceManager.
+           +  GetOriginalDoubleFaces(DiceType.Shape);
+       173 +          List<int> buildingDoubles = diceManager.
+           +  GetOriginalDoubleFaces(DiceType.Building);
+       174    
+       175 -          // Get selected dice faces
+       175 +          // Get selected dice
+       176            Dice selectedShapeDie = 
+             diceManager.GetSelectedShapeDie();
+       177            Dice selectedBuildingDie = 
+             diceManager.GetSelectedBuildingDie();
+       178    
+     ...
+       182                return;
+       183            }
+       184    
+       185 -          int shapeFaceIndex = selectedShapeDie.CurrentFace;
+       186 -          int buildingFaceIndex = 
+           - selectedBuildingDie.CurrentFace;
+       185 +          // Use original faces for star eligibility (not 
+           + wildcard overrides)
+       186 +          int shapeFaceIndex = 
+           + selectedShapeDie.GetOriginalFace();
+       187 +          int buildingFaceIndex = 
+           + selectedBuildingDie.GetOriginalFace();
+       188    
+       189            bool shapeMatchesDouble = 
+             shapeDoubles.Contains(shapeFaceIndex);
+       190            bool buildingMatchesDouble = 
+             buildingDoubles.Contains(buildingFaceIndex);
+
+● Update(Assets/Scripts/Core/DicePool.cs)
+  ⎿  Updated Assets/Scripts/Core/DicePool.cs with 5 additions and 3 removal
+
+       77    
+       78            /// <summary>
+       79            /// Returns list of face indices that appear exactly
+             three times in the given dice list.
+       80 +          /// Uses original faces (wildcards shouldn't trigger
+          +  auto-rerolls).
+       81            /// </summary>
+       82            private List<int> GetTripleFaces(List<Dice> 
+            diceList)
+       83            {
+       84                var faceCounts = new Dictionary<int, int>();
+       85                foreach (var dice in diceList)
+       86                {
+       87 -                  if 
+          - (!faceCounts.ContainsKey(dice.CurrentFace))
+       88 -                      faceCounts[dice.CurrentFace] = 0;
+       89 -                  faceCounts[dice.CurrentFace]++;
+       87 +                  int originalFace = dice.GetOriginalFace();
+       88 +                  if (!faceCounts.ContainsKey(originalFace))
+       89 +                      faceCounts[originalFace] = 0;
+       90 +                  faceCounts[originalFace]++;
+       91                }
+       92    
+       93                return faceCounts.Where(kvp => kvp.Value == 
+            3).Select(kvp => kvp.Key).ToList();
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && find . -name "*.csproj" -o -name "*.sln" | head -5)
+  ⎿  ./Assembly-CSharp.csproj
+     ./PocketPlanner.sln
+
+● Read(current-functionality.md)
+  ⎿  Read 204 lines
+  ⎿ API Error: 400 {"error":{"message":"This model's maximum context length is 
+    131072 tokens. However, you requested 131876 tokens (110543 in the messages,
+     21333 in the completion). Please reduce the length of the messages or 
+    completion.","type":"invalid_request_error","param":null,"code":"invalid_req
+    uest_error"}}
+
+
+
