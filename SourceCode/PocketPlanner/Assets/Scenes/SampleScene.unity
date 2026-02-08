@@ -4172,6 +4172,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.UI.WildcardSelectionPanel
   panel: {fileID: 893511143}
+  otherWildcardPanel: {fileID: 2081173255}
   selectionButtons:
   - {fileID: 69538554}
   - {fileID: 1755249068}
@@ -10737,6 +10738,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.UI.WildcardSelectionPanel
   panel: {fileID: 2081173255}
+  otherWildcardPanel: {fileID: 893511143}
   selectionButtons:
   - {fileID: 931842374}
   - {fileID: 1994179305}
