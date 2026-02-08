@@ -14,6 +14,7 @@ namespace PocketPlanner.UI
     {
         [Header("UI Elements")]
         [SerializeField] private GameObject panel;
+        [SerializeField] private GameObject otherWildcardPanel; // Reference to the other panel to ensure only one is active at a time (can be removed later if only one panel is used)
         [SerializeField] private List<Button> selectionButtons = new List<Button>();
         [SerializeField] private Button cancelButton;
 
@@ -62,6 +63,12 @@ namespace PocketPlanner.UI
             Debug.Log($"WildcardSelectionPanel.Show() on {gameObject.name}, panel={(panel != null ? panel.name : "null")}, activeSelf={(panel != null ? panel.activeSelf.ToString() : "N/A")}, activeInHierarchy={(panel != null ? panel.activeInHierarchy.ToString() : "N/A")}");
             if (panel != null)
             {
+                // Ensure other panel is hidden
+                if (otherWildcardPanel != null && otherWildcardPanel.activeSelf)
+                {
+                    otherWildcardPanel.SetActive(false);
+                    Debug.Log($"Other panel {otherWildcardPanel.name} deactivated to ensure only one panel is active at a time.");
+                }
                 // Only activate if not already active
                 if (!panel.activeSelf)
                 {
