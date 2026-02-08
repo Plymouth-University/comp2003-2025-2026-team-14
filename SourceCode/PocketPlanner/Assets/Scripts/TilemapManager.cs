@@ -85,6 +85,9 @@ public class TilemapManager : MonoBehaviour
         GenerateBoard();
         AdjustCamera();
 
+        // Temporary: Highlight starting tile 1 on game start
+        HighlightStartingTile(1);
+
         // Test coordinate conversions
         TestCoordinateConversions();
     }
@@ -254,6 +257,7 @@ public class TilemapManager : MonoBehaviour
     /// </summary>
     public void HighlightStartingTile(int number)
     {
+        UnhighlightAllStartingTiles();
         Debug.Log($"TilemapManager: Attempting to highlight starting tile {number}");
         GridPosition pos = GetStartingTilePosition(number);
         if (pos.x < 0 || pos.y < 0)
