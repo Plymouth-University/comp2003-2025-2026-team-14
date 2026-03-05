@@ -73,3 +73,18 @@ ehthumbs.db
 Thumbs.db
 *.md
 .cl*e/
+
+# Firebase files
+google-services.json
+google-services.json.meta
+GoogleService-Info.plist
+GoogleService-Info.plist.meta
+/[Aa]ssets/Firebase/
+/[Aa]ssets/ExternalDependencyManager/
+/[Aa]ssets/Plugins/
+/[Aa]ssets/Plugins.meta
+/[Aa]ssets/GeneratedLocalRepo/
+/[Aa]ssets/GeneratedLocalRepo.meta
+/[Aa]ssets/StreamingAssets/
+/[Aa]ssets/StreamingAssets.meta
+GooglePackages/*
