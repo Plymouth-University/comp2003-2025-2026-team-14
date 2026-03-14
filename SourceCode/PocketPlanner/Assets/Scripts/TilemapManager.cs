@@ -53,6 +53,8 @@ public class TilemapManager : MonoBehaviour
         new GridPosition(7,9),
     };
 
+    private List<TextMeshPro> startingTileLabels = new List<TextMeshPro>();
+
     private Dictionary<int, Color> originalStartingTileColors = new Dictionary<int, Color>();
 
     [Header("Camera Settings")]
@@ -195,7 +197,9 @@ public class TilemapManager : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.TopLeft;
         tmp.margin = new Vector4(0.1f, 0.1f, 0, 0);
         tmp.rectTransform.sizeDelta = new Vector2(1, 1);
+        tmp.sortingLayerID = boardTilemap.GetComponent<TilemapRenderer>().sortingLayerID;
         tmp.sortingOrder = 1; // Ensure text is rendered above the tile
+        startingTileLabels.Add(tmp);
         gridTiles[x, y] = gridTile;
     }
     private void InitializeRegularTile(GameObject tileObject, int x, int y)
@@ -206,6 +210,17 @@ public class TilemapManager : MonoBehaviour
         gridTile.isStartingTile = false;
         tileObject.name = $"Tile: ({x},{y})";
         gridTiles[x, y] = gridTile;
+    }
+
+    /// <summary>
+    /// Deactivates all starting tile labels.
+    /// </summary>
+    public void DeactivateStartingTileLabels()
+    {
+        foreach (var label in startingTileLabels)
+        {
+            label.SetText(""); // Clear text to hide label
+        }
     }
 
     /// <summary>

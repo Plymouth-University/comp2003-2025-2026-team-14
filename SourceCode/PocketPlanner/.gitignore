@@ -12,6 +12,12 @@
 # Unity Asset Store Tools
 [Aa]ssets/AssetStoreTools*
 
+# Unity Recovery Scenes and URP
+[Aa]ssets/_Recovery/
+[Aa]ssets/URP/*
+[Aa]ssets/URPDefaultResources/
+[Aa]ssets/URPDefaultResources.meta
+
 # Visual Studio cache directory
 .vs/
 .vscode/
@@ -87,4 +93,4 @@ GoogleService-Info.plist.meta
 /[Aa]ssets/GeneratedLocalRepo.meta
 /[Aa]ssets/StreamingAssets/
 /[Aa]ssets/StreamingAssets.meta
-GooglePackages/*
+GooglePackages/*.tgz
