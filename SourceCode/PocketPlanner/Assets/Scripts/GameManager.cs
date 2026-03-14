@@ -249,14 +249,19 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Marks the first turn as completed (after first shape placement).
+    /// Marks the first turn as completed (after first shape placement) and deactivates starting tile labels.
     /// </summary>
     public void CompleteFirstTurn()
     {
         if (!firstTurnCompleted)
         {
             firstTurnCompleted = true;
-            Debug.Log("GameManager: First turn marked as completed");
+            if (boardManager != null)
+            {
+                boardManager.DeactivateStartingTileLabels();
+                boardManager.UnhighlightAllStartingTiles();
+                Debug.Log("GameManager: First turn marked as completed");
+            }
         }
     }
 
@@ -267,7 +272,17 @@ public class GameManager : MonoBehaviour
     public void OnShapePlacementConfirmed(ShapeController shape)
     {
         // Award stars for double rolls if applicable
-        AwardStarsForDoubleRolls(shape);
+        int starsAwarded = AwardStarsForDoubleRolls(shape);
+
+        // Add star visual to shape if stars were awarded
+        if (starsAwarded > 0 && shapeManager != null)
+        {
+            shapeManager.AddStarVisualToShape(shape, starsAwarded);
+        }
+        else if (starsAwarded > 0)
+        {
+            Debug.LogWarning("Stars awarded but shapeManager is null, cannot add star visual.");
+        }
 
         // Add shape to zone system
         if (zoneManager != null)
@@ -285,14 +300,15 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Award stars based on double rolls matching selected dice faces.
+    /// Returns the number of stars awarded (0, 1, or 2).
     /// </summary>
-    private void AwardStarsForDoubleRolls(ShapeController shape)
+    private int AwardStarsForDoubleRolls(ShapeController shape)
     {
-        if (diceManager == null) return;
+        if (diceManager == null) return 0;
         if (shape.shapeData == null)
         {
             Debug.LogWarning("Cannot award stars: shape.shapeData is null.");
-            return;
+            return 0;
         }
 
         // Get original double faces from current roll (wildcards don't affect star eligibility)
@@ -306,7 +322,7 @@ public class GameManager : MonoBehaviour
         if (selectedShapeDie == null || selectedBuildingDie == null)
         {
             Debug.LogWarning("Cannot award stars: no dice selected.");
-            return;
+            return 0;
         }
 
         // Use original faces for star eligibility (not wildcard overrides)
@@ -316,16 +332,21 @@ public class GameManager : MonoBehaviour
         bool shapeMatchesDouble = shapeDoubles.Contains(shapeFaceIndex);
         bool buildingMatchesDouble = buildingDoubles.Contains(buildingFaceIndex);
 
+        int starsAwarded = 0;
         if (shapeMatchesDouble && buildingMatchesDouble)
         {
-            stars += 2; // Double star
+            starsAwarded = 2; // Double star
+            stars += starsAwarded;
             Debug.Log($"Awarded 2 stars: shape and building match double rolls.");
         }
         else if (shapeMatchesDouble || buildingMatchesDouble)
         {
-            stars += 1; // Single star
+            starsAwarded = 1; // Single star
+            stars += starsAwarded;
             Debug.Log($"Awarded 1 star: one matches double roll.");
         }
+
+        return starsAwarded;
     }
 
     /// <summary>

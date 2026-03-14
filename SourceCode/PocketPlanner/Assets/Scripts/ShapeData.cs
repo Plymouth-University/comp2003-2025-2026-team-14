@@ -9,4 +9,6 @@ public class ShapeData : ScriptableObject
     public Color color;
     // Define the shape layout relative to center (0,0)
     public List<GridPosition> relativeTilePositions;
+
+    public Vector2Int manipulationPanelOffset; // Offset for UI panel positioning
 }

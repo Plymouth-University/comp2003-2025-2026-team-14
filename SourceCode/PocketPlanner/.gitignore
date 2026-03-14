@@ -12,6 +12,12 @@
 # Unity Asset Store Tools
 [Aa]ssets/AssetStoreTools*
 
+# Unity Recovery Scenes and URP
+[Aa]ssets/_Recovery/
+[Aa]ssets/URP/*
+[Aa]ssets/URPDefaultResources/
+[Aa]ssets/URPDefaultResources.meta
+
 # Visual Studio cache directory
 .vs/
 .vscode/
@@ -73,3 +79,18 @@ ehthumbs.db
 Thumbs.db
 *.md
 .cl*e/
+
+# Firebase files
+google-services.json
+google-services.json.meta
+GoogleService-Info.plist
+GoogleService-Info.plist.meta
+/[Aa]ssets/Firebase/
+/[Aa]ssets/ExternalDependencyManager/
+/[Aa]ssets/Plugins/
+/[Aa]ssets/Plugins.meta
+/[Aa]ssets/GeneratedLocalRepo/
+/[Aa]ssets/GeneratedLocalRepo.meta
+/[Aa]ssets/StreamingAssets/
+/[Aa]ssets/StreamingAssets.meta
+GooglePackages/*.tgz

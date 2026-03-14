@@ -15,6 +15,22 @@ namespace PocketPlanner.UI
         [Header("Shape Manager Reference")]
         [SerializeField] private ShapeManager shapeManager;
 
+        [Header("Shape Dice Face Sprites")]
+        [SerializeField] private Sprite singleShapeFaceSprite = null;
+        [SerializeField] private Sprite TShapeFaceSprite = null;
+        [SerializeField] private Sprite LShapeFaceSprite = null;
+        [SerializeField] private Sprite squareShapeFaceSprite = null;
+        [SerializeField] private Sprite lineShapeFaceSprite = null;
+        [SerializeField] private Sprite ZShapeFaceSprite = null;
+
+        [Header("Building Dice Face Sprites")]
+        [SerializeField] private Sprite industrialFaceSprite = null;
+        [SerializeField] private Sprite residentialFaceSprite = null;
+        [SerializeField] private Sprite commercialFaceSprite = null;
+        [SerializeField] private Sprite schoolFaceSprite = null;
+        [SerializeField] private Sprite parkFaceSprite = null;
+        [SerializeField] private Sprite waterFaceSprite = null;
+
         [Header("Shape Dice UI Elements")]
         [SerializeField] private List<Button> shapeDiceButtons = new List<Button>(3);
         [SerializeField] private List<TextMeshProUGUI> shapeDiceTexts = new List<TextMeshProUGUI>(3);
@@ -127,6 +143,40 @@ namespace PocketPlanner.UI
         }
 
         /// <summary>
+        /// Returns the sprite for a given shape type.
+        /// </summary>
+        private Sprite GetShapeSprite(ShapeType shapeType)
+        {
+            return shapeType switch
+            {
+                ShapeType.SingleShape => singleShapeFaceSprite,
+                ShapeType.TShape => TShapeFaceSprite,
+                ShapeType.LShape => LShapeFaceSprite,
+                ShapeType.SquareShape => squareShapeFaceSprite,
+                ShapeType.LineShape => lineShapeFaceSprite,
+                ShapeType.ZShape => ZShapeFaceSprite,
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Returns the sprite for a given building type.
+        /// </summary>
+        private Sprite GetBuildingSprite(BuildingType buildingType)
+        {
+            return buildingType switch
+            {
+                BuildingType.Industrial => industrialFaceSprite,
+                BuildingType.Residential => residentialFaceSprite,
+                BuildingType.Commercial => commercialFaceSprite,
+                BuildingType.School => schoolFaceSprite,
+                BuildingType.Park => parkFaceSprite,
+                BuildingType.Water => waterFaceSprite,
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Call this after dice are rolled to update UI.
         /// </summary>
         public void UpdateDiceUI()
@@ -144,6 +194,7 @@ namespace PocketPlanner.UI
             for (int i = 0; i < shapeDice.Count && i < shapeDiceTexts.Count; i++)
             {
                 shapeDiceTexts[i].text = shapeDice[i].GetFaceName();
+                shapeDiceBackgrounds[i].sprite = GetShapeSprite(shapeDice[i].GetShapeType());
                 bool isSelected = shapeDice[i].Selected;
                 bool isDouble = shapeOriginalDoubles.Contains(shapeDice[i].CurrentFace);
                 shapeDiceBackgrounds[i].color = isSelected ? selectedColor : (isDouble ? doubleColor : defaultColor);
@@ -153,6 +204,7 @@ namespace PocketPlanner.UI
             for (int i = 0; i < buildingDice.Count && i < buildingDiceTexts.Count; i++)
             {
                 buildingDiceTexts[i].text = buildingDice[i].GetFaceName();
+                buildingDiceBackgrounds[i].sprite = GetBuildingSprite(buildingDice[i].GetBuildingType());
                 bool isSelected = buildingDice[i].Selected;
                 bool isDouble = buildingOriginalDoubles.Contains(buildingDice[i].CurrentFace);
                 buildingDiceBackgrounds[i].color = isSelected ? selectedColor : (isDouble ? doubleColor : defaultColor);
