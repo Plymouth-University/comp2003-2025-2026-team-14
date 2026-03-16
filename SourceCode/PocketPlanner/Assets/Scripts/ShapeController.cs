@@ -42,6 +42,7 @@ public class ShapeController : MonoBehaviour
     public bool IsFlipped { get; private set; } // Whether the shape is flipped horizontally
     public bool isPlacedOnGrid = false;
     public bool isPlacementConfirmed = false; // true = Shape is no longer moveable
+    public bool lastGhostValidity = false; // Used to track when validity changes for ghost color updates
     public bool isValidPosition = false; // true if shape position passes basic validation (boundaries, river, overlap)
     private Tilemap boardTilemap;
     private TilemapManager tilemapManager;
@@ -66,12 +67,7 @@ public class ShapeController : MonoBehaviour
 
         // Initial validity check
         UpdatePositionValidity();
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        MakeShapeGhost(); // Set initial color to ghost (valid or invalid)
     }
 
     private void OnShapeMovement(InputValue value) //Invoked by Input System
@@ -97,6 +93,7 @@ public class ShapeController : MonoBehaviour
         {
             MoveUp();
         }
+        UpdateGhostColor(); // Update ghost color based on new position validity
     }
 
     private void OnShapeConfirm() //Invoked by Input System
@@ -119,7 +116,8 @@ public class ShapeController : MonoBehaviour
             Debug.Log("First turn completed after successful placement.");
         }
 
-        // Finalize placement (mark tiles occupied)
+        // Finalize placement (mark tiles occupied and make shape normal)
+        MakeShapeNormal();
         FinalizePlacement();
         isPlacementConfirmed = true;
         Debug.Log("Shape placement confirmed.");
@@ -177,6 +175,7 @@ public class ShapeController : MonoBehaviour
         RotationState = (RotationState + 1) % 4;
         UpdateVisual();
         UpdatePositionValidity();
+        UpdateGhostColor();
     }
 
     public void OnShapeFlip() //Invoked by Input System
@@ -185,6 +184,7 @@ public class ShapeController : MonoBehaviour
         IsFlipped = !IsFlipped;
         UpdateVisual();
         UpdatePositionValidity();
+        UpdateGhostColor();
     }
 
     public void SetRotationState(int newRotationState)
@@ -538,6 +538,86 @@ public class ShapeController : MonoBehaviour
                 Debug.LogError($"  Tile at logical {pos} not found!");
             }
         }
+    }
+
+
+    /// <summary>
+    /// Changes the shape's appearance to a "ghost" (semi-transparent) to indicate it's being moved for placement.
+    /// Should be called when the player first places the shape.
+    /// </summary>
+    public void MakeShapeGhost()
+    {
+        if (!isPlacementConfirmed)
+        {
+            if (shapeData.shapeName == ShapeType.SingleShape) // Single shape has no child objects
+            {
+                SpriteRenderer s = transform.gameObject.GetComponent<SpriteRenderer>();
+                if (CheckPlacementRules())
+                {
+                    s.color = new Color(16f/255f, 100f/255f, 8f/255f, 0.5f); // Semi-transparent green for valid Hex 106408
+                }
+                else
+                {
+                    s.color = new Color(100f/255f, 12f/255f, 8f/255f, 0.5f); // Semi-transparent red for invalid
+                }
+                s.sortingOrder = 1; // Ensure ghost is rendered above other tiles
+                return;
+            }
+
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                Transform child = transform.GetChild(i);
+                SpriteRenderer s = child.gameObject.GetComponent<SpriteRenderer>();
+                if (CheckPlacementRules())
+                {
+                    s.color = new Color(16f/255f, 100f/255f, 8f/255f, 0.5f); // Semi-transparent green for valid Hex 106408
+                }
+                else
+                {
+                    s.color = new Color(100f/255f, 12f/255f, 8f/255f, 0.5f); // Semi-transparent red for invalid
+                }
+                s.sortingOrder = 1; // Ensure ghost is rendered above other tiles
+            } 
+            
+        }
+    }
+
+    /// <summary>
+    /// Updates the color of the ghost shape based on its validity.
+    /// Should be called when the shape moves.
+    /// </summary>
+    public void UpdateGhostColor()
+    {
+        bool isValid = CheckPlacementRules();
+        if (isValid == lastGhostValidity)
+        {
+            return; // No change in validity, no need to update color
+        }
+        MakeShapeGhost(); // Reuse ghost coloring logic
+        lastGhostValidity = isValid;
+    }
+
+    /// <summary>
+    ///  Changes the shape's appearance back to normal (opaque, colored by building type).
+    ///  Should be called when shape placement is confirmed.
+    /// </summary>
+    public void MakeShapeNormal() // Should be called when placement is confirmed to set color back to normal
+    {
+        if (shapeData.shapeName == ShapeType.SingleShape) // Single shape has no child objects
+        {
+            SpriteRenderer s = transform.gameObject.GetComponent<SpriteRenderer>();
+            s.color = GetColorForBuildingType(buildingType);
+            s.sortingOrder = 0; // Reset sorting order
+            return;
+        }
+
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            SpriteRenderer s = child.gameObject.GetComponent<SpriteRenderer>();
+            s.color = GetColorForBuildingType(buildingType);
+            s.sortingOrder = 0; // Reset sorting order
+        } 
     }
 
     public void ChangeShapeColor() // Temporary method to change color using sprites of child objects

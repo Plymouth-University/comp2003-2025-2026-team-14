@@ -98,8 +98,12 @@ public class ManipulationUIManager : MonoBehaviour
         int halfScreenWidth = Screen.width / 2;
         int halfScreenHeight = Screen.height / 2;
 
-        // Apply offset in screen space (pixels)
+        // Apply offset in screen space (pixels) where the reference screen size is 1080x1920 (portrait)
         Vector2Int panelOffset = shapeManager.activeShape.shapeData.manipulationPanelOffset;
+        float screenWidthRatio = (float)Screen.width / 1080f;
+        float screenHeightRatio = (float)Screen.height / 1920f;
+        panelOffset.x = Mathf.RoundToInt(panelOffset.x * screenWidthRatio);
+        panelOffset.y = Mathf.RoundToInt(panelOffset.y * screenHeightRatio);
         // If the shape is on the right half of the screen, flip the panel to the left side of the shape
         if (screenPos.x > halfScreenWidth)
         {
