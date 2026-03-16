@@ -77,6 +77,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ShapeMovement1",
+                    "type": "Value",
+                    "id": "77a26deb-a7ef-46da-9b32-04cd9776587c",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -209,6 +218,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "MouseClick",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a4d591ff-abf8-4704-ad36-9e34fb5ece54",
+                    "path": "<Touchscreen>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ShapeMovement1",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

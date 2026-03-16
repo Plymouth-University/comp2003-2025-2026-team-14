@@ -96,7 +96,7 @@ public class ShapeController : MonoBehaviour
         UpdateGhostColor(); // Update ghost color based on new position validity
     }
 
-    private void OnShapeConfirm() //Invoked by Input System
+    public void OnShapeConfirm() //Invoked by Input System
     {
         if (isPlacementConfirmed)
             return;

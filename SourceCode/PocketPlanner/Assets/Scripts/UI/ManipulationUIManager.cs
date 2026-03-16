@@ -5,9 +5,9 @@ public class ManipulationUIManager : MonoBehaviour
 {
     [Header("Manipulation Panel References")]
     [SerializeField] private GameObject manipulationPanel;
-    [SerializeField] private GameObject RotateButton;
-    [SerializeField] private GameObject FlipButton;
-    [SerializeField] private GameObject ConfirmButton;
+    [SerializeField] private Button RotateButton;
+    [SerializeField] private Button FlipButton;
+    [SerializeField] private Button ConfirmButton;
 
     [Header("Shape Manager Reference")]
     [SerializeField] private ShapeManager shapeManager;
@@ -63,6 +63,14 @@ public class ManipulationUIManager : MonoBehaviour
             {
                 Debug.LogError("ManipulationUIManager: manipulationPanel doesn't have a RectTransform!");
             }
+        }
+
+        // Set up button listeners
+        if (shapeManager != null)
+        {
+            RotateButton.onClick.AddListener(OnRotateButtonClicked);
+            FlipButton.onClick.AddListener(OnFlipButtonClicked);
+            ConfirmButton.onClick.AddListener(OnConfirmButtonClicked);
         }
     }
 
@@ -136,5 +144,20 @@ public class ManipulationUIManager : MonoBehaviour
         } else {
             ConfirmButton.GetComponent<Button>().interactable = false;
         }
+    }
+
+    private void OnRotateButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeRotate();
+    }
+
+    private void OnFlipButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeFlip();
+    }   
+
+    private void OnConfirmButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeConfirm();
     }
 }
