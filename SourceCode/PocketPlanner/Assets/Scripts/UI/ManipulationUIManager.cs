@@ -5,9 +5,9 @@ public class ManipulationUIManager : MonoBehaviour
 {
     [Header("Manipulation Panel References")]
     [SerializeField] private GameObject manipulationPanel;
-    [SerializeField] private GameObject RotateButton;
-    [SerializeField] private GameObject FlipButton;
-    [SerializeField] private GameObject ConfirmButton;
+    [SerializeField] private Button RotateButton;
+    [SerializeField] private Button FlipButton;
+    [SerializeField] private Button ConfirmButton;
 
     [Header("Shape Manager Reference")]
     [SerializeField] private ShapeManager shapeManager;
@@ -64,6 +64,14 @@ public class ManipulationUIManager : MonoBehaviour
                 Debug.LogError("ManipulationUIManager: manipulationPanel doesn't have a RectTransform!");
             }
         }
+
+        // Set up button listeners
+        if (shapeManager != null)
+        {
+            RotateButton.onClick.AddListener(OnRotateButtonClicked);
+            FlipButton.onClick.AddListener(OnFlipButtonClicked);
+            ConfirmButton.onClick.AddListener(OnConfirmButtonClicked);
+        }
     }
 
     // Update is called once per frame
@@ -98,8 +106,12 @@ public class ManipulationUIManager : MonoBehaviour
         int halfScreenWidth = Screen.width / 2;
         int halfScreenHeight = Screen.height / 2;
 
-        // Apply offset in screen space (pixels)
+        // Apply offset in screen space (pixels) where the reference screen size is 1080x1920 (portrait)
         Vector2Int panelOffset = shapeManager.activeShape.shapeData.manipulationPanelOffset;
+        float screenWidthRatio = (float)Screen.width / 1080f;
+        float screenHeightRatio = (float)Screen.height / 1920f;
+        panelOffset.x = Mathf.RoundToInt(panelOffset.x * screenWidthRatio);
+        panelOffset.y = Mathf.RoundToInt(panelOffset.y * screenHeightRatio);
         // If the shape is on the right half of the screen, flip the panel to the left side of the shape
         if (screenPos.x > halfScreenWidth)
         {
@@ -132,5 +144,20 @@ public class ManipulationUIManager : MonoBehaviour
         } else {
             ConfirmButton.GetComponent<Button>().interactable = false;
         }
+    }
+
+    private void OnRotateButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeRotate();
+    }
+
+    private void OnFlipButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeFlip();
+    }   
+
+    private void OnConfirmButtonClicked()
+    {
+        shapeManager.activeShape.OnShapeConfirm();
     }
 }

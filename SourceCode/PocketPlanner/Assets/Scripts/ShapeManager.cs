@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using PocketPlanner.Core;
 
 public class ShapeManager : MonoBehaviour
@@ -21,6 +22,7 @@ public class ShapeManager : MonoBehaviour
     [SerializeField] private Sprite starSprite; // Sprite for stars awarded for selecting double rolls
     private InputAction mouseClickAction;
     private InputAction mousePositionAction;
+    private InputAction touchPositionAction; // For mobile touch input
     private Camera mainCamera;
     private Vector3 centerTileWorldOffset = new Vector3(0.5f, 0.5f, 0); // Offset to center shape in tile
 
@@ -30,12 +32,17 @@ public class ShapeManager : MonoBehaviour
         PlayerInput playerInput = GetComponent<PlayerInput>();
         mouseClickAction = playerInput.actions["PlaceShapeInput"];
         mousePositionAction = playerInput.actions["MousePosition"];
+        touchPositionAction = playerInput.actions["TouchPosition"];
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         mainCamera = Camera.main;
+
+        // Enable EnhancedTouch support for better touch input handling
+        EnhancedTouchSupport.Enable();
+
         if (boardTilemap == null)
         {
             // Try to find Tilemap in scene
@@ -162,6 +169,7 @@ public class ShapeManager : MonoBehaviour
             activeShape.buildingType = selectedBuildingType.Value;
             activeShape.ChangeShapeColor();
         }
+        activeShape.MakeShapeGhost(); // Change to ghost after update
         return true;
     }
 
@@ -266,8 +274,37 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
-        // Read the current mouse position when click is performed
-        Vector2 screenPosition = mousePositionAction.ReadValue<Vector2>();
+        Vector2 screenPosition = Vector2.zero;
+        bool positionFound = false;
+
+        // Priority 1: Check for active touches using EnhancedTouch API
+        if (UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count > 0)
+        {
+            // Use the first active touch position
+            UnityEngine.InputSystem.EnhancedTouch.Touch primaryTouch = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches[0];
+            screenPosition = primaryTouch.screenPosition;
+            positionFound = true;
+        }
+
+        // Priority 2: Check touch position from InputAction (might work even if touch just ended)
+        if (!positionFound)
+        {
+            Vector2 touchPos = touchPositionAction.ReadValue<Vector2>();
+            if (touchPos != Vector2.zero)
+            {
+                screenPosition = touchPos;
+                positionFound = true;
+            }
+        }
+
+        // Priority 3: Fall back to mouse position (for desktop/editor or as last resort)
+        if (!positionFound)
+        {
+            //screenPosition = mousePositionAction.ReadValue<Vector2>();
+            // Note: mousePosition might also be (0,0) if mouse is not present
+            // but we assume at least one input method is available
+        }
+
         GridPosition gridPos = GetGridPositionFromScreen(screenPosition);
 
         // If first turn not completed and clicking a starting tile, skip shape placement
