@@ -4,8 +4,10 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using PocketPlanner.Core;
 using PocketPlanner.UI;
+using PocketPlanner.Multiplayer;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
@@ -40,6 +42,7 @@ public class GameManager : MonoBehaviour
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
     public ScoreManager ScoreManager => scoreManager;
+    public SyncManager SyncManager => syncManager != null ? syncManager : PocketPlanner.Multiplayer.SyncManager.Instance;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
@@ -48,6 +51,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DiceUIManager diceUIManager;
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private ScoreManager scoreManager;
+    [SerializeField] private SyncManager syncManager;
     //private UIManager uiManager;
 
     [Header("End Game UI")]
@@ -86,6 +90,14 @@ public class GameManager : MonoBehaviour
     void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        // Unsubscribe from multiplayer events
+        if (SyncManager != null)
+        {
+            SyncManager.OnPlacementActionReceived -= OnOpponentPlacementAction;
+            SyncManager.OnDiceRollReceived -= OnOpponentDiceRollReceived;
+            SyncManager.OnPlayerGameStateReceived -= OnOpponentGameStateReceived;
+        }
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -213,6 +225,14 @@ public class GameManager : MonoBehaviour
             diceUIManager.OnDiceRolled();
             diceUIManager.HighlightDoubleFaces();
         }
+
+        // Subscribe to multiplayer events
+        if (SyncManager != null)
+        {
+            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
+            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
+            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+        }
     }
 
     // Update is called once per frame
@@ -230,7 +250,21 @@ public class GameManager : MonoBehaviour
         // Roll dice for new turn
         if (diceManager != null)
         {
-            diceManager.RollAllDice();
+            // Check if we're in multiplayer mode with a valid shared random seed
+            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+            if (isMultiplayer && sharedRandomSeed != -1)
+            {
+                // Multiplayer deterministic dice rolling
+                diceManager.RollDeterministicDice(sharedRandomSeed, currentTurn);
+            }
+            else
+            {
+                // Single player or multiplayer without seed yet
+                diceManager.RollAllDice();
+            }
+
             diceManager.ClearSelection();
 
             // Update dice UI
@@ -238,6 +272,22 @@ public class GameManager : MonoBehaviour
             {
                 diceUIManager.OnDiceRolled();
                 diceUIManager.HighlightDoubleFaces();
+            }
+
+            // Broadcast dice roll to multiplayer if active
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+            {
+                var shapeDice = diceManager.GetShapeDice();
+                var buildingDice = diceManager.GetBuildingDice();
+                int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
+                int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
+                int broadcastSeed = MultiplayerManager.Instance != null ? MultiplayerManager.Instance.SharedRandomSeed : 0;
+                if (broadcastSeed == -1)
+                {
+                    Debug.LogWarning("GameManager: Shared random seed not yet set, using 0");
+                    broadcastSeed = 0;
+                }
+                SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
             }
         }
         else
@@ -294,6 +344,20 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("ZoneManager not found, zone detection skipped.");
         }
 
+        // Broadcast placement action in multiplayer mode
+        if (SyncManager != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            _ = SyncManager.BroadcastPlacementAction(
+                shape.shapeData.shapeName.ToString(),
+                shape.buildingType.ToString(),
+                shape.position.x,
+                shape.position.y,
+                shape.RotationState,
+                shape.IsFlipped,
+                starsAwarded
+            );
+        }
+
         // Start new turn (will roll dice and clear selection)
         startNewTurn();
     }
@@ -348,6 +412,49 @@ public class GameManager : MonoBehaviour
 
         return starsAwarded;
     }
+
+
+    /// <summary>
+    /// Handle placement actions received from other players in multiplayer mode.
+    /// Each opponent has their own board, so shape placement from opponents does not have to be rendered.
+    /// </summary>
+    private void OnOpponentPlacementAction(PlacementActionData placementData)
+    {
+        if (placementData == null) return;
+
+        Debug.Log($"GameManager: Opponent placement received - {placementData.shapeType} {placementData.buildingType} at ({placementData.positionX},{placementData.positionY})");
+ 
+        // For now, just log the action
+    }
+
+    /// <summary>
+    /// Handle dice roll data received from other players in multiplayer mode.
+    /// Dice rolls should be synchronized via shared seed, but this can be used for verification.
+    /// </summary>
+    private void OnOpponentDiceRollReceived(DiceRollData diceRollData)
+    {
+        if (diceRollData == null) return;
+
+        Debug.Log($"GameManager: Opponent dice roll received for turn {diceRollData.turnNumber} - Shape faces: [{string.Join(",", diceRollData.shapeDiceFaces)}], Building faces: [{string.Join(",", diceRollData.buildingDiceFaces)}]");
+
+        // For now, just log the action
+        // TODO: Verify dice faces match our local deterministic generation
+    }
+
+    /// <summary>
+    /// Handle player game state received from other players in multiplayer mode.
+    /// Contains score, stars, wildcards used, and board state.
+    /// </summary>
+    private void OnOpponentGameStateReceived(PlayerGameData playerGameData)
+    {
+        if (playerGameData == null) return;
+
+        Debug.Log($"GameManager: Player game state received for {playerGameData.PlayerId} - Score: {playerGameData.Score}, Stars: {playerGameData.Stars}, Wildcards: {playerGameData.WildcardsUsed}");
+
+        // For now, just log the action
+        // TODO: Update UI with opponent progress
+    }
+
 
     /// <summary>
     /// Convert ShapeType to dice face index (0-5).
