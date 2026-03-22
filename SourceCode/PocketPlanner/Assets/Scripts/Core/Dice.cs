@@ -28,6 +28,23 @@ namespace PocketPlanner.Core
         }
 
         /// <summary>
+        /// Set the die face deterministically (for synchronized multiplayer).
+        /// </summary>
+        /// <param name="face">Face index (0-5)</param>
+        public void SetFaceDeterministic(int face)
+        {
+            if (face < 0 || face > 5)
+            {
+                Debug.LogError($"Invalid face index for deterministic set: {face}");
+                return;
+            }
+
+            CurrentFace = face;
+            OriginalFace = face;
+            IsOverridden = false;
+        }
+
+        /// <summary>
         /// Get the ShapeType corresponding to this die's current face.
         /// Only valid for Shape dice.
         /// </summary>

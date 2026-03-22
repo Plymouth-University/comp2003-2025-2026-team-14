@@ -20,6 +20,15 @@ namespace PocketPlanner.Multiplayer
         public string LocalPlayerId { get; private set; }
         public Dictionary<string, PlayerData> Players { get; private set; }
 
+        // Shared random seed for synchronized dice rolls
+        public int SharedRandomSeed => _sharedRandomSeed;
+
+        public void SetSharedRandomSeed(int seed)
+        {
+            _sharedRandomSeed = seed;
+            Debug.Log($"MultiplayerManager: Shared random seed set to {seed}");
+        }
+
         // Game synchronization
         private int _sharedRandomSeed = -1;
         private int _currentSynchronizedTurn = 0;
@@ -287,7 +296,14 @@ namespace PocketPlanner.Multiplayer
             _gameStarted = true;
 
             // Broadcast game start to all players
-            // TODO: Implement Firebase broadcast
+            if (_syncManager != null)
+            {
+                _ = _syncManager.BroadcastSharedSeed(_sharedRandomSeed);
+            }
+            else
+            {
+                Debug.LogError("MultiplayerManager: SyncManager not available for broadcasting seed");
+            }
 
             Debug.Log($"MultiplayerManager: Game started with seed {_sharedRandomSeed}");
             OnGameStarted?.Invoke();
