@@ -70,7 +70,16 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "MouseClick",
+                    "name": "TouchPress",
+                    "type": "Button",
+                    "id": "dad05eaa-79aa-42cd-abfd-5af359bbdc2e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "MouseClickTEST",
                     "type": "Button",
                     "id": "20fcfcdd-c466-47da-9d30-fb5294d18517",
                     "expectedControlType": "",
@@ -235,7 +244,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "MouseClick",
+                    "action": "MouseClickTEST",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -269,6 +278,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "TouchPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7c1afdbc-3b3d-488d-a829-6708a860801f",
+                    "path": "<Touchscreen>/Press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TouchPress",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

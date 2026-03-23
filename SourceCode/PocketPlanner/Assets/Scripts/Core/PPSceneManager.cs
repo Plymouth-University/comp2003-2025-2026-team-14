@@ -50,7 +50,7 @@ public class PPSceneManager : MonoBehaviour
 
     public static void LoadMainGame()
     {
-        SceneManager.LoadScene("GameScene");
+        SceneManager.LoadScene("MainGameScene");
     }
 
     public static void LoadSettings()

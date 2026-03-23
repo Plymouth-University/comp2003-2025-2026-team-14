@@ -53,7 +53,7 @@ public class ShapeController : MonoBehaviour
     private float pixelsPerUnit;
 
     // Touch dragging state
-    private bool isBeingDragged = false;
+    public bool isBeingDragged = false;
     private int draggingTouchId = -1; // Track which touch is dragging this shape
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
