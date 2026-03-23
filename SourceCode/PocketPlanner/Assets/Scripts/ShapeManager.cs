@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using PocketPlanner.Core;
 
 public class ShapeManager : MonoBehaviour
@@ -18,8 +19,10 @@ public class ShapeManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private Tilemap boardTilemap;
     [SerializeField] private DiceManager diceManager;
+    [SerializeField] private Sprite starSprite; // Sprite for stars awarded for selecting double rolls
     private InputAction mouseClickAction;
     private InputAction mousePositionAction;
+    private InputAction touchPositionAction; // For mobile touch input
     private Camera mainCamera;
     private Vector3 centerTileWorldOffset = new Vector3(0.5f, 0.5f, 0); // Offset to center shape in tile
 
@@ -29,12 +32,17 @@ public class ShapeManager : MonoBehaviour
         PlayerInput playerInput = GetComponent<PlayerInput>();
         mouseClickAction = playerInput.actions["PlaceShapeInput"];
         mousePositionAction = playerInput.actions["MousePosition"];
+        touchPositionAction = playerInput.actions["TouchPosition"];
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         mainCamera = Camera.main;
+
+        // Enable EnhancedTouch support for better touch input handling
+        EnhancedTouchSupport.Enable();
+
         if (boardTilemap == null)
         {
             // Try to find Tilemap in scene
@@ -57,7 +65,10 @@ public class ShapeManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        if (activeShape != null && activeShape.isPlacementConfirmed)
+        {
+            activeShape = null;
+        }
     }
 
     public void generateRandomShape(GridPosition? gridPos = null)
@@ -158,6 +169,7 @@ public class ShapeManager : MonoBehaviour
             activeShape.buildingType = selectedBuildingType.Value;
             activeShape.ChangeShapeColor();
         }
+        activeShape.MakeShapeGhost(); // Change to ghost after update
         return true;
     }
 
@@ -186,7 +198,7 @@ public class ShapeManager : MonoBehaviour
     }
 
     // Helper methods for grid conversion and placement
-    private Vector3 GetWorldPositionFromGridPosition(GridPosition gridPos)
+    public Vector3 GetWorldPositionFromGridPosition(GridPosition gridPos)
     {
         if (TilemapManager.Instance != null && TilemapManager.Instance.boardTilemap != null)
         {
@@ -262,8 +274,37 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
-        // Read the current mouse position when click is performed
-        Vector2 screenPosition = mousePositionAction.ReadValue<Vector2>();
+        Vector2 screenPosition = Vector2.zero;
+        bool positionFound = false;
+
+        // Priority 1: Check for active touches using EnhancedTouch API
+        if (UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count > 0)
+        {
+            // Use the first active touch position
+            UnityEngine.InputSystem.EnhancedTouch.Touch primaryTouch = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches[0];
+            screenPosition = primaryTouch.screenPosition;
+            positionFound = true;
+        }
+
+        // Priority 2: Check touch position from InputAction (might work even if touch just ended)
+        if (!positionFound)
+        {
+            Vector2 touchPos = touchPositionAction.ReadValue<Vector2>();
+            if (touchPos != Vector2.zero)
+            {
+                screenPosition = touchPos;
+                positionFound = true;
+            }
+        }
+
+        // Priority 3: Fall back to mouse position (for desktop/editor or as last resort)
+        if (!positionFound)
+        {
+            //screenPosition = mousePositionAction.ReadValue<Vector2>();
+            // Note: mousePosition might also be (0,0) if mouse is not present
+            // but we assume at least one input method is available
+        }
+
         GridPosition gridPos = GetGridPositionFromScreen(screenPosition);
 
         // If first turn not completed and clicking a starting tile, skip shape placement
@@ -296,5 +337,73 @@ public class ShapeManager : MonoBehaviour
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// Adds a star visual overlay to a shape that earned stars during placement.
+    /// </summary>
+    /// <param name="shape">The shape controller to add star to</param>
+    /// <param name="starCount">Number of stars awarded (1 or 2)</param>
+    public void AddStarVisualToShape(ShapeController shape, int starCount)
+    {
+        if (shape == null || starCount <= 0 || starSprite == null)
+        {
+            Debug.LogWarning($"Cannot add star visual: shape={shape}, starCount={starCount}, starSprite={starSprite}");
+            return;
+        }
+
+        // Determine parent transform for star: for SingleShape use shape itself, otherwise use first child
+        Transform parentTransform;
+        if (shape.shapeData == null)
+        {
+            Debug.LogWarning("Shape shapeData is null, using shape transform as parent for star.");
+            parentTransform = shape.transform;
+        }
+        else if (shape.shapeData.shapeName == ShapeType.SingleShape)
+        {
+            parentTransform = shape.transform;
+        }
+        else
+        {
+            int childCount = shape.transform.childCount;
+            // Use random child of shape as parent for star
+            if (childCount == 0)
+            {
+                Debug.LogWarning("Shape has no children, cannot add star visual.");
+                return;
+            }
+            UnityEngine.Random.InitState(DateTime.Now.Millisecond); // Ensure random rotation each time
+            int randomChild = UnityEngine.Random.Range(0, childCount);
+            parentTransform = shape.transform.GetChild(randomChild); 
+        }
+
+        // Create star GameObject
+        GameObject starObject = new GameObject("Star");
+        starObject.transform.SetParent(parentTransform, false);
+        starObject.transform.localPosition = Vector3.zero;
+        starObject.transform.localScale = Vector3.one; 
+
+        // Add SpriteRenderer
+        SpriteRenderer starRenderer = starObject.AddComponent<SpriteRenderer>();
+        starRenderer.sprite = starSprite;
+        starRenderer.sortingLayerID = SortingLayer.NameToID("TopGrid");
+        starRenderer.sortingOrder = 3; // Ensure star renders above shape
+        starRenderer.color = Color.gold; // Optional: set star color to yellow
+
+        // If 2 stars, create a second star offset slightly
+        if (starCount >= 2)
+        {
+            GameObject starObject2 = new GameObject("Star2");
+            starObject2.transform.SetParent(parentTransform, false);
+            starObject2.transform.localPosition = new Vector3(0.2f, 0.2f, 0); // Offset slightly
+            starObject2.transform.localScale = Vector3.one;
+            SpriteRenderer starRenderer2 = starObject2.AddComponent<SpriteRenderer>();
+            starRenderer2.sprite = starSprite;
+            starRenderer2.sortingLayerID = SortingLayer.NameToID("TopGrid");
+            starRenderer2.sortingOrder = 3;
+            starRenderer2.color = Color.gold;
+        }
+
+        Debug.Log($"Added {starCount} star visual(s) to shape {shape.shapeData.shapeName}");
     }
 }

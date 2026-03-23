@@ -1,6 +1,7 @@
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.UI;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
@@ -42,12 +43,18 @@ public class ShapeController : MonoBehaviour
     public bool IsFlipped { get; private set; } // Whether the shape is flipped horizontally
     public bool isPlacedOnGrid = false;
     public bool isPlacementConfirmed = false; // true = Shape is no longer moveable
+    public bool lastGhostValidity = false; // Used to track when validity changes for ghost color updates
     public bool isValidPosition = false; // true if shape position passes basic validation (boundaries, river, overlap)
     private Tilemap boardTilemap;
     private TilemapManager tilemapManager;
     private Vector3 cellCenterOffset = new Vector3(0.5f, 0.5f, 0); // Offset to center shape within tile
+    private Camera mainCamera;
+    private Vector2 accumulatedDelta;
+    private float pixelsPerUnit;
 
-
+    // Touch dragging state
+    public bool isBeingDragged = false;
+    private int draggingTouchId = -1; // Track which touch is dragging this shape
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -64,42 +71,239 @@ public class ShapeController : MonoBehaviour
             Debug.LogError("ShapeController: No TilemapManager found in scene!");
         }
 
+        // Enable EnhancedTouch support
+        EnhancedTouchSupport.Enable();
+
+        mainCamera = Camera.main;
+        if (mainCamera != null && mainCamera.orthographic)
+        {
+            pixelsPerUnit = Screen.height / (2 * mainCamera.orthographicSize);
+        }
+        else
+        {
+            pixelsPerUnit = 100f; // fallback
+        }
+
         // Initial validity check
         UpdatePositionValidity();
+        MakeShapeGhost(); // Set initial color to ghost (valid or invalid)
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
+        UpdateDraggingState();
     }
 
-    private void OnShapeMovement(InputValue value) //Invoked by Input System
+    /// <summary>
+    /// Updates dragging state based on touch phases.
+    /// Called from Update to ensure touch begin/end detection even when no movement delta.
+    /// </summary>
+    private void UpdateDraggingState()
     {
         if (isPlacementConfirmed)
+            return;
+
+        var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
+
+        // If currently dragging, check if our touch still exists and its phase
+        if (isBeingDragged && draggingTouchId >= 0)
         {
-            return; // No movement if already confirmed placement
+            bool found = false;
+            foreach (var touch in activeTouches)
+            {
+                if (touch.touchId == draggingTouchId)
+                {
+                    found = true;
+                    // Update dragging state based on phase
+                    if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                        touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+                    {
+                        ResetDraggingState();
+                    }
+                    // For other phases (Moved, Stationary), keep dragging
+                    break;
+                }
+            }
+            // If touch not found (e.g., lost), reset dragging
+            if (!found)
+            {
+                ResetDraggingState();
+            }
         }
-        Vector2 movement = value.Get<Vector2>();
-        if (movement.x < 0)
+        else
         {
-            MoveLeft();
-        }
-        else if (movement.x > 0)
-        {
-            MoveRight();
-        }
-        if (movement.y < 0)
-        {
-            MoveDown();
-        }
-        else if (movement.y > 0)
-        {
-            MoveUp();
+            // Not dragging, check for new touch began on shape
+            foreach (var touch in activeTouches)
+            {
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
+                {
+                    if (IsScreenPositionOverShape(touch.screenPosition))
+                    {
+                        isBeingDragged = true;
+                        draggingTouchId = touch.touchId;
+                        accumulatedDelta = Vector2.zero;
+                        break; // Only one touch per shape
+                    }
+                }
+            }
         }
     }
 
-    private void OnShapeConfirm() //Invoked by Input System
+    /// <summary>
+    /// Checks if a screen position is over this shape.
+    /// Converts screen position to world position and checks if it's within any tile of the shape.
+    /// </summary>
+    private bool IsScreenPositionOverShape(Vector2 screenPosition)
+    {
+        if (mainCamera == null || shapeData == null)
+            return false;
+
+        // Convert screen position to world position
+        Vector3 worldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0));
+        worldPos.z = 0;
+
+        // Convert world position to grid position
+        GridPosition gridPos;
+        if (tilemapManager != null && tilemapManager.boardTilemap != null)
+        {
+            gridPos = tilemapManager.WorldToLogical(worldPos);
+        }
+        else if (boardTilemap != null)
+        {
+            Vector3Int cellPos = boardTilemap.WorldToCell(worldPos);
+            gridPos = new GridPosition(cellPos.x, cellPos.y);
+        }
+        else
+        {
+            // Fallback: round to nearest integer
+            gridPos = new GridPosition(Mathf.RoundToInt(worldPos.x), Mathf.RoundToInt(worldPos.y));
+        }
+
+        // Check if this grid position is occupied by this shape
+        List<GridPosition> occupied = GetOccupiedPositions();
+        foreach (GridPosition pos in occupied)
+        {
+            if (pos.x == gridPos.x && pos.y == gridPos.y)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Handles shape movement via touch dragging. Processes movement delta when shape is being dragged.
+    /// Dragging state is managed by UpdateDraggingState() which handles touch begin/end detection.
+    /// </summary>
+    private void OnShapeMovement(InputValue value) //Invoked by Input System with touch screen delta
+    {
+        if (isPlacementConfirmed)
+            return;
+
+        if (pixelsPerUnit <= 0)
+        {
+            Debug.LogWarning("ShapeController: pixelsPerUnit not initialized or zero.");
+            return;
+        }
+
+        // Only process movement if shape is currently being dragged
+        if (isBeingDragged)
+        {
+            Vector2 screenDelta = value.Get<Vector2>();
+            ProcessTouchMovement(screenDelta);
+        }
+    }
+
+    /// <summary>
+    /// Processes touch movement delta to move shape on grid.
+    /// Accumulates delta until threshold exceeded, then moves shape by whole grid cells.
+    /// </summary>
+    private void ProcessTouchMovement(Vector2 screenDelta)
+    {
+        // Convert screen delta to world delta
+        Vector2 worldDelta = screenDelta / pixelsPerUnit;
+
+        accumulatedDelta += worldDelta;
+
+        // Check if accumulated delta exceeds half a cell in either axis
+        int moveX = 0;
+        int moveY = 0;
+
+        if (Mathf.Abs(accumulatedDelta.x) >= 0.5f)
+        {
+            moveX = (int)Mathf.Sign(accumulatedDelta.x);
+        }
+        if (Mathf.Abs(accumulatedDelta.y) >= 0.5f)
+        {
+            moveY = (int)Mathf.Sign(accumulatedDelta.y);
+        }
+
+        bool moved = false;
+
+        // Attempt horizontal movement
+        if (moveX != 0)
+        {
+            GridPosition newPos = new GridPosition(position.x + moveX, position.y);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveX > 0)
+                    MoveRight();
+                else
+                    MoveLeft();
+                // Deduct the moved amount from accumulated delta
+                accumulatedDelta.x -= moveX;
+                moved = true;
+            }
+            else
+            {
+                // Movement blocked, reset accumulated delta for this axis to prevent stuck
+                accumulatedDelta.x = 0;
+            }
+        }
+
+        // Attempt vertical movement
+        if (moveY != 0)
+        {
+            GridPosition newPos = new GridPosition(position.x, position.y + moveY);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveY > 0)
+                    MoveUp();
+                else
+                    MoveDown();
+                accumulatedDelta.y -= moveY;
+                moved = true;
+            }
+            else
+            {
+                accumulatedDelta.y = 0;
+            }
+        }
+
+        if (moved)
+        {
+            UpdateGhostColor(); // Update ghost color based on new position validity
+        }
+    }
+
+    /// <summary>
+    /// Resets the dragging state when shape placement is confirmed or shape is no longer interactive.
+    /// </summary>
+    private void ResetDraggingState()
+    {
+        isBeingDragged = false;
+        draggingTouchId = -1;
+        accumulatedDelta = Vector2.zero;
+    }
+
+    /// <summary>
+    /// Called when the GameObject is disabled. Resets dragging state to prevent stuck state.
+    /// </summary>
+    private void OnDisable()
+    {
+        ResetDraggingState();
+    }
+
+    public void OnShapeConfirm() //Invoked by Input System
     {
         if (isPlacementConfirmed)
             return;
@@ -119,9 +323,11 @@ public class ShapeController : MonoBehaviour
             Debug.Log("First turn completed after successful placement.");
         }
 
-        // Finalize placement (mark tiles occupied)
+        // Finalize placement (mark tiles occupied and make shape normal)
+        MakeShapeNormal();
         FinalizePlacement();
         isPlacementConfirmed = true;
+        ResetDraggingState(); // Stop any ongoing dragging
         Debug.Log("Shape placement confirmed.");
 
         // Notify GameManager to award stars and start new turn
@@ -177,6 +383,7 @@ public class ShapeController : MonoBehaviour
         RotationState = (RotationState + 1) % 4;
         UpdateVisual();
         UpdatePositionValidity();
+        UpdateGhostColor();
     }
 
     public void OnShapeFlip() //Invoked by Input System
@@ -185,6 +392,7 @@ public class ShapeController : MonoBehaviour
         IsFlipped = !IsFlipped;
         UpdateVisual();
         UpdatePositionValidity();
+        UpdateGhostColor();
     }
 
     public void SetRotationState(int newRotationState)
@@ -538,6 +746,86 @@ public class ShapeController : MonoBehaviour
                 Debug.LogError($"  Tile at logical {pos} not found!");
             }
         }
+    }
+
+
+    /// <summary>
+    /// Changes the shape's appearance to a "ghost" (semi-transparent) to indicate it's being moved for placement.
+    /// Should be called when the player first places the shape.
+    /// </summary>
+    public void MakeShapeGhost()
+    {
+        if (!isPlacementConfirmed)
+        {
+            lastGhostValidity = CheckPlacementRules(); // Update validity before setting color
+            if (shapeData.shapeName == ShapeType.SingleShape) // Single shape has no child objects
+            {
+                SpriteRenderer s = transform.gameObject.GetComponent<SpriteRenderer>();
+                if (lastGhostValidity)
+                {
+                    s.color = new Color(16f/255f, 100f/255f, 8f/255f, 0.5f); // Semi-transparent green for valid Hex 106408
+                }
+                else
+                {
+                    s.color = new Color(100f/255f, 12f/255f, 8f/255f, 0.5f); // Semi-transparent red for invalid
+                }
+                s.sortingOrder = 1; // Ensure ghost is rendered above other tiles
+                return;
+            }
+
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                Transform child = transform.GetChild(i);
+                SpriteRenderer s = child.gameObject.GetComponent<SpriteRenderer>();
+                if (lastGhostValidity)
+                {
+                    s.color = new Color(16f/255f, 100f/255f, 8f/255f, 0.5f); // Semi-transparent green for valid Hex 106408
+                }
+                else
+                {
+                    s.color = new Color(100f/255f, 12f/255f, 8f/255f, 0.5f); // Semi-transparent red for invalid
+                }
+                s.sortingOrder = 1; // Ensure ghost is rendered above other tiles
+            } 
+            
+        }
+    }
+
+    /// <summary>
+    /// Updates the color of the ghost shape based on its validity.
+    /// Should be called when the shape moves.
+    /// </summary>
+    public void UpdateGhostColor()
+    {
+        bool isValid = CheckPlacementRules();
+        if (isValid == lastGhostValidity)
+        {
+            return; // No change in validity, no need to update color
+        }
+        MakeShapeGhost(); // Reuse ghost coloring logic
+    }
+
+    /// <summary>
+    ///  Changes the shape's appearance back to normal (opaque, colored by building type).
+    ///  Should be called when shape placement is confirmed.
+    /// </summary>
+    public void MakeShapeNormal() // Should be called when placement is confirmed to set color back to normal
+    {
+        if (shapeData.shapeName == ShapeType.SingleShape) // Single shape has no child objects
+        {
+            SpriteRenderer s = transform.gameObject.GetComponent<SpriteRenderer>();
+            s.color = GetColorForBuildingType(buildingType);
+            s.sortingOrder = 0; // Reset sorting order
+            return;
+        }
+
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            SpriteRenderer s = child.gameObject.GetComponent<SpriteRenderer>();
+            s.color = GetColorForBuildingType(buildingType);
+            s.sortingOrder = 0; // Reset sorting order
+        } 
     }
 
     public void ChangeShapeColor() // Temporary method to change color using sprites of child objects

@@ -18,3 +18,4 @@ MonoBehaviour:
   relativeTilePositions:
   - x: 0
     y: 0
+  manipulationPanelOffset: {x: 200, y: 200}

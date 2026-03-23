@@ -4,8 +4,10 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using PocketPlanner.Core;
 using PocketPlanner.UI;
+using PocketPlanner.Multiplayer;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
@@ -40,6 +42,7 @@ public class GameManager : MonoBehaviour
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
     public ScoreManager ScoreManager => scoreManager;
+    public SyncManager SyncManager => syncManager != null ? syncManager : PocketPlanner.Multiplayer.SyncManager.Instance;
 
     [Header("Manager References")]
     [SerializeField] private TilemapManager boardManager;
@@ -48,6 +51,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DiceUIManager diceUIManager;
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private ScoreManager scoreManager;
+    [SerializeField] private SyncManager syncManager;
     //private UIManager uiManager;
 
     [Header("End Game UI")]
@@ -55,6 +59,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI scoreBreakdownText;
     [SerializeField] private Button restartButton;
     [SerializeField] private Button mainMenuButton;
+
+    // Inputs
+    private InputAction touchPositionAction; 
+    private InputAction mousePositionAction;
+
 
     void Awake()
     {
@@ -76,6 +85,8 @@ public class GameManager : MonoBehaviour
             {
                 Debug.Log("GameManager: PlayerInput component found.");
             }
+            mousePositionAction = playerInput.actions["MousePosition"];
+            touchPositionAction = playerInput.actions["TouchPosition"];
         }
         else
         {
@@ -86,6 +97,14 @@ public class GameManager : MonoBehaviour
     void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        // Unsubscribe from multiplayer events
+        if (SyncManager != null)
+        {
+            SyncManager.OnPlacementActionReceived -= OnOpponentPlacementAction;
+            SyncManager.OnDiceRollReceived -= OnOpponentDiceRollReceived;
+            SyncManager.OnPlayerGameStateReceived -= OnOpponentGameStateReceived;
+        }
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -96,8 +115,9 @@ public class GameManager : MonoBehaviour
         HideEndGameScreen();
 
         // If this is the game scene, roll dice for first turn
-        if (scene.name == "SampleScene")
+        if (scene.name == "MainGameScene")
         {
+            firstTurnCompleted = false; // Reset first turn flag
             if (diceManager != null)
             {
                 diceManager.RollAllDice();
@@ -213,6 +233,14 @@ public class GameManager : MonoBehaviour
             diceUIManager.OnDiceRolled();
             diceUIManager.HighlightDoubleFaces();
         }
+
+        // Subscribe to multiplayer events
+        if (SyncManager != null)
+        {
+            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
+            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
+            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+        }
     }
 
     // Update is called once per frame
@@ -230,7 +258,21 @@ public class GameManager : MonoBehaviour
         // Roll dice for new turn
         if (diceManager != null)
         {
-            diceManager.RollAllDice();
+            // Check if we're in multiplayer mode with a valid shared random seed
+            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+            if (isMultiplayer && sharedRandomSeed != -1)
+            {
+                // Multiplayer deterministic dice rolling
+                diceManager.RollDeterministicDice(sharedRandomSeed, currentTurn);
+            }
+            else
+            {
+                // Single player or multiplayer without seed yet
+                diceManager.RollAllDice();
+            }
+
             diceManager.ClearSelection();
 
             // Update dice UI
@@ -238,6 +280,22 @@ public class GameManager : MonoBehaviour
             {
                 diceUIManager.OnDiceRolled();
                 diceUIManager.HighlightDoubleFaces();
+            }
+
+            // Broadcast dice roll to multiplayer if active
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+            {
+                var shapeDice = diceManager.GetShapeDice();
+                var buildingDice = diceManager.GetBuildingDice();
+                int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
+                int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
+                int broadcastSeed = MultiplayerManager.Instance != null ? MultiplayerManager.Instance.SharedRandomSeed : 0;
+                if (broadcastSeed == -1)
+                {
+                    Debug.LogWarning("GameManager: Shared random seed not yet set, using 0");
+                    broadcastSeed = 0;
+                }
+                SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
             }
         }
         else
@@ -249,14 +307,19 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Marks the first turn as completed (after first shape placement).
+    /// Marks the first turn as completed (after first shape placement) and deactivates starting tile labels.
     /// </summary>
     public void CompleteFirstTurn()
     {
         if (!firstTurnCompleted)
         {
             firstTurnCompleted = true;
-            Debug.Log("GameManager: First turn marked as completed");
+            if (boardManager != null)
+            {
+                boardManager.DeactivateStartingTileLabels();
+                boardManager.UnhighlightAllStartingTiles();
+                Debug.Log("GameManager: First turn marked as completed");
+            }
         }
     }
 
@@ -267,7 +330,17 @@ public class GameManager : MonoBehaviour
     public void OnShapePlacementConfirmed(ShapeController shape)
     {
         // Award stars for double rolls if applicable
-        AwardStarsForDoubleRolls(shape);
+        int starsAwarded = AwardStarsForDoubleRolls(shape);
+
+        // Add star visual to shape if stars were awarded
+        if (starsAwarded > 0 && shapeManager != null)
+        {
+            shapeManager.AddStarVisualToShape(shape, starsAwarded);
+        }
+        else if (starsAwarded > 0)
+        {
+            Debug.LogWarning("Stars awarded but shapeManager is null, cannot add star visual.");
+        }
 
         // Add shape to zone system
         if (zoneManager != null)
@@ -279,20 +352,35 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("ZoneManager not found, zone detection skipped.");
         }
 
+        // Broadcast placement action in multiplayer mode
+        if (SyncManager != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            _ = SyncManager.BroadcastPlacementAction(
+                shape.shapeData.shapeName.ToString(),
+                shape.buildingType.ToString(),
+                shape.position.x,
+                shape.position.y,
+                shape.RotationState,
+                shape.IsFlipped,
+                starsAwarded
+            );
+        }
+
         // Start new turn (will roll dice and clear selection)
         startNewTurn();
     }
 
     /// <summary>
     /// Award stars based on double rolls matching selected dice faces.
+    /// Returns the number of stars awarded (0, 1, or 2).
     /// </summary>
-    private void AwardStarsForDoubleRolls(ShapeController shape)
+    private int AwardStarsForDoubleRolls(ShapeController shape)
     {
-        if (diceManager == null) return;
+        if (diceManager == null) return 0;
         if (shape.shapeData == null)
         {
             Debug.LogWarning("Cannot award stars: shape.shapeData is null.");
-            return;
+            return 0;
         }
 
         // Get original double faces from current roll (wildcards don't affect star eligibility)
@@ -306,7 +394,7 @@ public class GameManager : MonoBehaviour
         if (selectedShapeDie == null || selectedBuildingDie == null)
         {
             Debug.LogWarning("Cannot award stars: no dice selected.");
-            return;
+            return 0;
         }
 
         // Use original faces for star eligibility (not wildcard overrides)
@@ -316,17 +404,65 @@ public class GameManager : MonoBehaviour
         bool shapeMatchesDouble = shapeDoubles.Contains(shapeFaceIndex);
         bool buildingMatchesDouble = buildingDoubles.Contains(buildingFaceIndex);
 
+        int starsAwarded = 0;
         if (shapeMatchesDouble && buildingMatchesDouble)
         {
-            stars += 2; // Double star
+            starsAwarded = 2; // Double star
+            stars += starsAwarded;
             Debug.Log($"Awarded 2 stars: shape and building match double rolls.");
         }
         else if (shapeMatchesDouble || buildingMatchesDouble)
         {
-            stars += 1; // Single star
+            starsAwarded = 1; // Single star
+            stars += starsAwarded;
             Debug.Log($"Awarded 1 star: one matches double roll.");
         }
+
+        return starsAwarded;
     }
+
+
+    /// <summary>
+    /// Handle placement actions received from other players in multiplayer mode.
+    /// Each opponent has their own board, so shape placement from opponents does not have to be rendered.
+    /// </summary>
+    private void OnOpponentPlacementAction(PlacementActionData placementData)
+    {
+        if (placementData == null) return;
+
+        Debug.Log($"GameManager: Opponent placement received - {placementData.shapeType} {placementData.buildingType} at ({placementData.positionX},{placementData.positionY})");
+ 
+        // For now, just log the action
+    }
+
+    /// <summary>
+    /// Handle dice roll data received from other players in multiplayer mode.
+    /// Dice rolls should be synchronized via shared seed, but this can be used for verification.
+    /// </summary>
+    private void OnOpponentDiceRollReceived(DiceRollData diceRollData)
+    {
+        if (diceRollData == null) return;
+
+        Debug.Log($"GameManager: Opponent dice roll received for turn {diceRollData.turnNumber} - Shape faces: [{string.Join(",", diceRollData.shapeDiceFaces)}], Building faces: [{string.Join(",", diceRollData.buildingDiceFaces)}]");
+
+        // For now, just log the action
+        // TODO: Verify dice faces match our local deterministic generation
+    }
+
+    /// <summary>
+    /// Handle player game state received from other players in multiplayer mode.
+    /// Contains score, stars, wildcards used, and board state.
+    /// </summary>
+    private void OnOpponentGameStateReceived(PlayerGameData playerGameData)
+    {
+        if (playerGameData == null) return;
+
+        Debug.Log($"GameManager: Player game state received for {playerGameData.PlayerId} - Score: {playerGameData.Score}, Stars: {playerGameData.Stars}, Wildcards: {playerGameData.WildcardsUsed}");
+
+        // For now, just log the action
+        // TODO: Update UI with opponent progress
+    }
+
 
     /// <summary>
     /// Convert ShapeType to dice face index (0-5).
@@ -473,7 +609,7 @@ public class GameManager : MonoBehaviour
     }
 
     // Input system callback for mouse click (starting position selection).
-    public void OnMouseClick()
+    public void OnMouseClickTEST()
     {
         if (firstTurnCompleted) return; // Only allow selection before first turn
         Vector2 screenPos = Mouse.current.position.ReadValue();
@@ -481,8 +617,25 @@ public class GameManager : MonoBehaviour
         HandleStartingPositionSelection(gridPos);
     }
 
+    // Input system callback for touch press (starting position selecting)
+    public void OnTouchPress()
+    {
+        if (SceneManager.GetActiveScene().name != "MainGameScene") return; // Suppress errors in other scenes for now
+        if (firstTurnCompleted) return; // Only allow selection before first turn
+        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged) return; // Do not allow selection during shape drag
+        Vector2 screenPos = touchPositionAction.ReadValue<Vector2>();
+        GridPosition gridPos = ScreenToGridPosition(screenPos);
+        HandleStartingPositionSelection(gridPos);
+    }
+
     // Input system callback for mouse position (required for input system).
     public void OnMousePosition()
+    {
+        // No action needed, but method must exist for input system to call.
+    }
+
+    // Input system callback for touch position (required for input system).
+    public void OnTouchPosition()
     {
         // No action needed, but method must exist for input system to call.
     }

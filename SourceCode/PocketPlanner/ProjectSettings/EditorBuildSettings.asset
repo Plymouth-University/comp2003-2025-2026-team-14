@@ -6,8 +6,32 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
+    path: Assets/Scenes/MainMenuScene.unity
+    guid: bad94642e7da4487aa4bd602a9595b57
+  - enabled: 1
+    path: Assets/Scenes/CreateGameScene.unity
+    guid: b829da2528b75e17db25cd1c533f4b24
+  - enabled: 1
+    path: Assets/Scenes/JoinGameScene.unity
+    guid: d37dc2ef319ea3f46affe04cc4ff02ec
+  - enabled: 1
+    path: Assets/Scenes/LobbyScene.unity
+    guid: 1ce15be189f1ae748aa7867a3f4506f4
+  - enabled: 1
+    path: Assets/Scenes/SettingsScene.unity
+    guid: a79c2bc33587f852fb28819b60fa5a06
+  - enabled: 1
+    path: Assets/Scenes/RulesScene.unity
+    guid: 5da6f7a532e74168aa4c7b56789cb4d7
+  - enabled: 1
+    path: Assets/Scenes/MainGameScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
+  - enabled: 1
+    path: Assets/Scenes/ResultsScene.unity
+    guid: fb476cc9f2ed565a9a7dd081289d8563
+  - enabled: 1
+    path: Assets/Scenes/ScoreSheetScene.unity
+    guid: f03d590398d6882188cdc25a68d5ce26
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 3590b91b4603b465dbb4216d601bff33, type: 3}
   m_UseUCBPForAssetBundles: 0

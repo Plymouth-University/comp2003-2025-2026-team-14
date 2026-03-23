@@ -9,7 +9,7 @@
                 {
                     "name": "ShapeMovement",
                     "type": "Value",
-                    "id": "ba407ccc-6309-4687-8975-4df91759d798",
+                    "id": "77a26deb-a7ef-46da-9b32-04cd9776587c",
                     "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
@@ -45,16 +45,16 @@
                 {
                     "name": "PlaceShapeInput",
                     "type": "Button",
-                    "id": "a3ca3ceb-4bde-4277-a0c3-e90eb1132527",
+                    "id": "cda27e8a-1d94-4700-b97f-302f4af29f75",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
                 },
                 {
-                    "name": "MousePosition",
+                    "name": "TouchPosition",
                     "type": "Value",
-                    "id": "48a19e04-a777-4dc2-ac41-4e71cb44ff9c",
+                    "id": "c8a823a2-2cf8-4d86-a9d5-5dd579d22283",
                     "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
@@ -70,13 +70,49 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "MouseClick",
+                    "name": "TouchPress",
+                    "type": "Button",
+                    "id": "dad05eaa-79aa-42cd-abfd-5af359bbdc2e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "MouseClickTEST",
                     "type": "Button",
                     "id": "20fcfcdd-c466-47da-9d30-fb5294d18517",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ShapeMovementWASDTEST",
+                    "type": "Value",
+                    "id": "ba407ccc-6309-4687-8975-4df91759d798",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "PlaceShapeInputMOUSETEST",
+                    "type": "Button",
+                    "id": "a3ca3ceb-4bde-4277-a0c3-e90eb1132527",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "MousePosition",
+                    "type": "Value",
+                    "id": "48a19e04-a777-4dc2-ac41-4e71cb44ff9c",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -87,7 +123,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "ShapeMovement",
+                    "action": "ShapeMovementWASDTEST",
                     "isComposite": true,
                     "isPartOfComposite": false
                 },
@@ -98,7 +134,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "ShapeMovement",
+                    "action": "ShapeMovementWASDTEST",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
@@ -109,7 +145,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "ShapeMovement",
+                    "action": "ShapeMovementWASDTEST",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
@@ -120,7 +156,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "ShapeMovement",
+                    "action": "ShapeMovementWASDTEST",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
@@ -131,7 +167,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "ShapeMovement",
+                    "action": "ShapeMovementWASDTEST",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
@@ -186,7 +222,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "PlaceShapeInput",
+                    "action": "PlaceShapeInputMOUSETEST",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -208,7 +244,51 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "MouseClick",
+                    "action": "MouseClickTEST",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a4d591ff-abf8-4704-ad36-9e34fb5ece54",
+                    "path": "<Touchscreen>/delta",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ShapeMovement",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "603a1378-18ae-4eef-8e9f-72b13bc5aefb",
+                    "path": "<Touchscreen>/Press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PlaceShapeInput",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "56628553-6c9b-4658-8690-0d31fecb61d2",
+                    "path": "<Touchscreen>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TouchPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7c1afdbc-3b3d-488d-a829-6708a860801f",
+                    "path": "<Touchscreen>/Press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TouchPress",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
