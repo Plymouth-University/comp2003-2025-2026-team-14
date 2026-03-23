@@ -8,6 +8,7 @@
 [Bb]uilds/
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
+.utmp/
 
 # Unity Asset Store Tools
 [Aa]ssets/AssetStoreTools*

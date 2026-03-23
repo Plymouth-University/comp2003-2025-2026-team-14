@@ -60,6 +60,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Button restartButton;
     [SerializeField] private Button mainMenuButton;
 
+    // Inputs
+    private InputAction touchPositionAction; 
+    private InputAction mousePositionAction;
+
+
     void Awake()
     {
         // Implement singleton pattern
@@ -80,6 +85,8 @@ public class GameManager : MonoBehaviour
             {
                 Debug.Log("GameManager: PlayerInput component found.");
             }
+            mousePositionAction = playerInput.actions["MousePosition"];
+            touchPositionAction = playerInput.actions["TouchPosition"];
         }
         else
         {
@@ -108,8 +115,9 @@ public class GameManager : MonoBehaviour
         HideEndGameScreen();
 
         // If this is the game scene, roll dice for first turn
-        if (scene.name == "SampleScene")
+        if (scene.name == "MainGameScene")
         {
+            firstTurnCompleted = false; // Reset first turn flag
             if (diceManager != null)
             {
                 diceManager.RollAllDice();
@@ -601,7 +609,7 @@ public class GameManager : MonoBehaviour
     }
 
     // Input system callback for mouse click (starting position selection).
-    public void OnMouseClick()
+    public void OnMouseClickTEST()
     {
         if (firstTurnCompleted) return; // Only allow selection before first turn
         Vector2 screenPos = Mouse.current.position.ReadValue();
@@ -609,8 +617,25 @@ public class GameManager : MonoBehaviour
         HandleStartingPositionSelection(gridPos);
     }
 
+    // Input system callback for touch press (starting position selecting)
+    public void OnTouchPress()
+    {
+        if (SceneManager.GetActiveScene().name != "MainGameScene") return; // Suppress errors in other scenes for now
+        if (firstTurnCompleted) return; // Only allow selection before first turn
+        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged) return; // Do not allow selection during shape drag
+        Vector2 screenPos = touchPositionAction.ReadValue<Vector2>();
+        GridPosition gridPos = ScreenToGridPosition(screenPos);
+        HandleStartingPositionSelection(gridPos);
+    }
+
     // Input system callback for mouse position (required for input system).
     public void OnMousePosition()
+    {
+        // No action needed, but method must exist for input system to call.
+    }
+
+    // Input system callback for touch position (required for input system).
+    public void OnTouchPosition()
     {
         // No action needed, but method must exist for input system to call.
     }
