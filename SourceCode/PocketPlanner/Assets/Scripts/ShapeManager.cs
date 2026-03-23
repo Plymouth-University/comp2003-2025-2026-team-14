@@ -29,10 +29,16 @@ public class ShapeManager : MonoBehaviour
 
     void Awake()
     {
-        PlayerInput playerInput = GetComponent<PlayerInput>();
-        mouseClickAction = playerInput.actions["PlaceShapeInput"];
-        mousePositionAction = playerInput.actions["MousePosition"];
-        touchPositionAction = playerInput.actions["TouchPosition"];
+      // Instead of: PlayerInput playerInput = GetComponent<PlayerInput>();
+      // Use:
+      PlayerInput playerInput = GameManager.Instance.GetComponent<PlayerInput>();
+      if (playerInput != null)
+      {
+          mouseClickAction = playerInput.actions["PlaceShapeInput"];
+          mousePositionAction = playerInput.actions["MousePosition"];
+          touchPositionAction = playerInput.actions["TouchPosition"];
+      }
+
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created

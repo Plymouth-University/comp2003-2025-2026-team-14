@@ -117,7 +117,7 @@ public class GameManager : MonoBehaviour
         // If this is the game scene, roll dice for first turn
         if (scene.name == "MainGameScene")
         {
-            firstTurnCompleted = false; // Reset first turn flag
+            initializeFirstTurnGameState(); // Reset state
             if (diceManager != null)
             {
                 diceManager.RollAllDice();
@@ -166,13 +166,7 @@ public class GameManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        // Initialize game state for first turn
-        selectedStartingPosition = 1; // Default starting position (player should select)
-        firstTurnCompleted = false;
-        waterDieUsedThisTurn = false;
-        currentTurn = 1;
-        wildcardsUsed = 0;
-        gameEnded = false;
+        initializeFirstTurnGameState();
 
         // Initialize dice pool
         if (diceManager != null)
@@ -249,6 +243,17 @@ public class GameManager : MonoBehaviour
         
     }
 
+    public void initializeFirstTurnGameState()
+    {
+        // Initialize game state for first turn
+        selectedStartingPosition = 1; // Default starting position (player should select)
+        firstTurnCompleted = false;
+        waterDieUsedThisTurn = false;
+        currentTurn = 1;
+        wildcardsUsed = 0;
+        gameEnded = false;
+    }
+
 
     public void startNewTurn()
     {
@@ -280,6 +285,7 @@ public class GameManager : MonoBehaviour
             {
                 diceUIManager.OnDiceRolled();
                 diceUIManager.HighlightDoubleFaces();
+                diceUIManager.updateTurnText(currentTurn);
             }
 
             // Broadcast dice roll to multiplayer if active
@@ -620,12 +626,31 @@ public class GameManager : MonoBehaviour
     // Input system callback for touch press (starting position selecting)
     public void OnTouchPress()
     {
-        if (SceneManager.GetActiveScene().name != "MainGameScene") return; // Suppress errors in other scenes for now
-        if (firstTurnCompleted) return; // Only allow selection before first turn
-        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged) return; // Do not allow selection during shape drag
+        Debug.Log("OnTouchPress called");
+        if (SceneManager.GetActiveScene().name != "MainGameScene")
+        {
+            Debug.Log("OnTouchPress: Scene is not MainGameScene");
+            return;
+        }  // Suppress errors in other scenes for now
+        if (firstTurnCompleted)
+        {
+            Debug.Log("OnTouchPress: First turn completed");
+            return;  
+        }  // Only allow selection before first turn
+        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged)
+        {
+            Debug.Log("OnTouchPress: Shape is being dragged");
+            return;
+        }  // Do not allow selection during shape drag
         Vector2 screenPos = touchPositionAction.ReadValue<Vector2>();
         GridPosition gridPos = ScreenToGridPosition(screenPos);
         HandleStartingPositionSelection(gridPos);
+    }
+
+    // Temp
+    public void OnPlaceShapeInput()
+    {
+        shapeManager.OnPlaceShapeInput();
     }
 
     // Input system callback for mouse position (required for input system).

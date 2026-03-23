@@ -9,6 +9,9 @@ namespace PocketPlanner.UI
 {
     public class DiceUIManager : MonoBehaviour
     {
+        [Header("Game Manager Reference")]
+        [SerializeField] private GameManager gameManager;
+
         [Header("Dice Manager Reference")]
         [SerializeField] private DiceManager diceManager;
 
@@ -62,6 +65,9 @@ namespace PocketPlanner.UI
         [SerializeField] private WildcardSelectionPanel buildingWildcardPanel;
         [SerializeField] private TextMeshProUGUI wildcardCountText;
         [SerializeField] private TextMeshProUGUI wildcardCostText;
+        [SerializeField] private TextMeshProUGUI turnCountText;
+        [SerializeField] private TextMeshProUGUI wildcardCounterText; // New wildcard counter 
+        
 
         private bool waterDieClickedThisFrame = false;
         private int wildcardTargetShapeDieIndex = 0;
@@ -71,6 +77,15 @@ namespace PocketPlanner.UI
         {
             Debug.Log($"DiceUIManager.Start() on {gameObject.name}");
             // Find essential managers, but don't fail entirely if not found immediately
+            if (gameManager == null)
+            {
+                gameManager = FindAnyObjectByType<GameManager>();
+                if (gameManager == null)
+                {
+                    Debug.LogWarning("DiceUIManager: GameManager not found on Start. Will try again later.");
+                }
+            }
+
             if (diceManager == null)
             {
                 diceManager = FindAnyObjectByType<DiceManager>();
@@ -621,7 +636,8 @@ namespace PocketPlanner.UI
             // Update text
             if (wildcardCountText != null)
                 wildcardCountText.text = $"{remaining}/{GameManager.MAX_WILDCARDS}";
-
+            if (wildcardCounterText != null)
+                wildcardCounterText.text = $"Wildcards: {remaining}"; // New reference
             if (wildcardCostText != null)
                 wildcardCostText.text = $"Cost: {nextCost}";
 
@@ -634,5 +650,11 @@ namespace PocketPlanner.UI
         }
 
         #endregion
+
+        public void updateTurnText(int currentTurn)
+        {
+            if (turnCountText != null)
+                turnCountText.text = $"Turn: {currentTurn}";
+        }
     }
 }
