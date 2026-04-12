@@ -170,8 +170,8 @@ MonoBehaviour:
 
     5, dice: shapes
 
-    6,
-    dice: generic structures
+    6, dice:
+    generic structures
 
     7, dice: special structures
 
@@ -675,22 +675,22 @@ MonoBehaviour:
 
     2, turn stages: Placement
 
-    3,
-    turn stages: Typing
+    3, turn
+    stages: Typing
 
     4, turn stages: End
 
     5, dice: shapes
 
-    6,
-    dice: generic structures
+    6, dice: generic
+    structures
 
     7, dice: special structures
 
     6, dice: stars
 
-    7,
-    points: how to score
+    7, points:
+    how to score
 
     8, points: deductions'
   - 'turn stages: rolling
@@ -708,9 +708,9 @@ MonoBehaviour:
     parts are overlapping other structures or river tiles."
   - 'turn stages: Typing
 
-    Players can choose any building type shown on the
-    building dice by clicking on one, and any shape shown on the shape dice by clicking
-    on one, more on the specific in the dice segment.
+    Players can choose any building type shown on the building
+    dice by clicking on one, and any shape shown on the shape dice by clicking on
+    one, more on the specific in the dice segment.
 
 '
   - 'turn stages: End
@@ -892,6 +892,7 @@ GameObject:
   - component: {fileID: 1668325390}
   - component: {fileID: 1668325389}
   - component: {fileID: 1668325388}
+  - component: {fileID: 1668325391}
   m_Layer: 5
   m_Name: Return
   m_TagString: Untagged
@@ -962,7 +963,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1668325389}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1668325391}
+        m_TargetAssemblyTypeName: generalusebuttonscript, Assembly-CSharp
+        m_MethodName: buttonClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: buttonClicked
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1668325389
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1001,6 +1014,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1668325386}
   m_CullTransparentMesh: 1
+--- !u!114 &1668325391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1668325386}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa6ef3c1f41fae545b69610b9d0345c5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::generalusebuttonscript
+  button: {fileID: 0}
+  targetScene: WelcomeScene
 --- !u!1 &1716865249
 GameObject:
   m_ObjectHideFlags: 0
