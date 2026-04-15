@@ -26,6 +26,7 @@ namespace PocketPlanner.Multiplayer
         private DatabaseReference _gameStateRef;
         private DatabaseReference _diceRollRef;
         private DatabaseReference _placementsRef;
+        private DatabaseReference _gameEndsRef;
 
         // Events
         public event Action<PlacementActionData> OnPlacementActionReceived;
@@ -78,6 +79,9 @@ namespace PocketPlanner.Multiplayer
             _lobbyRootRef = _firebaseManager.DatabaseReference.Child($"games/{lobbyCode}");
             _lobbyRootRef.ValueChanged += OnLobbyValueChanged;
 
+            // Listen for game end events
+            ListenForGameEnds();
+
             Debug.Log("SyncManager: Firebase listeners started");
         }
 
@@ -96,6 +100,11 @@ namespace PocketPlanner.Multiplayer
             _diceRollRef = null;
             _placementsRef = null;
             _gameStateRef = null;
+            if (_gameEndsRef != null)
+            {
+                _gameEndsRef.ValueChanged -= OnGameEndValueChanged;
+                _gameEndsRef = null;
+            }
 
             Debug.Log("SyncManager: Firebase listeners stopped");
         }
@@ -127,6 +136,11 @@ namespace PocketPlanner.Multiplayer
             else if (path.Contains("/sharedSeed"))
             {
                 ProcessSharedSeed(args.Snapshot);
+            }
+            // Check if this is a game end node
+            else if (path.Contains("/gameEnds/"))
+            {
+                ProcessGameEnd(args.Snapshot);
             }
         }
 
@@ -208,6 +222,14 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogWarning("SyncManager: MultiplayerManager not available to set shared seed");
             }
+        }
+
+        private void ProcessGameEnd(DataSnapshot snapshot)
+        {
+            // This method is called when a game end node changes
+            // The actual processing is done in OnGameEndValueChanged which listens to the parent node
+            // This ensures we get all game end events, not just individual player changes
+            Debug.Log($"SyncManager: Game end node changed at path: {GetRelativePath(snapshot.Reference)}");
         }
 
         /// <summary>
@@ -774,6 +796,97 @@ namespace PocketPlanner.Multiplayer
             catch (Exception ex)
             {
                 Debug.LogError($"SyncManager: Failed to broadcast game state: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Broadcast game end to all players in the lobby.
+        /// </summary>
+        public async Task BroadcastGameEnd()
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - not in multiplayer lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - no local player ID");
+                return;
+            }
+
+            try
+            {
+                var gameEndData = new Dictionary<string, object>
+                {
+                    { "playerId", playerId },
+                    { "timestamp", DateTime.UtcNow.Ticks },
+                    { "turn", _gameManager?.CurrentTurn ?? 0 }
+                };
+
+                await _firebaseManager.DatabaseReference
+                    .Child($"games/{_multiplayerManager.LobbyCode}/gameEnds/{playerId}")
+                    .SetValueAsync(gameEndData);
+
+                Debug.Log("SyncManager: Game end broadcasted");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast game end: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Start listening for game end events from other players.
+        /// </summary>
+        public void ListenForGameEnds()
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady()) return;
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode)) return;
+
+            // Remove existing listener if any
+            if (_gameEndsRef != null)
+            {
+                _gameEndsRef.ValueChanged -= OnGameEndValueChanged;
+                _gameEndsRef = null;
+            }
+
+            // Listen for game end events from all players
+            _gameEndsRef = _firebaseManager.DatabaseReference
+                .Child($"games/{_multiplayerManager.LobbyCode}/gameEnds");
+            _gameEndsRef.ValueChanged += OnGameEndValueChanged;
+
+            Debug.Log("SyncManager: Listening for game end events");
+        }
+
+        private void OnGameEndValueChanged(object sender, ValueChangedEventArgs args)
+        {
+            if (args.DatabaseError != null)
+            {
+                Debug.LogError($"SyncManager: Error listening for game ends: {args.DatabaseError.Message}");
+                return;
+            }
+
+            if (args.Snapshot == null || !args.Snapshot.Exists) return;
+
+            // For each player who ended game
+            foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
+            {
+                string playerId = playerSnapshot.Key;
+                var data = playerSnapshot.Value as Dictionary<string, object>;
+                if (data != null && data.ContainsKey("playerId"))
+                {
+                    // Notify MultiplayerManager
+                    _multiplayerManager?.OnRemoteGameEnded(playerId);
+                }
             }
         }
 

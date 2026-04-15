@@ -394,17 +394,34 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         public void OnLocalGameEnded()
         {
-            if (!IsMultiplayerMode)
-            {
-                return;
-            }
+            if (!IsMultiplayerMode) return;
 
             _gameEnded = true;
 
-            // TODO: Broadcast game end to other players
-            // TODO: Check if all players have ended
+            // Broadcast game end to other players
+            if (SyncManager.Instance != null)
+            {
+                SyncManager.Instance.BroadcastGameEnd();
+            }
 
-            Debug.Log("MultiplayerManager: Local game ended");
+            Debug.Log("MultiplayerManager: Local game ended and broadcasted");
+        }
+
+        public void OnRemoteGameEnded(string playerId)
+        {
+            // When any player ends game, end game for all players (board game rule)
+            if (!_gameEnded)
+            {
+                _gameEnded = true;
+                Debug.Log($"MultiplayerManager: Remote player {playerId} ended game, ending local game.");
+
+                // Trigger local game end
+                GameManager.Instance?.TriggerGameEnd();
+            }
+            else
+            {
+                Debug.Log($"MultiplayerManager: Remote player {playerId} also ended game (already ended).");
+            }
         }
 
         /// <summary>
