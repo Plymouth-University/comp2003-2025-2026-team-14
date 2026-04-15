@@ -62,7 +62,7 @@ namespace PocketPlanner.UI
         [SerializeField] private Button shapeWildcardButton;
         [SerializeField] private Button buildingWildcardButton;
         [SerializeField] public WildcardSelectionPanel shapeWildcardPanel;
-        [SerializeField] private WildcardSelectionPanel buildingWildcardPanel;
+        [SerializeField] public WildcardSelectionPanel buildingWildcardPanel;
         [SerializeField] private TextMeshProUGUI wildcardCountText;
         [SerializeField] private TextMeshProUGUI wildcardCostText;
         [SerializeField] private TextMeshProUGUI turnCountText;

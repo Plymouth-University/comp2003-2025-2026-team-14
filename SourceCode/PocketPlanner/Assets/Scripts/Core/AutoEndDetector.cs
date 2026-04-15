@@ -106,6 +106,10 @@ namespace PocketPlanner.Core
             // First turn check (applies to ALL placements, including water die)
             if (!firstTurnCompleted)
             {
+                // For now: never auto-end on first turn
+                return true;
+
+                /*
                 // If no starting position selected yet, invalid
                 if (selectedStartingPos == 0)
                 {
@@ -122,17 +126,18 @@ namespace PocketPlanner.Core
                 }
 
                 // First turn passed, no water die - placement valid
-                return true;
+                return true; */
             }
 
+            bool adjacentToRiver = false;
             // First turn completed, check water die rule
             if (waterDiePresent)
             {
-                return shape.IsAdjacentToRiver();
+                adjacentToRiver = shape.IsAdjacentToRiver();
             }
 
-            // Subsequent turn, no water die - must be adjacent to existing building
-            return shape.IsAdjacentToExistingBuilding();
+            // Subsequent turn - must be adjacent to existing building or river if water die present
+            return shape.IsAdjacentToExistingBuilding() || adjacentToRiver; // Allow river adjacency if water die present
         }
 
         private bool CanShapeBePlaced(ShapeType shapeType, bool waterDiePresent, List<GridPosition> positionsToCheck)

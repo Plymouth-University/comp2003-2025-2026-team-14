@@ -389,6 +389,9 @@ public class GameManager : MonoBehaviour
 
             // Get reference to shape wildcard panel
             WildcardSelectionPanel shapePanel = diceUI.shapeWildcardPanel;
+            // Get reference to building wildcard panel (in the case water die is chosen)
+            WildcardSelectionPanel buildingPanel = diceUI.buildingWildcardPanel;
+
             if (shapePanel == null)
             {
                 Debug.LogError("GameManager: Shape wildcard panel not found");
@@ -397,12 +400,19 @@ public class GameManager : MonoBehaviour
                 return;
             }
 
+            if (buildingPanel == null)
+            {
+                Debug.LogError("GameManager: Building wildcard panel not found");
+            }
+
             // Temporarily subscribe to selection event
             UnityEngine.Events.UnityAction<int> onWildcardSelected = null;
             onWildcardSelected = (faceIndex) =>
             {
                 // Unsubscribe to avoid multiple calls
                 shapePanel.onSelectionMade.RemoveListener(onWildcardSelected);
+                buildingPanel.onSelectionMade.RemoveListener(onWildcardSelected);
+
 
                 // Wildcard has been applied (handled by DiceUIManager.OnShapeWildcardSelected)
                 // Wait a frame for dice update, then re-check for valid placements
@@ -410,6 +420,10 @@ public class GameManager : MonoBehaviour
             };
 
             shapePanel.onSelectionMade.AddListener(onWildcardSelected);
+            if (buildingPanel != null)
+            {
+                buildingPanel.onSelectionMade.AddListener(onWildcardSelected);
+            }
 
             // Show the shape wildcard panel
             // We need to simulate a click on the shape wildcard button to ensure proper setup

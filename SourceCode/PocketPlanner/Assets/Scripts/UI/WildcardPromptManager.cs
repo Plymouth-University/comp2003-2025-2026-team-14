@@ -58,14 +58,14 @@ namespace PocketPlanner.UI
                 messageText.text = "No valid placements available!";
 
             if (costText != null)
-                costText.text = $"Use Wildcard (-{nextWildcardCost} points)";
+                costText.text = $"Use Wildcard ({nextWildcardCost} points)";
 
             // Update button text with cost
             if (useWildcardButton != null)
             {
                 var buttonText = useWildcardButton.GetComponentInChildren<TextMeshProUGUI>();
                 if (buttonText != null)
-                    buttonText.text = $"Use Wildcard (-{nextWildcardCost})";
+                    buttonText.text = $"Continue";
             }
 
             // Show panel
