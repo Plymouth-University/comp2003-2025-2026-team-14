@@ -61,7 +61,7 @@ namespace PocketPlanner.UI
         [Header("Wildcard UI")]
         [SerializeField] private Button shapeWildcardButton;
         [SerializeField] private Button buildingWildcardButton;
-        [SerializeField] private WildcardSelectionPanel shapeWildcardPanel;
+        [SerializeField] public WildcardSelectionPanel shapeWildcardPanel;
         [SerializeField] private WildcardSelectionPanel buildingWildcardPanel;
         [SerializeField] private TextMeshProUGUI wildcardCountText;
         [SerializeField] private TextMeshProUGUI wildcardCostText;
@@ -398,7 +398,7 @@ namespace PocketPlanner.UI
         /// Called when shape wildcard button is clicked.
         /// Shows shape wildcard panel if wildcards available.
         /// </summary>
-        private void OnShapeWildcardButtonClicked()
+        public void OnShapeWildcardButtonClicked()
         {
             Debug.Log($"OnShapeWildcardButtonClicked called. GameManager.Instance={(GameManager.Instance != null ? "set" : "null")}");
             // Ensure GameManager reference is available

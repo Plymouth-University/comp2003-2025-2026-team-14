@@ -39,8 +39,8 @@ public class ShapeController : MonoBehaviour
     public BuildingType buildingType;
     public ShapeData shapeData;
     public GridPosition position; // Current position of the 'center' of the shape on the grid
-    public int RotationState { get; private set; } // 0-3 representing the rotation of the shape
-    public bool IsFlipped { get; private set; } // Whether the shape is flipped horizontally
+    public int RotationState; // 0-3 representing the rotation of the shape
+    public bool IsFlipped; // Whether the shape is flipped horizontally
     public bool isPlacedOnGrid = false;
     public bool isPlacementConfirmed = false; // true = Shape is no longer moveable
     public bool lastGhostValidity = false; // Used to track when validity changes for ghost color updates
@@ -55,6 +55,12 @@ public class ShapeController : MonoBehaviour
     // Touch dragging state
     public bool isBeingDragged = false;
     private int draggingTouchId = -1; // Track which touch is dragging this shape
+
+    // Public setter for tilemapManager (used by AutoEndDetector)
+    public void SetTilemapManager(TilemapManager manager)
+    {
+        tilemapManager = manager;
+    }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -633,7 +639,7 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Returns true if any tile of the shape is orthogonally adjacent to a river tile.
     /// </summary>
-    private bool IsAdjacentToRiver()
+    public bool IsAdjacentToRiver()
     {
         if (tilemapManager == null)
         {
@@ -646,7 +652,7 @@ public class ShapeController : MonoBehaviour
         }
 
         List<GridPosition> occupied = GetOccupiedPositions();
-        Debug.Log($"IsAdjacentToRiver: Checking {occupied.Count} occupied positions for river adjacency");
+        //Debug.Log($"IsAdjacentToRiver: Checking {occupied.Count} occupied positions for river adjacency");
         foreach (GridPosition pos in occupied)
         {
             // Check orthogonal neighbors
@@ -660,19 +666,19 @@ public class ShapeController : MonoBehaviour
             foreach (GridPosition neighbor in neighbors)
             {
                 bool isRiver = tilemapManager.IsRiverTile(neighbor);
-                Debug.Log($"  Neighbor {neighbor} is river: {isRiver}");
+                //Debug.Log($"  Neighbor {neighbor} is river: {isRiver}");
                 if (isRiver)
                     return true;
             }
         }
-        Debug.Log("IsAdjacentToRiver: No adjacent river tiles found");
+        //Debug.Log("IsAdjacentToRiver: No adjacent river tiles found");
         return false;
     }
 
     /// <summary>
     /// Returns true if the shape overlaps the specified starting position number.
     /// </summary>
-    private bool OverlapsStartingPosition(int startingPositionNumber)
+    public bool OverlapsStartingPosition(int startingPositionNumber)
     {
         // Starting position numbers are 1-8
         // Need to find which grid position corresponds to this number
@@ -690,7 +696,7 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Returns true if the shape is orthogonally adjacent to any existing confirmed building.
     /// </summary>
-    private bool IsAdjacentToExistingBuilding()
+    public bool IsAdjacentToExistingBuilding()
     {
         if (tilemapManager == null)
         {
@@ -703,7 +709,7 @@ public class ShapeController : MonoBehaviour
         }
 
         List<GridPosition> occupied = GetOccupiedPositions();
-        Debug.Log($"IsAdjacentToExistingBuilding: Checking {occupied.Count} occupied positions");
+        //Debug.Log($"IsAdjacentToExistingBuilding: Checking {occupied.Count} occupied positions");
         foreach (GridPosition pos in occupied)
         {
             GridPosition[] neighbors = new GridPosition[]
@@ -716,12 +722,12 @@ public class ShapeController : MonoBehaviour
             foreach (GridPosition neighbor in neighbors)
             {
                 bool occupiedNeighbor = tilemapManager.IsOccupied(neighbor);
-                Debug.Log($"  Neighbor {neighbor} occupied: {occupiedNeighbor}");
+                //Debug.Log($"  Neighbor {neighbor} occupied: {occupiedNeighbor}");
                 if (occupiedNeighbor)
                     return true;
             }
         }
-        Debug.Log("IsAdjacentToExistingBuilding: No adjacent occupied tiles found");
+        //Debug.Log("IsAdjacentToExistingBuilding: No adjacent occupied tiles found");
         return false;
     }
 
