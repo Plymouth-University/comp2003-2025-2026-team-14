@@ -41,16 +41,12 @@ public class ScoreManager : MonoBehaviour
 
     public void RefreshReferences(ZoneManager newZoneManager, TilemapManager newTilemapManager, GameManager newGameManager)
     {
-        zoneManager = newZoneManager;
-        tilemapManager = newTilemapManager;
-        gameManager = newGameManager;
-
-        if (zoneManager == null)
-            Debug.LogError("ScoreManager: ZoneManager not found!");
-        if (tilemapManager == null)
-            Debug.LogError("ScoreManager: TilemapManager not found!");
-        if (gameManager == null)
-            Debug.LogError("ScoreManager: GameManager not found!");
+        if (newZoneManager != null)
+            zoneManager = newZoneManager;
+        if (newTilemapManager != null)
+            tilemapManager = newTilemapManager;
+        if (newGameManager != null)
+            gameManager = newGameManager;
     }
 
     /// <summary>

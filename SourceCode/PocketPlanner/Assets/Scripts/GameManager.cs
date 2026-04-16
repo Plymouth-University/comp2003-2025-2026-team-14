@@ -86,14 +86,17 @@ public class GameManager : MonoBehaviour
             if (playerInput == null)
             {
                 playerInput = gameObject.AddComponent<PlayerInput>();
-                Debug.LogWarning("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
+                Debug.LogError("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
             }
             else
             {
                 Debug.Log("GameManager: PlayerInput component found.");
             }
-            mousePositionAction = playerInput.actions["MousePosition"];
-            touchPositionAction = playerInput.actions["TouchPosition"];
+            if (playerInput.actions != null)
+            {
+                mousePositionAction = playerInput.actions["MousePosition"];
+                touchPositionAction = playerInput.actions["TouchPosition"];
+            }
         }
         else
         {
@@ -182,7 +185,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("GameManager: DiceManager not assigned. Creating new DicePool.");
+            Debug.LogWarning("GameManager: DiceManager not assigned. Creating new DicePool.");
             dicePool = new DicePool();
         }
 
@@ -192,26 +195,24 @@ public class GameManager : MonoBehaviour
             diceUIManager = FindAnyObjectByType<DiceUIManager>();
         }
 
-        // Ensure ZoneManager exists
-        if (ZoneManager.Instance == null)
-        {
-            GameObject zoneManagerObj = new GameObject("ZoneManager");
-            zoneManager = zoneManagerObj.AddComponent<ZoneManager>();
-        }
-        else
+        // Try to find ZoneManager
+        if (ZoneManager.Instance != null)
         {
             zoneManager = ZoneManager.Instance;
         }
-
-        // Ensure ScoreManager exists
-        if (ScoreManager.Instance == null)
+        else
         {
-            GameObject scoreManagerObj = new GameObject("ScoreManager");
-            scoreManager = scoreManagerObj.AddComponent<ScoreManager>();
+            Debug.LogWarning("GameManager: ZoneManager instance not found.");
+        }
+
+        // Try to find ScoreManager
+        if (ScoreManager.Instance != null)
+        {
+            scoreManager = ScoreManager.Instance;
         }
         else
         {
-            scoreManager = ScoreManager.Instance;
+            Debug.LogWarning("GameManager: ScoreManager instance not found.");
         }
 
         // Initialize end game UI
@@ -321,6 +322,14 @@ public class GameManager : MonoBehaviour
         }
 
         // Additional turn start logic here
+    }
+
+    // NOT CURRENTLY IN USE
+    // Wrapper of CheckForGameEndAfterRoll that can be called by DiceUIManager when wildcard is used
+    // IMPORTANT: Potential issue with HandleWildcardChoice's current implementation. Needs modification before use.
+    public void CheckForGameEndAfterWildcardUse()
+    {
+        CheckForGameEndAfterRoll();
     }
 
     private void CheckForGameEndAfterRoll()
@@ -798,7 +807,8 @@ public class GameManager : MonoBehaviour
     // Temp
     public void OnPlaceShapeInput()
     {
-        shapeManager.OnPlaceShapeInput();
+        if (shapeManager != null)
+            shapeManager.OnPlaceShapeInput();
     }
 
     // Input system callback for mouse position (required for input system).
@@ -911,14 +921,13 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Return to main menu (placeholder).
+    /// Return to main menu.
     /// </summary>
     public void ReturnToMainMenu()
     {
-        Debug.Log("Returning to main menu (not implemented)");
-        // TODO: Load main menu scene when available
-        // For now, just restart
-        RestartGame();
+        Debug.Log("Returning to main menu");
+        // Load main menu scene
+        PPSceneManager.LoadMainMenu();
     }
 
     void ResetGameState()
@@ -1020,18 +1029,17 @@ public class GameManager : MonoBehaviour
         shapeManager = FindAnyObjectByType<ShapeManager>();
         diceManager = FindAnyObjectByType<DiceManager>();
         diceUIManager = FindAnyObjectByType<DiceUIManager>();
+        zoneManager = FindAnyObjectByType<ZoneManager>();
+        scoreManager = FindAnyObjectByType<ScoreManager>();
+        syncManager = FindAnyObjectByType<SyncManager>();
         wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
 
-        // Use singleton instances for ZoneManager and ScoreManager
-        if (ZoneManager.Instance != null)
-            zoneManager = ZoneManager.Instance;
+        // Refresh references in other managers
+        if (zoneManager != null)
             zoneManager.RefreshTilemapManagerReference(boardManager); // Ensure ZoneManager has updated reference to TilemapManager
-        if (ScoreManager.Instance != null)
-            scoreManager = ScoreManager.Instance;
+        if (scoreManager != null)
             scoreManager.RefreshReferences(zoneManager, boardManager, this); // Ensure ScoreManager has updated references
-        // Refresh sync manager reference
-        if (SyncManager.Instance != null)
-            syncManager = SyncManager.Instance;
+        if (syncManager != null)
             syncManager.RefreshReferences(); // Ensure SyncManager has updated references
 
         // Update dice pool reference

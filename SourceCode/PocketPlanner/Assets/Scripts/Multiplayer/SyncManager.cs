@@ -66,6 +66,13 @@ namespace PocketPlanner.Multiplayer
             _firebaseManager = FirebaseManager.Instance;
             _gameManager = GameManager.Instance;
             _multiplayerManager = MultiplayerManager.Instance;
+
+            if (_firebaseManager == null)
+                Debug.LogWarning("SyncManager: FirebaseManager not found!");
+            if (_gameManager == null)
+                Debug.LogWarning("SyncManager: GameManager not found!");
+            if (_multiplayerManager == null)
+                Debug.LogWarning("SyncManager: MultiplayerManager not found!");
         }
 
         /// <summary>

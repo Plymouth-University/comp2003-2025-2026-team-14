@@ -1,9 +1,13 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
 
 public class PPSceneManager : MonoBehaviour
 {
+    // Handles general navigation between scenes and any global logic related to scene management (eg. loading screens, transition effects, etc.)
     public static PPSceneManager Instance { get; private set; }
+
 
     void Awake()
     {
