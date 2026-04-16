@@ -35,7 +35,11 @@ public class ZoneManager : MonoBehaviour
 
     public void RefreshTilemapManagerReference(TilemapManager newTilemapManager)
     {
-        tilemapManager = newTilemapManager;
+        if (newTilemapManager != null)
+        {
+            tilemapManager = newTilemapManager;
+            Debug.Log("ZoneManager: TilemapManager reference refreshed.");
+        }
     }
 
     /// <summary>
