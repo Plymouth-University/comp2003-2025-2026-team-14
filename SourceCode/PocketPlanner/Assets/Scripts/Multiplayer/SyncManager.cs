@@ -61,6 +61,13 @@ namespace PocketPlanner.Multiplayer
             }
         }
 
+        public void RefreshReferences()
+        {
+            _firebaseManager = FirebaseManager.Instance;
+            _gameManager = GameManager.Instance;
+            _multiplayerManager = MultiplayerManager.Instance;
+        }
+
         /// <summary>
         /// Start listening for multiplayer synchronization events for a specific lobby.
         /// </summary>

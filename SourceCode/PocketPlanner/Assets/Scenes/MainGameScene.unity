@@ -3251,7 +3251,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &340684959
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3766,50 +3766,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 400302231}
   m_CullTransparentMesh: 1
---- !u!1 &403967550
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 403967552}
-  - component: {fileID: 403967551}
-  m_Layer: 0
-  m_Name: CheckFBDependencies
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &403967551
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 403967550}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb4c6e018122d296b82a68a8e22b427b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.Test.TestFirebaseConnectivity
---- !u!4 &403967552
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 403967550}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1341998732}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &411184030
 GameObject:
   m_ObjectHideFlags: 0
@@ -5239,9 +5195,9 @@ RectTransform:
   - {fileID: 1685285178}
   m_Father: {fileID: 340684959}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: -1277.6666}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &553105746
@@ -8955,6 +8911,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1341998732}
+  - component: {fileID: 1341998738}
+  - component: {fileID: 1341998737}
+  - component: {fileID: 1341998736}
+  - component: {fileID: 1341998735}
+  - component: {fileID: 1341998734}
+  - component: {fileID: 1341998733}
   m_Layer: 0
   m_Name: MultiplayerManagers
   m_TagString: Untagged
@@ -8974,13 +8936,83 @@ Transform:
   m_LocalPosition: {x: 665.23114, y: 731.0574, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 2049993608}
-  - {fileID: 1580316339}
-  - {fileID: 1497045760}
-  - {fileID: 403967552}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1341998733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb4c6e018122d296b82a68a8e22b427b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.Test.TestFirebaseConnectivity
+--- !u!114 &1341998734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2a3d3416837be2668c5444253831eb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerTester
+  autoInitialize: 1
+  testLobbyCode: TEST12
+--- !u!114 &1341998735
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01811798d0b1c6385bc1f79b65de5a42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.SyncManager
+--- !u!114 &1341998736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 475e4157d1dbf2aeb8f545f80e93345c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.LobbyManager
+--- !u!114 &1341998737
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97b5ea714cbcef087927d7da1e2dd217, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerManager
+--- !u!114 &1341998738
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1341998731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02607a4793a357632b1719eeb627ec93, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.FirebaseManager
 --- !u!1 &1354511181
 GameObject:
   m_ObjectHideFlags: 0
@@ -10087,52 +10119,6 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
---- !u!1 &1497045759
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1497045760}
-  - component: {fileID: 1497045761}
-  m_Layer: 0
-  m_Name: MultiplayerTester
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1497045760
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1497045759}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1341998732}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1497045761
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1497045759}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e2a3d3416837be2668c5444253831eb3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerTester
-  autoInitialize: 1
-  testLobbyCode: TEST12
 --- !u!1 &1500837340
 GameObject:
   m_ObjectHideFlags: 0
@@ -10714,10 +10700,10 @@ MonoBehaviour:
   boardManager: {fileID: 1064831966}
   shapeManager: {fileID: 2071748404}
   diceManager: {fileID: 479134401}
-  diceUIManager: {fileID: 1992021483}
+  diceUIManager: {fileID: 2082906702}
   zoneManager: {fileID: 322279403}
   scoreManager: {fileID: 549545961}
-  syncManager: {fileID: 1580316342}
+  syncManager: {fileID: 1341998735}
   wildcardPromptManager: {fileID: 248488681}
   endGamePanel: {fileID: 340684958}
   scoreBreakdownText: {fileID: 1943050411}
@@ -10768,76 +10754,6 @@ MonoBehaviour:
   m_DefaultActionMap: Gameplay
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!1 &1580316338
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1580316339}
-  - component: {fileID: 1580316340}
-  - component: {fileID: 1580316341}
-  - component: {fileID: 1580316342}
-  m_Layer: 0
-  m_Name: MultiplayerManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1580316339
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1580316338}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1341998732}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1580316340
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1580316338}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 97b5ea714cbcef087927d7da1e2dd217, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerManager
---- !u!114 &1580316341
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1580316338}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 475e4157d1dbf2aeb8f545f80e93345c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.LobbyManager
---- !u!114 &1580316342
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1580316338}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01811798d0b1c6385bc1f79b65de5a42, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.SyncManager
 --- !u!1 &1607877712
 GameObject:
   m_ObjectHideFlags: 0
@@ -11727,57 +11643,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1685285177}
   m_CullTransparentMesh: 1
---- !u!1 &1723439032
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1723439033}
-  - component: {fileID: 1723439034}
-  m_Layer: 0
-  m_Name: ManipulationUIManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1723439033
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1723439032}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2082906700}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1723439034
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1723439032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6222ffdd375aef479962c29811348ad, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ManipulationUIManager
-  manipulationPanel: {fileID: 2068982412}
-  RotateButton: {fileID: 2050224879}
-  FlipButton: {fileID: 44647916}
-  ConfirmButton: {fileID: 1773704883}
-  shapeManager: {fileID: 2071748404}
-  canvas: {fileID: 200645589}
-  uiCamera: {fileID: 519420031}
 --- !u!1 &1730145177
 GameObject:
   m_ObjectHideFlags: 0
@@ -11894,9 +11759,9 @@ RectTransform:
   - {fileID: 1795941992}
   m_Father: {fileID: 340684959}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: -1721.3333}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!1 &1731389476
@@ -13820,9 +13685,9 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 340684959}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 864, y: 864}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!223 &1943050409
@@ -13948,107 +13813,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!1 &1992021482
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1992021484}
-  - component: {fileID: 1992021483}
-  m_Layer: 0
-  m_Name: DiceUIManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1992021483
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1992021482}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2ec53d720236ff11a87f14c064ee3f64, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.UI.DiceUIManager
-  gameManager: {fileID: 1563126059}
-  diceManager: {fileID: 479134401}
-  shapeManager: {fileID: 2071748404}
-  singleShapeFaceSprite: {fileID: 2498325708924604862, guid: 51da8e12f4ab9da3a8ceee3cdf2e017e, type: 3}
-  TShapeFaceSprite: {fileID: 8941000607855142163, guid: cb4bd508909f371bea9c3e5c7f2a3e9e, type: 3}
-  LShapeFaceSprite: {fileID: 8984294646617356792, guid: 973ba1e68dce0b938ab599a9fced2381, type: 3}
-  squareShapeFaceSprite: {fileID: -9189198722597790650, guid: f0b74f38cf2a8047b8a9630cabf8150a, type: 3}
-  lineShapeFaceSprite: {fileID: -8585806735349365765, guid: bc72803ae59c06d1187967d46ccfc33c, type: 3}
-  ZShapeFaceSprite: {fileID: 4041229504360478661, guid: 3231674851903eaae9b0691718be6958, type: 3}
-  industrialFaceSprite: {fileID: 692612346373014916, guid: c982cbe6bb9e5b55e8e2fc6f084b8c3e, type: 3}
-  residentialFaceSprite: {fileID: 1022713658555356914, guid: 789edaf2e1869835f81890728778b63a, type: 3}
-  commercialFaceSprite: {fileID: -2643599634390498437, guid: 6d709379e0e824f279ca9be61ce94e13, type: 3}
-  schoolFaceSprite: {fileID: -8472918160972598836, guid: 343aac3ecbeeb1bf9ab0370985e0cdf6, type: 3}
-  parkFaceSprite: {fileID: 6180323924480863147, guid: da89fbc60bc5db697bfad891234774fb, type: 3}
-  waterFaceSprite: {fileID: 7163959962584611910, guid: b586ab9ded310fdfa8760d5f66911fa7, type: 3}
-  shapeDiceButtons:
-  - {fileID: 2065857487}
-  - {fileID: 2047900520}
-  - {fileID: 1126650843}
-  shapeDiceTexts:
-  - {fileID: 55594607}
-  - {fileID: 17179051}
-  - {fileID: 1934080514}
-  shapeDiceBackgrounds:
-  - {fileID: 871048402}
-  - {fileID: 1338046521}
-  - {fileID: 1796988887}
-  buildingDiceButtons:
-  - {fileID: 1607877715}
-  - {fileID: 82862655}
-  - {fileID: 1063611009}
-  buildingDiceTexts:
-  - {fileID: 282779072}
-  - {fileID: 1763008638}
-  - {fileID: 507585949}
-  buildingDiceBackgrounds:
-  - {fileID: 1376674152}
-  - {fileID: 25266833}
-  - {fileID: 493609246}
-  defaultColor: {r: 1, g: 1, b: 1, a: 1}
-  selectedColor: {r: 0, g: 1, b: 0, a: 1}
-  doubleColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  invalidColor: {r: 1, g: 0, b: 0, a: 1}
-  waterDiePanel: {fileID: 1769536933}
-  industrialButton: {fileID: 2141110124}
-  residentialButton: {fileID: 142049729}
-  commercialButton: {fileID: 1471517937}
-  schoolButton: {fileID: 1394308201}
-  parkButton: {fileID: 60958271}
-  shapeWildcardButton: {fileID: 1064238216}
-  buildingWildcardButton: {fileID: 813776702}
-  shapeWildcardPanel: {fileID: 893511145}
-  buildingWildcardPanel: {fileID: 438381374}
-  wildcardCountText: {fileID: 2001565040}
-  wildcardCostText: {fileID: 136389228}
-  turnCountText: {fileID: 1470684312}
-  wildcardCounterText: {fileID: 1457647675}
---- !u!4 &1992021484
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1992021482}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 393.44495, y: 74.92634, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2082906700}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1993404137
 GameObject:
   m_ObjectHideFlags: 0
@@ -14470,50 +14234,6 @@ MonoBehaviour:
   m_FlexibleWidth: 0
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
---- !u!1 &2049993607
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2049993608}
-  - component: {fileID: 2049993609}
-  m_Layer: 0
-  m_Name: FirebaseManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2049993608
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049993607}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1341998732}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2049993609
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049993607}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 02607a4793a357632b1719eeb627ec93, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.FirebaseManager
 --- !u!1 &2050224876
 GameObject:
   m_ObjectHideFlags: 0
@@ -14972,6 +14692,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2082906700}
+  - component: {fileID: 2082906703}
+  - component: {fileID: 2082906702}
   - component: {fileID: 2082906701}
   m_Layer: 0
   m_Name: UIManagers
@@ -14992,9 +14714,7 @@ Transform:
   m_LocalPosition: {x: 0.32332, y: -1.78144, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1992021484}
-  - {fileID: 1723439033}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2082906701
@@ -15006,11 +14726,106 @@ MonoBehaviour:
   m_GameObject: {fileID: 2082906699}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a0d7906bb1d48915488d8bc3f31ae514, type: 3}
+  m_Script: {fileID: 11500000, guid: e6222ffdd375aef479962c29811348ad, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Test.ScoreTester
+  m_EditorClassIdentifier: Assembly-CSharp::ManipulationUIManager
+  manipulationPanel: {fileID: 2068982412}
+  RotateButton: {fileID: 2050224879}
+  FlipButton: {fileID: 44647916}
+  ConfirmButton: {fileID: 1773704883}
+  shapeManager: {fileID: 2071748404}
+  canvas: {fileID: 200645589}
+  uiCamera: {fileID: 519420031}
+--- !u!114 &2082906702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2082906699}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ec53d720236ff11a87f14c064ee3f64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.UI.DiceUIManager
   gameManager: {fileID: 1563126059}
-  scoreManager: {fileID: 549545961}
+  diceManager: {fileID: 479134401}
+  shapeManager: {fileID: 2071748404}
+  singleShapeFaceSprite: {fileID: 2498325708924604862, guid: 51da8e12f4ab9da3a8ceee3cdf2e017e, type: 3}
+  TShapeFaceSprite: {fileID: 8941000607855142163, guid: cb4bd508909f371bea9c3e5c7f2a3e9e, type: 3}
+  LShapeFaceSprite: {fileID: 8984294646617356792, guid: 973ba1e68dce0b938ab599a9fced2381, type: 3}
+  squareShapeFaceSprite: {fileID: -9189198722597790650, guid: f0b74f38cf2a8047b8a9630cabf8150a, type: 3}
+  lineShapeFaceSprite: {fileID: -8585806735349365765, guid: bc72803ae59c06d1187967d46ccfc33c, type: 3}
+  ZShapeFaceSprite: {fileID: 4041229504360478661, guid: 3231674851903eaae9b0691718be6958, type: 3}
+  industrialFaceSprite: {fileID: 692612346373014916, guid: c982cbe6bb9e5b55e8e2fc6f084b8c3e, type: 3}
+  residentialFaceSprite: {fileID: 1022713658555356914, guid: 789edaf2e1869835f81890728778b63a, type: 3}
+  commercialFaceSprite: {fileID: -2643599634390498437, guid: 6d709379e0e824f279ca9be61ce94e13, type: 3}
+  schoolFaceSprite: {fileID: -8472918160972598836, guid: 343aac3ecbeeb1bf9ab0370985e0cdf6, type: 3}
+  parkFaceSprite: {fileID: 6180323924480863147, guid: da89fbc60bc5db697bfad891234774fb, type: 3}
+  waterFaceSprite: {fileID: 7163959962584611910, guid: b586ab9ded310fdfa8760d5f66911fa7, type: 3}
+  shapeDiceButtons:
+  - {fileID: 2065857487}
+  - {fileID: 2047900520}
+  - {fileID: 1126650843}
+  shapeDiceTexts:
+  - {fileID: 55594607}
+  - {fileID: 17179051}
+  - {fileID: 1934080514}
+  shapeDiceBackgrounds:
+  - {fileID: 871048402}
+  - {fileID: 1338046521}
+  - {fileID: 1796988887}
+  buildingDiceButtons:
+  - {fileID: 1607877715}
+  - {fileID: 82862655}
+  - {fileID: 1063611009}
+  buildingDiceTexts:
+  - {fileID: 282779072}
+  - {fileID: 1763008638}
+  - {fileID: 507585949}
+  buildingDiceBackgrounds:
+  - {fileID: 1376674152}
+  - {fileID: 25266833}
+  - {fileID: 493609246}
+  defaultColor: {r: 1, g: 1, b: 1, a: 1}
+  selectedColor: {r: 0, g: 1, b: 0, a: 1}
+  doubleColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  invalidColor: {r: 1, g: 0, b: 0, a: 1}
+  waterDiePanel: {fileID: 1769536933}
+  industrialButton: {fileID: 2141110124}
+  residentialButton: {fileID: 142049729}
+  commercialButton: {fileID: 1471517937}
+  schoolButton: {fileID: 1394308201}
+  parkButton: {fileID: 60958271}
+  shapeWildcardButton: {fileID: 1064238216}
+  buildingWildcardButton: {fileID: 813776702}
+  shapeWildcardPanel: {fileID: 893511145}
+  buildingWildcardPanel: {fileID: 438381374}
+  wildcardCountText: {fileID: 2001565040}
+  wildcardCostText: {fileID: 136389228}
+  turnCountText: {fileID: 1470684312}
+  wildcardCounterText: {fileID: 1457647675}
+--- !u!114 &2082906703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2082906699}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2daf757ffac150aad5edd5e8f7bb6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.UI.WildcardPromptManager
+  panel: {fileID: 248488678}
+  messageText: {fileID: 1534299534}
+  costText: {fileID: 1926041408}
+  useWildcardButton: {fileID: 453266238}
+  endGameButton: {fileID: 1774717922}
+  cancelButton: {fileID: 0}
+  onChoiceMade:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &2088618672
 GameObject:
   m_ObjectHideFlags: 0
