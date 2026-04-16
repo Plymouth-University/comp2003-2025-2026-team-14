@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
 
     // Game state
     private int currentTurn;
+    private ScoreComponents currentScore; // Only updated when needed to display score (like end of game), calculated from ScoreManager
     private int stars;
     private int wildcardsUsed;
     private DicePool dicePool;
@@ -33,6 +34,7 @@ public class GameManager : MonoBehaviour
 
     // Public properties for game state access
     public int CurrentTurn => currentTurn;
+    public ScoreComponents CurrentScore => currentScore;
     public int Stars => stars;
     public int WildcardsUsed => wildcardsUsed;
     public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
@@ -741,6 +743,7 @@ public class GameManager : MonoBehaviour
 
         // Calculate final score
         ScoreComponents score = CalculateFinalScore();
+        currentScore = score;
 
         // Show end game UI
         ShowEndGameScreen(score);
@@ -1017,16 +1020,24 @@ public class GameManager : MonoBehaviour
         shapeManager = FindAnyObjectByType<ShapeManager>();
         diceManager = FindAnyObjectByType<DiceManager>();
         diceUIManager = FindAnyObjectByType<DiceUIManager>();
+        wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
 
         // Use singleton instances for ZoneManager and ScoreManager
         if (ZoneManager.Instance != null)
             zoneManager = ZoneManager.Instance;
+            zoneManager.RefreshTilemapManagerReference(boardManager); // Ensure ZoneManager has updated reference to TilemapManager
         if (ScoreManager.Instance != null)
             scoreManager = ScoreManager.Instance;
+            scoreManager.RefreshReferences(zoneManager, boardManager, this); // Ensure ScoreManager has updated references
+        // Refresh sync manager reference
+        if (SyncManager.Instance != null)
+            syncManager = SyncManager.Instance;
+            syncManager.RefreshReferences(); // Ensure SyncManager has updated references
 
         // Update dice pool reference
         if (diceManager != null)
             dicePool = diceManager.DicePool;
+
         else
             Debug.LogWarning("GameManager: DiceManager not found after scene load.");
 
@@ -1036,7 +1047,6 @@ public class GameManager : MonoBehaviour
 
     private void InitializeAutoEndDetector()
     {
-        if (autoEndDetector != null) return;
         if (TilemapManager.Instance == null || diceManager == null || shapeManager == null)
         {
             Debug.LogWarning("GameManager: Cannot initialize AutoEndDetector - missing manager references");

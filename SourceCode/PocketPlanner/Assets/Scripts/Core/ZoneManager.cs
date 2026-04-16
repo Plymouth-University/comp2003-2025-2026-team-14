@@ -33,6 +33,11 @@ public class ZoneManager : MonoBehaviour
         }
     }
 
+    public void RefreshTilemapManagerReference(TilemapManager newTilemapManager)
+    {
+        tilemapManager = newTilemapManager;
+    }
+
     /// <summary>
     /// Adds a shape to the appropriate zone(s), creating or merging zones as needed.
     /// Should be called after a shape is placed and confirmed.
