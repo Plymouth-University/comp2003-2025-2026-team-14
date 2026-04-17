@@ -1630,8 +1630,6 @@ GameObject:
   - component: {fileID: 951906877}
   - component: {fileID: 951906876}
   - component: {fileID: 951906875}
-  - component: {fileID: 951906874}
-  - component: {fileID: 951906873}
   m_Layer: 0
   m_Name: MultiplayerManagers
   m_TagString: Untagged
@@ -1639,32 +1637,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &951906873
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 951906872}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb4c6e018122d296b82a68a8e22b427b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.Test.TestFirebaseConnectivity
---- !u!114 &951906874
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 951906872}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e2a3d3416837be2668c5444253831eb3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerTester
-  autoInitialize: 1
-  testLobbyCode: TEST12
 --- !u!114 &951906875
 MonoBehaviour:
   m_ObjectHideFlags: 0

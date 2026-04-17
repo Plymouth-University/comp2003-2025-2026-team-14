@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -16,6 +17,9 @@ namespace PocketPlanner.Multiplayer
         private string _currentLobbyCode = string.Empty;
         private bool _isInLobby = false;
         private Dictionary<string, PlayerData> _players = new Dictionary<string, PlayerData>();
+
+        // Main thread dispatch
+        private ConcurrentQueue<Action> _mainThreadActions = new ConcurrentQueue<Action>();
 
         // Firebase references
         private FirebaseManager _firebaseManager;
@@ -38,23 +42,41 @@ namespace PocketPlanner.Multiplayer
             }
         }
 
+        private void Update()
+        {
+            // Process main thread actions
+            while (_mainThreadActions.TryDequeue(out var action))
+            {
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"LobbyManager: Exception in main thread action: {ex.Message}");
+                }
+            }
+        }
+
         /// <summary>
         /// Create a new lobby as host.
         /// </summary>
         /// <param name="hostPlayerId">ID of the host player</param>
         /// <param name="onLobbyCreated">Callback when lobby is created</param>
         /// <param name="onError">Callback when error occurs</param>
-        public void CreateLobby(string hostPlayerId, Action<string> onLobbyCreated, Action<string> onError)
+        /// <param name="maxPlayers">Maximum number of players allowed (default: 8)</param>
+        /// <param name="turnTimeLimit">Turn time limit in seconds, -1 for unlimited (default: -1)</param>
+        public void CreateLobby(string hostPlayerId, Action<string> onLobbyCreated, Action<string> onError, int maxPlayers = 8, int turnTimeLimit = -1)
         {
             if (!_firebaseManager.IsReady())
             {
-                onError?.Invoke("Firebase not ready");
+                InvokeOnMainThread(onError, "Firebase not ready");
                 return;
             }
 
             if (_isInLobby)
             {
-                onError?.Invoke("Already in a lobby");
+                InvokeOnMainThread(onError, "Already in a lobby");
                 return;
             }
 
@@ -73,7 +95,8 @@ namespace PocketPlanner.Multiplayer
                 { "hostPlayerId", hostPlayerId },
                 { "createdAt", GetCurrentTimestamp() },
                 { "gameStarted", false },
-                { "maxPlayers", 8 },
+                { "maxPlayers", maxPlayers },
+                { "turnTimeLimit", turnTimeLimit },
                 { "players", new Dictionary<string, object>() }
             };
 
@@ -88,21 +111,45 @@ namespace PocketPlanner.Multiplayer
             _lobbyRef = _firebaseManager.DatabaseReference.Child("lobbies").Child(lobbyCode);
             _playersRef = _lobbyRef.Child("players");
 
+            Debug.Log($"LobbyManager: Starting Firebase SetValueAsync for lobby {lobbyCode}");
             _lobbyRef.SetValueAsync(lobbyData).ContinueWith(task => {
-                if (task.IsFaulted)
+                try
                 {
-                    onError?.Invoke($"Failed to create lobby: {task.Exception?.Message}");
-                    return;
+                    Debug.Log($"LobbyManager: Firebase SetValueAsync continuation started. IsCompleted: {task.IsCompleted}, IsFaulted: {task.IsFaulted}, IsCanceled: {task.IsCanceled}");
+
+                    if (task.IsFaulted)
+                    {
+                        Debug.LogError($"LobbyManager: Firebase write failed: {task.Exception?.Message}");
+                        InvokeOnMainThread(onError, $"Failed to create lobby: {task.Exception?.Message}");
+                        return;
+                    }
+
+                    if (task.IsCanceled)
+                    {
+                        Debug.LogError("LobbyManager: Firebase write was canceled");
+                        InvokeOnMainThread(onError, "Lobby creation was canceled");
+                        return;
+                    }
+
+                    Debug.Log("LobbyManager: Firebase write successful, setting up listeners");
+
+                    // Set up listeners
+                    SetupLobbyListeners(lobbyCode);
+
+                    _currentLobbyCode = lobbyCode;
+                    _isInLobby = true;
+                    _players[hostPlayerId] = hostPlayer;
+
+                    Debug.Log($"LobbyManager: Calling InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated == null})");
+                    InvokeOnMainThread(onLobbyCreated, lobbyCode);
+                    Debug.Log("LobbyManager: InvokeOnMainThread called");
                 }
-
-                // Set up listeners
-                SetupLobbyListeners(lobbyCode);
-
-                _currentLobbyCode = lobbyCode;
-                _isInLobby = true;
-                _players[hostPlayerId] = hostPlayer;
-
-                onLobbyCreated?.Invoke(lobbyCode);
+                catch (Exception ex)
+                {
+                    Debug.LogError($"LobbyManager: Exception in Firebase continuation: {ex.Message}");
+                    Debug.LogError($"LobbyManager: Stack trace: {ex.StackTrace}");
+                    InvokeOnMainThread(onError, $"Exception creating lobby: {ex.Message}");
+                }
             });
         }
 
@@ -119,19 +166,19 @@ namespace PocketPlanner.Multiplayer
         {
             if (!_firebaseManager.IsReady())
             {
-                onError?.Invoke("Firebase not ready");
+                InvokeOnMainThread(onError, "Firebase not ready");
                 return;
             }
 
             if (_isInLobby)
             {
-                onError?.Invoke("Already in a lobby");
+                InvokeOnMainThread(onError, "Already in a lobby");
                 return;
             }
 
             if (string.IsNullOrEmpty(lobbyCode) || lobbyCode.Length != 6)
             {
-                onError?.Invoke("Invalid lobby code");
+                InvokeOnMainThread(onError, "Invalid lobby code");
                 return;
             }
 
@@ -147,22 +194,27 @@ namespace PocketPlanner.Multiplayer
             _lobbyRef.GetValueAsync().ContinueWith(task => {
                 if (task.IsFaulted)
                 {
-                    onError?.Invoke($"Failed to join lobby: {task.Exception?.Message}");
+                    InvokeOnMainThread(onError, $"Failed to join lobby: {task.Exception?.Message}");
                     return;
                 }
 
                 DataSnapshot snapshot = task.Result;
                 if (!snapshot.Exists)
                 {
-                    onError?.Invoke("Lobby not found");
+                    InvokeOnMainThread(onError, "Lobby not found");
                     return;
                 }
 
-                // Check player count
+                // Check player count against maxPlayers setting
                 int playerCount = (int)snapshot.Child("players").ChildrenCount;
-                if (playerCount >= 8)
+                int maxPlayers = 8; // default
+                if (snapshot.Child("maxPlayers").Exists)
                 {
-                    onError?.Invoke("Lobby is full (max 8 players)");
+                    maxPlayers = Convert.ToInt32(snapshot.Child("maxPlayers").Value);
+                }
+                if (playerCount >= maxPlayers)
+                {
+                    InvokeOnMainThread(onError, $"Lobby is full (max {maxPlayers} players)");
                     return;
                 }
 
@@ -173,19 +225,21 @@ namespace PocketPlanner.Multiplayer
                 _playersRef.Child(playerId).SetValueAsync(playerDict).ContinueWith(joinTask => {
                     if (joinTask.IsFaulted)
                     {
-                        onError?.Invoke($"Failed to join lobby: {joinTask.Exception?.Message}");
+                        InvokeOnMainThread(onError, $"Failed to join lobby: {joinTask.Exception?.Message}");
                         return;
                     }
 
                     // Set up listeners and get current player list
                     SetupLobbyListeners(lobbyCode);
-                    LoadCurrentPlayers();
 
                     _currentLobbyCode = lobbyCode;
                     _isInLobby = true;
-                    _players[playerId] = playerData;
 
-                    onLobbyJoined?.Invoke(lobbyCode, _players);
+                    // Load all players from Firebase (including the one we just added)
+                    LoadCurrentPlayers(() => {
+                        // Callback after players are loaded
+                        InvokeOnMainThread(() => onLobbyJoined?.Invoke(lobbyCode, _players));
+                    });
                 });
             });
         }
@@ -368,11 +422,13 @@ namespace PocketPlanner.Multiplayer
         /// <summary>
         /// Load current players from Firebase.
         /// </summary>
-        private void LoadCurrentPlayers()
+        /// <param name="onComplete">Optional callback invoked when players are loaded</param>
+        private void LoadCurrentPlayers(Action onComplete = null)
         {
             if (_playersRef == null)
             {
                 Debug.LogError("LobbyManager: Cannot load players - Firebase reference not initialized");
+                onComplete?.Invoke();
                 return;
             }
 
@@ -383,6 +439,7 @@ namespace PocketPlanner.Multiplayer
                 if (task.IsFaulted)
                 {
                     Debug.LogError($"LobbyManager: Failed to load players: {task.Exception?.Message}");
+                    InvokeOnMainThread(onComplete);
                     return;
                 }
 
@@ -390,23 +447,29 @@ namespace PocketPlanner.Multiplayer
                 if (!snapshot.Exists)
                 {
                     Debug.Log("LobbyManager: No players found in lobby");
+                    InvokeOnMainThread(onComplete);
                     return;
                 }
 
-                _players.Clear();
-                foreach (DataSnapshot playerSnapshot in snapshot.Children)
+                // Process snapshot data on main thread
+                InvokeOnMainThread(() =>
                 {
-                    var playerDict = playerSnapshot.Value as Dictionary<string, object>;
-                    if (playerDict != null)
+                    _players.Clear();
+                    foreach (DataSnapshot playerSnapshot in snapshot.Children)
                     {
-                        var playerData = DictionaryToPlayerData(playerDict);
-                        _players[playerData.PlayerId] = playerData;
-                        Debug.Log($"LobbyManager: Loaded player {playerData.DisplayName} ({playerData.PlayerId})");
+                        var playerDict = playerSnapshot.Value as Dictionary<string, object>;
+                        if (playerDict != null)
+                        {
+                            var playerData = DictionaryToPlayerData(playerDict);
+                            _players[playerData.PlayerId] = playerData;
+                            Debug.Log($"LobbyManager: Loaded player {playerData.DisplayName} ({playerData.PlayerId})");
+                        }
                     }
-                }
 
-                Debug.Log($"LobbyManager: Loaded {_players.Count} players");
-                // TODO: Trigger UI update event if needed
+                    Debug.Log($"LobbyManager: Loaded {_players.Count} players");
+                    // TODO: Trigger UI update event if needed
+                    onComplete?.Invoke();
+                });
             });
         }
 
@@ -478,6 +541,39 @@ namespace PocketPlanner.Multiplayer
         public string GetStatusString()
         {
             return $"Lobby Status: InLobby={_isInLobby}, Code={_currentLobbyCode}, Players={_players.Count}";
+        }
+
+        /// <summary>
+        /// Helper method to invoke an action on the main Unity thread.
+        /// </summary>
+        private void InvokeOnMainThread(Action action)
+        {
+            if (action == null) return;
+            _mainThreadActions.Enqueue(action);
+        }
+
+        /// <summary>
+        /// Helper method to invoke an action with one argument on the main Unity thread.
+        /// </summary>
+        private void InvokeOnMainThread<T>(Action<T> action, T arg)
+        {
+            if (action == null)
+            {
+                // Safe logging - don't call ToString() on potentially Unity objects
+                Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: action is null, skipping. Type: {typeof(T).Name}");
+                return;
+            }
+            // Enqueue action to be executed on main thread
+            _mainThreadActions.Enqueue(() => action(arg));
+        }
+
+        /// <summary>
+        /// Helper method to invoke an action with two arguments on the main Unity thread.
+        /// </summary>
+        private void InvokeOnMainThread<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
+        {
+            if (action == null) return;
+            _mainThreadActions.Enqueue(() => action(arg1, arg2));
         }
     }
 }

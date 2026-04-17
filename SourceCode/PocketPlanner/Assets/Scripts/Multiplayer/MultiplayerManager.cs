@@ -36,6 +36,12 @@ namespace PocketPlanner.Multiplayer
         private bool _gameStarted = false;
         private bool _gameEnded = false;
 
+        // Host lobby settings (set when creating lobby)
+        private int _hostMaxPlayers = 8;
+        private int _hostTurnTimeLimit = -1;
+        public int HostMaxPlayers => _hostMaxPlayers;
+        public int HostTurnTimeLimit => _hostTurnTimeLimit;
+
         // References
         private FirebaseManager _firebaseManager;
         private GameManager _gameManager;
@@ -142,7 +148,9 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         /// <param name="isHost">Whether this player is the lobby host</param>
         /// <param name="lobbyCode">Existing lobby code to join, or empty to create new</param>
-        public void EnableMultiplayerMode(bool isHost, string lobbyCode = "")
+        /// <param name="maxPlayers">Maximum number of players allowed (default: 8, host only)</param>
+        /// <param name="turnTimeLimit">Turn time limit in seconds, -1 for unlimited (default: -1, host only)</param>
+        public void EnableMultiplayerMode(bool isHost, string lobbyCode = "", int maxPlayers = 8, int turnTimeLimit = -1)
         {
             if (!_firebaseManager.IsReady())
             {
@@ -170,6 +178,9 @@ namespace PocketPlanner.Multiplayer
 
             if (isHost)
             {
+                // Store host lobby settings
+                _hostMaxPlayers = maxPlayers;
+                _hostTurnTimeLimit = turnTimeLimit;
                 // Host creates new lobby
                 CreateLobby();
             }
@@ -212,8 +223,8 @@ namespace PocketPlanner.Multiplayer
                 return;
             }
 
-            Debug.Log($"MultiplayerManager: Creating lobby for player {LocalPlayerId}...");
-            _lobbyManager.CreateLobby(LocalPlayerId, OnLobbyCreated, OnLobbyError);
+            Debug.Log($"MultiplayerManager: Creating lobby for player {LocalPlayerId} with maxPlayers={_hostMaxPlayers}, turnTimeLimit={_hostTurnTimeLimit}...");
+            _lobbyManager.CreateLobby(LocalPlayerId, OnLobbyCreated, OnLobbyError, _hostMaxPlayers, _hostTurnTimeLimit);
         }
 
         /// <summary>
@@ -236,6 +247,7 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         private void OnLobbyCreated(string lobbyCode)
         {
+            Debug.Log($"MultiplayerManager.OnLobbyCreated called with lobbyCode: {lobbyCode}");
             LobbyCode = lobbyCode;
             Debug.Log($"MultiplayerManager: Lobby created with code: {lobbyCode}");
 
@@ -243,7 +255,9 @@ namespace PocketPlanner.Multiplayer
             var hostPlayer = new PlayerData(LocalPlayerId, "Host", true, SystemInfo.deviceUniqueIdentifier);
             Players[LocalPlayerId] = hostPlayer;
 
+            Debug.Log($"MultiplayerManager: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {OnLobbyJoined?.GetInvocationList()?.Length ?? 0}");
             OnLobbyJoined?.Invoke(lobbyCode);
+            Debug.Log($"MultiplayerManager: OnLobbyJoined event invoked");
         }
 
         /// <summary>

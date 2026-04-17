@@ -26,6 +26,7 @@ public class HostSettingsPanel : MonoBehaviour
     [SerializeField] private LobbyManager lobbyManager;
     [SerializeField] private FirebaseManager firebaseManager;
     [SerializeField] private MultiplayerManager multiplayerManager;
+    [SerializeField] private SyncManager syncManager;
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -50,6 +51,11 @@ public class HostSettingsPanel : MonoBehaviour
         {
             Debug.LogWarning("MultiplayerManager reference is not assigned in HostSettingsPanel!");
             multiplayerManager = FindAnyObjectByType<MultiplayerManager>();
+        }
+        if (syncManager == null)
+        {
+            Debug.LogWarning("SyncManager reference is not assigned in HostSettingsPanel!");
+            syncManager = FindAnyObjectByType<SyncManager>();
         }
     }
 
@@ -128,17 +134,72 @@ public class HostSettingsPanel : MonoBehaviour
 
     public void ConfirmHostSettings()
     {
-        if (lobbyManager != null)
+        if (multiplayerManager == null)
         {
-            // TODO: pass configured settings to lobby manager
-        }
-        else
-        {
-            Debug.LogError("LobbyManager reference is missing in HostSettingsPanel. Cannot host game.");
+            Debug.LogError("MultiplayerManager reference is missing in HostSettingsPanel. Cannot host game.");
+            return;
         }
 
-        PPSceneManager.LoadLobby();
+        // Ensure Firebase is ready
+        if (firebaseManager == null || !firebaseManager.IsReady())
+        {
+            Debug.LogError("Firebase not ready. Please check connection.");
+            // Could show error UI
+            return;
+        }
+
+        Debug.Log($"HostSettingsPanel: Creating lobby with maxPlayers={maxPlayers}, turnTimeLimit={turnTimeLimit}");
+
+        // Subscribe to events before enabling multiplayer mode
+        multiplayerManager.OnLobbyJoined += OnLobbyJoined;
+        multiplayerManager.OnError += OnMultiplayerError;
+
+        // Enable multiplayer mode as host with selected settings
+        multiplayerManager.EnableMultiplayerMode(true, "", maxPlayers, turnTimeLimit);
     }
 
-    
+    private void OnLobbyJoined(string lobbyCode)
+    {
+        Debug.Log($"HostSettingsPanel.OnLobbyJoined called with lobbyCode: {lobbyCode}");
+        Debug.Log($"HostSettingsPanel: Lobby joined successfully with code: {lobbyCode}");
+
+        // Unsubscribe from events to prevent multiple calls
+        if (multiplayerManager != null)
+        {
+            Debug.Log($"HostSettingsPanel: Unsubscribing from MultiplayerManager events");
+            multiplayerManager.OnLobbyJoined -= OnLobbyJoined;
+            multiplayerManager.OnError -= OnMultiplayerError;
+        }
+
+        Debug.Log($"HostSettingsPanel: Loading lobby scene via PPSceneManager.LoadLobby()");
+        // Load the lobby scene
+        PPSceneManager.LoadLobby();
+        Debug.Log($"HostSettingsPanel: PPSceneManager.LoadLobby() called");
+    }
+
+    private void OnMultiplayerError(string errorMessage)
+    {
+        Debug.LogError($"HostSettingsPanel: Multiplayer error - {errorMessage}");
+
+        // Unsubscribe from events
+        if (multiplayerManager != null)
+        {
+            multiplayerManager.OnLobbyJoined -= OnLobbyJoined;
+            multiplayerManager.OnError -= OnMultiplayerError;
+        }
+
+        // Show error to user (could implement UI feedback)
+        // For now, just log error
+    }
+
+    private void OnDestroy()
+    {
+        // Clean up event subscriptions
+        if (multiplayerManager != null)
+        {
+            multiplayerManager.OnLobbyJoined -= OnLobbyJoined;
+            multiplayerManager.OnError -= OnMultiplayerError;
+        }
+    }
+
 }

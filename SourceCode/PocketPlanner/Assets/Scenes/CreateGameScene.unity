@@ -447,8 +447,6 @@ GameObject:
   - component: {fileID: 215164324}
   - component: {fileID: 215164323}
   - component: {fileID: 215164322}
-  - component: {fileID: 215164321}
-  - component: {fileID: 215164320}
   m_Layer: 0
   m_Name: MultiplayerManagers
   m_TagString: Untagged
@@ -456,32 +454,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &215164320
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 215164319}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb4c6e018122d296b82a68a8e22b427b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.Test.TestFirebaseConnectivity
---- !u!114 &215164321
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 215164319}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e2a3d3416837be2668c5444253831eb3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PocketPlanner.Multiplayer.MultiplayerTester
-  autoInitialize: 1
-  testLobbyCode: TEST12
 --- !u!114 &215164322
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -616,9 +588,10 @@ MonoBehaviour:
   turnTimeSlider: {fileID: 1163656603}
   turnTimeText: {fileID: 1732656638}
   sliderTurnTimeIncrement: 30
-  lobbyManager: {fileID: 215164323}
-  firebaseManager: {fileID: 215164325}
-  multiplayerManager: {fileID: 215164324}
+  lobbyManager: {fileID: 0}
+  firebaseManager: {fileID: 0}
+  multiplayerManager: {fileID: 0}
+  syncManager: {fileID: 0}
 --- !u!4 &367791700
 Transform:
   m_ObjectHideFlags: 0
@@ -3608,6 +3581,93 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 50}
   m_Pivot: {x: 1, y: 0.5}
+--- !u!1 &1735271241
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1735271244}
+  - component: {fileID: 1735271243}
+  - component: {fileID: 1735271242}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1735271242
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1735271241}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
+  m_Actions: {fileID: -944628639613478452, guid: ce74ee4456253aee4ad52eea4d2d666b, type: 3}
+  m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
+  m_DeviceLostEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_DeviceRegainedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ControlsChangedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ActionEvents: []
+  m_NeverAutoSwitchControlSchemes: 0
+  m_DefaultControlScheme: 
+  m_DefaultActionMap: Gameplay
+  m_SplitScreenIndex: -1
+  m_Camera: {fileID: 0}
+--- !u!114 &1735271243
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1735271241}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9061c18e3e193bed48f31abefdee0e7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  boardManager: {fileID: 0}
+  shapeManager: {fileID: 0}
+  diceManager: {fileID: 0}
+  diceUIManager: {fileID: 0}
+  zoneManager: {fileID: 0}
+  scoreManager: {fileID: 0}
+  syncManager: {fileID: 0}
+  wildcardPromptManager: {fileID: 0}
+  endGamePanel: {fileID: 0}
+  scoreBreakdownText: {fileID: 0}
+  restartButton: {fileID: 0}
+  mainMenuButton: {fileID: 0}
+--- !u!4 &1735271244
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1735271241}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 392.1812, y: 608.06824, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1756832971
 GameObject:
   m_ObjectHideFlags: 0
@@ -4329,6 +4389,7 @@ SceneRoots:
   - {fileID: 600571247}
   - {fileID: 799779558}
   - {fileID: 367791700}
+  - {fileID: 1735271244}
   - {fileID: 143580720}
   - {fileID: 1888124439}
   - {fileID: 215164326}
