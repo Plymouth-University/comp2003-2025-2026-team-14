@@ -39,6 +39,16 @@ public class ScoreManager : MonoBehaviour
             Debug.LogError("ScoreManager: GameManager not found!");
     }
 
+    public void RefreshReferences(ZoneManager newZoneManager, TilemapManager newTilemapManager, GameManager newGameManager)
+    {
+        if (newZoneManager != null)
+            zoneManager = newZoneManager;
+        if (newTilemapManager != null)
+            tilemapManager = newTilemapManager;
+        if (newGameManager != null)
+            gameManager = newGameManager;
+    }
+
     /// <summary>
     /// Calculate complete score breakdown for the current game state.
     /// </summary>

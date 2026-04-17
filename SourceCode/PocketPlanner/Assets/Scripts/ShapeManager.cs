@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System;
+using System.Linq;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
 using PocketPlanner.Core;
@@ -14,6 +15,15 @@ public class ShapeManager : MonoBehaviour
     [SerializeField] private GameObject LineShapePrefab;
     [SerializeField] private GameObject ZShapePrefab;
     [SerializeField] private GameObject SingleShapePrefab;
+
+    [Header("Shape Data Assets")]
+    [SerializeField] private ShapeData TShapeData;
+    [SerializeField] private ShapeData LShapeData;
+    [SerializeField] private ShapeData SquareShapeData;
+    [SerializeField] private ShapeData LineShapeData;
+    [SerializeField] private ShapeData ZShapeData;
+    [SerializeField] private ShapeData SingleShapeData;
+
     public ShapeController activeShape;
 
     [Header("References")]
@@ -39,6 +49,8 @@ public class ShapeManager : MonoBehaviour
           touchPositionAction = playerInput.actions["TouchPosition"];
       }
 
+        // Load ShapeData assets if not assigned
+        LoadShapeDataFromResources();
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -66,6 +78,60 @@ public class ShapeManager : MonoBehaviour
                 Debug.LogError("ShapeManager: DiceManager not found in scene!");
             }
         }
+
+    }
+
+    private void LoadShapeDataFromResources()
+    {
+        // If all ShapeData fields are already assigned, skip loading
+        if (TShapeData != null && LShapeData != null && SquareShapeData != null &&
+            LineShapeData != null && ZShapeData != null && SingleShapeData != null)
+            return;
+
+        // Load all ShapeData assets from Resources
+        ShapeData[] allShapeData = Resources.LoadAll<ShapeData>("ScriptableObjects");
+        if (allShapeData == null || allShapeData.Length == 0)
+        {
+            Debug.LogError("ShapeManager: No ShapeData assets found in Resources/ScriptableObjects!");
+            return;
+        }
+
+        // Assign to appropriate fields based on shapeName
+        foreach (ShapeData data in allShapeData)
+        {
+            switch (data.shapeName)
+            {
+                case ShapeType.TShape:
+                    if (TShapeData == null) TShapeData = data;
+                    break;
+                case ShapeType.LShape:
+                    if (LShapeData == null) LShapeData = data;
+                    break;
+                case ShapeType.SquareShape:
+                    if (SquareShapeData == null) SquareShapeData = data;
+                    break;
+                case ShapeType.LineShape:
+                    if (LineShapeData == null) LineShapeData = data;
+                    break;
+                case ShapeType.ZShape:
+                    if (ZShapeData == null) ZShapeData = data;
+                    break;
+                case ShapeType.SingleShape:
+                    if (SingleShapeData == null) SingleShapeData = data;
+                    break;
+                default:
+                    Debug.LogWarning($"ShapeManager: Unknown shape name {data.shapeName} in loaded ShapeData");
+                    break;
+            }
+        }
+
+        // Log any missing ShapeData after loading
+        if (TShapeData == null) Debug.LogError("ShapeManager: TShapeData still missing after loading from Resources!");
+        if (LShapeData == null) Debug.LogError("ShapeManager: LShapeData still missing after loading from Resources!");
+        if (SquareShapeData == null) Debug.LogError("ShapeManager: SquareShapeData still missing after loading from Resources!");
+        if (LineShapeData == null) Debug.LogError("ShapeManager: LineShapeData still missing after loading from Resources!");
+        if (ZShapeData == null) Debug.LogError("ShapeManager: ZShapeData still missing after loading from Resources!");
+        if (SingleShapeData == null) Debug.LogError("ShapeManager: SingleShapeData still missing after loading from Resources!");
     }
 
     // Update is called once per frame
@@ -341,6 +407,31 @@ public class ShapeManager : MonoBehaviour
             case ShapeType.SingleShape:
                 return SingleShapePrefab;
             default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Get ShapeData for a given shape type.
+    /// </summary>
+    public ShapeData GetShapeData(ShapeType shapeType)
+    {
+        switch (shapeType)
+        {
+            case ShapeType.TShape:
+                return TShapeData;
+            case ShapeType.LShape:
+                return LShapeData;
+            case ShapeType.SquareShape:
+                return SquareShapeData;
+            case ShapeType.LineShape:
+                return LineShapeData;
+            case ShapeType.ZShape:
+                return ZShapeData;
+            case ShapeType.SingleShape:
+                return SingleShapeData;
+            default:
+                Debug.LogError($"GetShapeData: No ShapeData found for shape type {shapeType}");
                 return null;
         }
     }

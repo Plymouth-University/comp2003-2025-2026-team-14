@@ -340,7 +340,7 @@ public class TilemapManager : MonoBehaviour
         bool occupied = tile != null && tile.occupyingShape != null;
         if (occupied)
         {
-            Debug.Log($"IsOccupied: Tile at logical {pos} is occupied by shape");
+            //Debug.Log($"IsOccupied: Tile at logical {pos} is occupied by shape");
         }
         return occupied;
     }

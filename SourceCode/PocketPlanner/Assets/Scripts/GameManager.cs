@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
 
     // Game state
     private int currentTurn;
+    private ScoreComponents currentScore; // Only updated when needed to display score (like end of game), calculated from ScoreManager
     private int stars;
     private int wildcardsUsed;
     private DicePool dicePool;
@@ -33,6 +34,7 @@ public class GameManager : MonoBehaviour
 
     // Public properties for game state access
     public int CurrentTurn => currentTurn;
+    public ScoreComponents CurrentScore => currentScore;
     public int Stars => stars;
     public int WildcardsUsed => wildcardsUsed;
     public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
@@ -52,7 +54,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private ScoreManager scoreManager;
     [SerializeField] private SyncManager syncManager;
+    [SerializeField] private WildcardPromptManager wildcardPromptManager;
     //private UIManager uiManager;
+
+    // Auto-end detection
+    private AutoEndDetector autoEndDetector;
+    private bool isCheckingGameEnd = false;
 
     [Header("End Game UI")]
     [SerializeField] private GameObject endGamePanel;
@@ -79,14 +86,17 @@ public class GameManager : MonoBehaviour
             if (playerInput == null)
             {
                 playerInput = gameObject.AddComponent<PlayerInput>();
-                Debug.LogWarning("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
+                Debug.LogError("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
             }
             else
             {
                 Debug.Log("GameManager: PlayerInput component found.");
             }
-            mousePositionAction = playerInput.actions["MousePosition"];
-            touchPositionAction = playerInput.actions["TouchPosition"];
+            if (playerInput.actions != null)
+            {
+                mousePositionAction = playerInput.actions["MousePosition"];
+                touchPositionAction = playerInput.actions["TouchPosition"];
+            }
         }
         else
         {
@@ -175,7 +185,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("GameManager: DiceManager not assigned. Creating new DicePool.");
+            Debug.LogWarning("GameManager: DiceManager not assigned. Creating new DicePool.");
             dicePool = new DicePool();
         }
 
@@ -185,30 +195,29 @@ public class GameManager : MonoBehaviour
             diceUIManager = FindAnyObjectByType<DiceUIManager>();
         }
 
-        // Ensure ZoneManager exists
-        if (ZoneManager.Instance == null)
-        {
-            GameObject zoneManagerObj = new GameObject("ZoneManager");
-            zoneManager = zoneManagerObj.AddComponent<ZoneManager>();
-        }
-        else
+        // Try to find ZoneManager
+        if (ZoneManager.Instance != null)
         {
             zoneManager = ZoneManager.Instance;
         }
-
-        // Ensure ScoreManager exists
-        if (ScoreManager.Instance == null)
+        else
         {
-            GameObject scoreManagerObj = new GameObject("ScoreManager");
-            scoreManager = scoreManagerObj.AddComponent<ScoreManager>();
+            Debug.LogWarning("GameManager: ZoneManager instance not found.");
+        }
+
+        // Try to find ScoreManager
+        if (ScoreManager.Instance != null)
+        {
+            scoreManager = ScoreManager.Instance;
         }
         else
         {
-            scoreManager = ScoreManager.Instance;
+            Debug.LogWarning("GameManager: ScoreManager instance not found.");
         }
 
         // Initialize end game UI
         InitializeEndGameUI();
+        InitializeAutoEndDetector();
 
         // Roll dice for first turn
         if (diceManager != null)
@@ -288,6 +297,9 @@ public class GameManager : MonoBehaviour
                 diceUIManager.updateTurnText(currentTurn);
             }
 
+            // Auto-end check after dice roll
+            CheckForGameEndAfterRoll();
+
             // Broadcast dice roll to multiplayer if active
             if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
             {
@@ -310,6 +322,150 @@ public class GameManager : MonoBehaviour
         }
 
         // Additional turn start logic here
+    }
+
+    // NOT CURRENTLY IN USE
+    // Wrapper of CheckForGameEndAfterRoll that can be called by DiceUIManager when wildcard is used
+    // IMPORTANT: Potential issue with HandleWildcardChoice's current implementation. Needs modification before use.
+    public void CheckForGameEndAfterWildcardUse()
+    {
+        CheckForGameEndAfterRoll();
+    }
+
+    private void CheckForGameEndAfterRoll()
+    {
+        if (gameEnded) return;
+        if (isCheckingGameEnd) return; // Prevent re-entrancy
+
+        isCheckingGameEnd = true;
+
+        bool hasValidPlacement = autoEndDetector != null && autoEndDetector.CheckAnyValidPlacementExists();
+
+        if (!hasValidPlacement)
+        {
+            if (CanUseWildcard())
+            {
+                // Show wildcard prompt
+                ShowWildcardPrompt();
+            }
+            else
+            {
+                // No wildcards left, end game
+                TriggerGameEnd();
+            }
+        }
+
+        isCheckingGameEnd = false;
+    }
+
+    private void ShowWildcardPrompt()
+    {
+        // Find WildcardPromptManager in scene
+        if (wildcardPromptManager == null)
+        {
+            Debug.LogWarning("GameManager: WildcardPromptManager reference not set, attempting to find in scene...");
+            wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
+        }
+        WildcardPromptManager promptManager = wildcardPromptManager;
+        if (promptManager == null)
+        {
+            Debug.LogError("GameManager: No WildcardPromptManager found in scene!");
+            // Fallback: end game immediately
+            TriggerGameEnd();
+            BroadcastGameEndToMultiplayer();
+            return;
+        }
+
+        promptManager.ShowPrompt(
+            wildcardsUsed,
+            GetNextWildcardCost(),
+            HandleWildcardChoice
+        );
+    }
+
+    public void HandleWildcardChoice(bool useWildcard)
+    {
+        if (useWildcard)
+        {
+            // Player chose to use wildcard - need to open wildcard selection UI
+            // We'll use the existing shape wildcard panel (since shape dice affect placement validity)
+            DiceUIManager diceUI = FindAnyObjectByType<DiceUIManager>();
+            if (diceUI == null)
+            {
+                Debug.LogError("GameManager: No DiceUIManager found for wildcard selection");
+                TriggerGameEnd(); // Fallback: end game
+                BroadcastGameEndToMultiplayer();
+                return;
+            }
+
+            // Get reference to shape wildcard panel
+            WildcardSelectionPanel shapePanel = diceUI.shapeWildcardPanel;
+            // Get reference to building wildcard panel (in the case water die is chosen)
+            WildcardSelectionPanel buildingPanel = diceUI.buildingWildcardPanel;
+
+            if (shapePanel == null)
+            {
+                Debug.LogError("GameManager: Shape wildcard panel not found");
+                TriggerGameEnd(); // Fallback: end game
+                BroadcastGameEndToMultiplayer();
+                return;
+            }
+
+            if (buildingPanel == null)
+            {
+                Debug.LogError("GameManager: Building wildcard panel not found");
+            }
+
+            // Temporarily subscribe to selection event
+            UnityEngine.Events.UnityAction<int> onWildcardSelected = null;
+            onWildcardSelected = (faceIndex) =>
+            {
+                // Unsubscribe to avoid multiple calls
+                shapePanel.onSelectionMade.RemoveListener(onWildcardSelected);
+                buildingPanel.onSelectionMade.RemoveListener(onWildcardSelected);
+
+
+                // Wildcard has been applied (handled by DiceUIManager.OnShapeWildcardSelected)
+                // Wait a frame for dice update, then re-check for valid placements
+                StartCoroutine(RecheckAfterWildcard());
+            };
+
+            shapePanel.onSelectionMade.AddListener(onWildcardSelected);
+            if (buildingPanel != null)
+            {
+                buildingPanel.onSelectionMade.AddListener(onWildcardSelected);
+            }
+
+            // Show the shape wildcard panel
+            // We need to simulate a click on the shape wildcard button to ensure proper setup
+            // DiceUIManager.OnShapeWildcardButtonClicked handles permission checks and panel showing
+            diceUI.OnShapeWildcardButtonClicked();
+
+            Debug.Log("GameManager: Shape wildcard panel opened for auto-end scenario");
+        }
+        else
+        {
+            // Player chose to end game
+            TriggerGameEnd();
+        }
+    }
+
+    private System.Collections.IEnumerator RecheckAfterWildcard()
+    {
+        // Wait one frame for dice update and UI to refresh
+        yield return null;
+
+        // Re-check for valid placements
+        CheckForGameEndAfterRoll();
+    }
+
+    private void BroadcastGameEndToMultiplayer()
+    {
+        if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            MultiplayerManager.Instance.OnLocalGameEnded();
+            SyncManager.Instance?.BroadcastGameEnd();
+        }
     }
 
     /// <summary>
@@ -579,9 +735,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public bool CheckGameEndCondition()
     {
-        // TODO: Implement actual check for valid placements
-        // For now, return false (game continues)
-        return false;
+        if (autoEndDetector == null) return false;
+        return !autoEndDetector.CheckAnyValidPlacementExists() && !CanUseWildcard();
     }
 
     /// <summary>
@@ -592,10 +747,12 @@ public class GameManager : MonoBehaviour
         if (gameEnded) return;
 
         gameEnded = true;
+        BroadcastGameEndToMultiplayer();
         Debug.Log("Game ended! Calculating final score...");
 
         // Calculate final score
         ScoreComponents score = CalculateFinalScore();
+        currentScore = score;
 
         // Show end game UI
         ShowEndGameScreen(score);
@@ -650,7 +807,8 @@ public class GameManager : MonoBehaviour
     // Temp
     public void OnPlaceShapeInput()
     {
-        shapeManager.OnPlaceShapeInput();
+        if (shapeManager != null)
+            shapeManager.OnPlaceShapeInput();
     }
 
     // Input system callback for mouse position (required for input system).
@@ -763,14 +921,13 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Return to main menu (placeholder).
+    /// Return to main menu.
     /// </summary>
     public void ReturnToMainMenu()
     {
-        Debug.Log("Returning to main menu (not implemented)");
-        // TODO: Load main menu scene when available
-        // For now, just restart
-        RestartGame();
+        Debug.Log("Returning to main menu");
+        // Load main menu scene
+        PPSceneManager.LoadMainMenu();
     }
 
     void ResetGameState()
@@ -872,20 +1029,45 @@ public class GameManager : MonoBehaviour
         shapeManager = FindAnyObjectByType<ShapeManager>();
         diceManager = FindAnyObjectByType<DiceManager>();
         diceUIManager = FindAnyObjectByType<DiceUIManager>();
+        zoneManager = FindAnyObjectByType<ZoneManager>();
+        scoreManager = FindAnyObjectByType<ScoreManager>();
+        syncManager = FindAnyObjectByType<SyncManager>();
+        wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
 
-        // Use singleton instances for ZoneManager and ScoreManager
-        if (ZoneManager.Instance != null)
-            zoneManager = ZoneManager.Instance;
-        if (ScoreManager.Instance != null)
-            scoreManager = ScoreManager.Instance;
+        // Refresh references in other managers
+        if (zoneManager != null)
+            zoneManager.RefreshTilemapManagerReference(boardManager); // Ensure ZoneManager has updated reference to TilemapManager
+        if (scoreManager != null)
+            scoreManager.RefreshReferences(zoneManager, boardManager, this); // Ensure ScoreManager has updated references
+        if (syncManager != null)
+            syncManager.RefreshReferences(); // Ensure SyncManager has updated references
 
         // Update dice pool reference
         if (diceManager != null)
             dicePool = diceManager.DicePool;
+
         else
             Debug.LogWarning("GameManager: DiceManager not found after scene load.");
 
         Debug.Log("GameManager: Manager references refreshed after scene load.");
+        InitializeAutoEndDetector();
+    }
+
+    private void InitializeAutoEndDetector()
+    {
+        if (TilemapManager.Instance == null || diceManager == null || shapeManager == null)
+        {
+            Debug.LogWarning("GameManager: Cannot initialize AutoEndDetector - missing manager references");
+            return;
+        }
+
+        autoEndDetector = new AutoEndDetector(
+            TilemapManager.Instance,
+            diceManager,
+            this,
+            shapeManager
+        );
+        Debug.Log("GameManager: AutoEndDetector initialized");
     }
 
 }
