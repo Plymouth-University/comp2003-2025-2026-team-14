@@ -17,6 +17,12 @@ namespace PocketPlanner.Multiplayer
         private string _currentLobbyCode = string.Empty;
         private bool _isInLobby = false;
         private Dictionary<string, PlayerData> _players = new Dictionary<string, PlayerData>();
+        private int _maxPlayers = 8; // Default from NetworkConstants
+        private int _turnTimeLimit = -1; // Default unlimited (-1)
+
+        // Public properties for lobby settings
+        public int CurrentMaxPlayers => _maxPlayers;
+        public int CurrentTurnTimeLimit => _turnTimeLimit;
 
         // Main thread dispatch
         private ConcurrentQueue<Action> _mainThreadActions = new ConcurrentQueue<Action>();
@@ -139,6 +145,8 @@ namespace PocketPlanner.Multiplayer
                     _currentLobbyCode = lobbyCode;
                     _isInLobby = true;
                     _players[hostPlayerId] = hostPlayer;
+                    _maxPlayers = maxPlayers;
+                    _turnTimeLimit = turnTimeLimit;
 
                     Debug.Log($"LobbyManager: Calling InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated == null})");
                     InvokeOnMainThread(onLobbyCreated, lobbyCode);
@@ -218,6 +226,13 @@ namespace PocketPlanner.Multiplayer
                     return;
                 }
 
+                // Read turn time limit
+                int turnTimeLimit = -1; // default unlimited
+                if (snapshot.Child("turnTimeLimit").Exists)
+                {
+                    turnTimeLimit = Convert.ToInt32(snapshot.Child("turnTimeLimit").Value);
+                }
+
                 // Add player to lobby
                 var playerData = new PlayerData(playerId, $"Player{playerCount + 1}", false, SystemInfo.deviceUniqueIdentifier);
                 var playerDict = PlayerDataToDictionary(playerData);
@@ -234,6 +249,8 @@ namespace PocketPlanner.Multiplayer
 
                     _currentLobbyCode = lobbyCode;
                     _isInLobby = true;
+                    _maxPlayers = maxPlayers;
+                    _turnTimeLimit = turnTimeLimit;
 
                     // Load all players from Firebase (including the one we just added)
                     LoadCurrentPlayers(() => {
@@ -284,6 +301,8 @@ namespace PocketPlanner.Multiplayer
             _currentLobbyCode = string.Empty;
             _isInLobby = false;
             _players.Clear();
+            _maxPlayers = 8; // Reset to default
+            _turnTimeLimit = -1; // Reset to default unlimited
 
             _lobbyRef = null;
             _playersRef = null;

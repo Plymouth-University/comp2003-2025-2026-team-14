@@ -203,10 +203,27 @@ namespace PocketPlanner.Multiplayer
             LobbyCode = string.Empty;
             Players.Clear();
 
+            // Reset game state fields
+            _sharedRandomSeed = -1;
+            _currentSynchronizedTurn = 0;
+            _allPlayersReady = false;
+            _gameStarted = false;
+            _gameEnded = false;
+
+            // Reset host settings to defaults
+            _hostMaxPlayers = 8;
+            _hostTurnTimeLimit = -1;
+
             // Clean up Firebase listeners
             if (_lobbyManager != null)
             {
                 _lobbyManager.LeaveLobby();
+            }
+
+            // Stop SyncManager Firebase listeners
+            if (_syncManager != null)
+            {
+                _syncManager.StopListening();
             }
 
             Debug.Log("MultiplayerManager: Multiplayer mode disabled");

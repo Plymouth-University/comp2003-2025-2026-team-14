@@ -20,13 +20,21 @@ public class LobbyUIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI hostNameText; // Text component to display the host's device id (temporarily) in the lobby
 
     [SerializeField] private Button startGameButton; // Button to start the game, only interactable by the host
+    [SerializeField] private Button readyButton; // Button for players to toggle their ready state (host does not have this button - they should be ready by default)
+    [SerializeField] private TextMeshProUGUI readyButtonText; // Text component to display "Ready" or "Unready" on the ready button
+
+    [Header("Checkmark Sprites")]
+    [SerializeField] private Sprite checkmarkSprite; // Sprite for the checkmark image
+    [SerializeField] private Sprite emptyCheckmarkSprite; // Sprite for no checkmark (unready state)
 
     [Header("Player List UI")]
     [SerializeField] private List<GameObject> playerListPanels; // List of 8 UI panels (max 8 players) for displaying player information in the lobby;
     [SerializeField] private List<TextMeshProUGUI> playerNameTexts; // List of 8 Text components (max 8 players) for displaying player names in the lobby;
     [SerializeField] private List<Button> playerKickButtons; // List of 7 Buttons (player 2 - 8) for kicking players from the lobby (only visible to host);
+    [SerializeField] private List<Image> playerReadyCheckmarks; // List of 7 Image components (player 2 - 8) for displaying ready checkmarks in the lobby;
 
     private const int MAX_PLAYERS = 8;
+    private int CurrentMaxPlayers => lobbyManager != null ? lobbyManager.CurrentMaxPlayers : MAX_PLAYERS;
     private bool isHost = false;
     private string localPlayerId = string.Empty;
 
@@ -97,6 +105,18 @@ public class LobbyUIManager : MonoBehaviour
         {
             Debug.LogError($"LobbyUIManager: playerKickButtons must have exactly {MAX_PLAYERS - 1} elements (player 2-8).");
         }
+        if (playerReadyCheckmarks == null || playerReadyCheckmarks.Count != MAX_PLAYERS - 1)
+        {
+            Debug.LogError($"LobbyUIManager: playerReadyCheckmarks must have exactly {MAX_PLAYERS - 1} elements (player 2-8).");
+        }
+        if (checkmarkSprite == null)
+        {
+            Debug.LogError("LobbyUIManager: checkmarkSprite is not assigned.");
+        }
+        if (emptyCheckmarkSprite == null)
+        {
+            Debug.LogError("LobbyUIManager: emptyCheckmarkSprite is not assigned.");
+        }
     }
 
     private void UpdateLastKnownPlayers()
@@ -114,13 +134,22 @@ public class LobbyUIManager : MonoBehaviour
         // Activate panels up to MAX_PLAYERS, disable the rest
         for (int i = 0; i < playerListPanels.Count; i++)
         {
-            playerListPanels[i].SetActive(i < MAX_PLAYERS);
+            playerListPanels[i].SetActive(i < CurrentMaxPlayers);
         }
 
         // Initially hide all kick buttons
         foreach (var button in playerKickButtons)
         {
             button.gameObject.SetActive(false);
+        }
+
+        // Initially hide all ready checkmark images
+        foreach (var checkmark in playerReadyCheckmarks)
+        {
+            if (checkmark != null)
+            {
+                checkmark.gameObject.SetActive(false);
+            }
         }
 
         startGameButton.interactable = false;
@@ -160,17 +189,26 @@ public class LobbyUIManager : MonoBehaviour
         string lobbyCode = multiplayerManager.LobbyCode;
         roomCodeText.text = $"Room Code: {lobbyCode}";
 
-        // Max players: use host setting if available, otherwise default
-        int maxPlayers = NetworkConstants.MAX_PLAYERS_PER_LOBBY;
-        if (multiplayerManager.IsLobbyHost)
+        // Max players: use lobby setting if available, otherwise host setting, otherwise default
+        int maxPlayers = MAX_PLAYERS;
+        if (lobbyManager != null)
+        {
+            maxPlayers = lobbyManager.CurrentMaxPlayers;
+        }
+        else if (multiplayerManager.IsLobbyHost)
         {
             maxPlayers = multiplayerManager.HostMaxPlayers;
         }
         maxPlayersText.text = $"Max Players: {maxPlayers}";
 
-        // Turn time limit: use host setting if available
+        // Turn time limit: use lobby setting if available, otherwise host setting
         string turnTimeDisplay = "Unlimited";
-        if (multiplayerManager.IsLobbyHost)
+        if (lobbyManager != null)
+        {
+            int turnTimeLimit = lobbyManager.CurrentTurnTimeLimit;
+            turnTimeDisplay = turnTimeLimit == -1 ? "Unlimited" : $"{turnTimeLimit}s";
+        }
+        else if (multiplayerManager.IsLobbyHost)
         {
             int turnTimeLimit = multiplayerManager.HostTurnTimeLimit;
             turnTimeDisplay = turnTimeLimit == -1 ? "Unlimited" : $"{turnTimeLimit}s";
@@ -184,7 +222,12 @@ public class LobbyUIManager : MonoBehaviour
         {
             if (player.IsHost)
             {
-                hostName = player.DisplayName;
+                hostName = player.PlayerId; // Using PlayerId as a placeholder for name
+                // Clip host name to 5 characters for UI
+                if (hostName.Length > 5)
+                {
+                    hostName = hostName.Substring(0, 5) + "...";
+                }
                 break;
             }
         }
@@ -195,8 +238,25 @@ public class LobbyUIManager : MonoBehaviour
     {
         if (multiplayerManager == null) return;
 
+
+        isHost = multiplayerManager.IsLobbyHost;
+        localPlayerId = multiplayerManager.LocalPlayerId;
         var players = multiplayerManager.Players;
         int playerIndex = 0;
+
+        // Ensure host is automatically ready
+        if (isHost && !string.IsNullOrEmpty(localPlayerId) && players.TryGetValue(localPlayerId, out var hostPlayer))
+        {
+            if (!hostPlayer.IsReady)
+            {
+                hostPlayer.IsReady = true;
+                // Update in Firebase via LobbyManager
+                if (lobbyManager != null)
+                {
+                    lobbyManager.UpdatePlayerReadyState(localPlayerId, true);
+                }
+            }
+        }
 
         // Clear all player name texts
         foreach (var text in playerNameTexts)
@@ -210,6 +270,15 @@ public class LobbyUIManager : MonoBehaviour
             button.gameObject.SetActive(false);
         }
 
+        // Hide all ready checkmark images initially
+        foreach (var checkmark in playerReadyCheckmarks)
+        {
+            if (checkmark != null)
+            {
+                checkmark.gameObject.SetActive(false);
+            }
+        }
+
         // Create sorted list of players by join order (host first, then others by JoinedAt)
         List<PlayerData> sortedPlayers = new List<PlayerData>(players.Values);
         sortedPlayers.Sort((a, b) => a.JoinedAt.CompareTo(b.JoinedAt));
@@ -217,10 +286,44 @@ public class LobbyUIManager : MonoBehaviour
         // Assign each player to a panel in order (panel 0 = host, panel 1 = second player, etc.)
         foreach (var player in sortedPlayers)
         {
-            if (playerIndex >= MAX_PLAYERS) break;
+            if (playerIndex >= CurrentMaxPlayers) break;
 
             // Update player name text
-            playerNameTexts[playerIndex].text = $"{player.DisplayName} {(player.IsReady ? "✓" : "")}";
+            playerNameTexts[playerIndex].text = $"{player.PlayerId}"; // Use PlayerId as placeholder for name
+
+            // Update checkmark image for players 2-8 (playerIndex 1-7)
+            if (playerIndex > 0 && playerIndex - 1 < playerReadyCheckmarks.Count)
+            {
+                var checkmark = playerReadyCheckmarks[playerIndex - 1];
+                if (checkmark != null)
+                {
+                    // Show checkmark image for this player
+                    checkmark.gameObject.SetActive(true);
+                    // Set sprite based on ready state (with null checks for sprites)
+                    if (player.IsReady)
+                    {
+                        if (checkmarkSprite != null)
+                        {
+                            checkmark.sprite = checkmarkSprite;
+                        }
+                        else
+                        {
+                            Debug.LogWarning("LobbyUIManager: checkmarkSprite is null");
+                        }
+                    }
+                    else
+                    {
+                        if (emptyCheckmarkSprite != null)
+                        {
+                            checkmark.sprite = emptyCheckmarkSprite;
+                        }
+                        else
+                        {
+                            Debug.LogWarning("LobbyUIManager: emptyCheckmarkSprite is null");
+                        }
+                    }
+                }
+            }
 
             // If host and player is not self, show kick button (player 2-8)
             if (isHost && !player.IsHost && playerIndex > 0)
@@ -240,7 +343,7 @@ public class LobbyUIManager : MonoBehaviour
         }
 
         // Disable unused panels
-        for (int i = playerIndex; i < MAX_PLAYERS; i++)
+        for (int i = playerIndex; i < CurrentMaxPlayers; i++)
         {
             playerNameTexts[i].text = "Waiting for player...";
         }
@@ -251,8 +354,23 @@ public class LobbyUIManager : MonoBehaviour
         if (multiplayerManager == null) return;
 
         isHost = multiplayerManager.IsLobbyHost;
+        localPlayerId = multiplayerManager.LocalPlayerId;
         var players = multiplayerManager.Players;
         int playerCount = players.Count;
+
+        // Ensure host is automatically ready
+        if (isHost && !string.IsNullOrEmpty(localPlayerId) && players.TryGetValue(localPlayerId, out var hostPlayer))
+        {
+            if (!hostPlayer.IsReady)
+            {
+                hostPlayer.IsReady = true;
+                // Update in Firebase via LobbyManager
+                if (lobbyManager != null)
+                {
+                    lobbyManager.UpdatePlayerReadyState(localPlayerId, true);
+                }
+            }
+        }
 
         // Start game button: only host can click, and only when all players are ready
         bool allPlayersReady = false;
@@ -268,12 +386,40 @@ public class LobbyUIManager : MonoBehaviour
                 }
             }
         }
-        startGameButton.interactable = isHost && playerCount > 0 && allPlayersReady;
+        startGameButton.interactable = isHost && playerCount > 1 && allPlayersReady;
+
+        // Show/hide start game button and ready button based on host status
+        if (startGameButton != null)
+        {
+            startGameButton.gameObject.SetActive(isHost);
+        }
+        if (readyButton != null)
+        {
+            readyButton.gameObject.SetActive(!isHost);
+            if (!isHost && !string.IsNullOrEmpty(localPlayerId) && players.TryGetValue(localPlayerId, out var localPlayer))
+            {
+                // Update ready button text based on local player's ready state
+                UpdateReadyButtonText(localPlayer.IsReady);
+                readyButton.interactable = true;
+            }
+            else if (isHost)
+            {
+                readyButton.interactable = false;
+            }
+        }
 
         // Update kick buttons interactability based on host status
         foreach (var button in playerKickButtons)
         {
             button.interactable = isHost;
+        }
+    }
+
+    private void UpdateReadyButtonText(bool isReady)
+    {
+        if (readyButtonText != null)
+        {
+            readyButtonText.text = isReady ? "Unready" : "Ready up";
         }
     }
 
@@ -325,6 +471,21 @@ public class LobbyUIManager : MonoBehaviour
         if (multiplayerManager != null && isHost)
         {
             multiplayerManager.StartGame();
+        }
+    }
+
+    public void OnReadyUpClicked()
+    {
+        if (multiplayerManager == null || string.IsNullOrEmpty(localPlayerId)) return;
+
+        // Get current ready state of local player
+        if (multiplayerManager.Players.TryGetValue(localPlayerId, out var playerData))
+        {
+            bool newReadyState = !playerData.IsReady;
+            multiplayerManager.SetLocalPlayerReady(newReadyState);
+
+            // Update button text immediately for local feedback
+            UpdateReadyButtonText(newReadyState);
         }
     }
 
