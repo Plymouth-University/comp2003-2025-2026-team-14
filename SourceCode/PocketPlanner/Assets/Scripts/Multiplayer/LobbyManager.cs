@@ -317,19 +317,100 @@ namespace PocketPlanner.Multiplayer
         /// <summary>
         /// Leave the current lobby.
         /// </summary>
-        public void LeaveLobby()
+        /// <param name="onComplete">Optional callback invoked after Firebase removal attempt (regardless of success)</param>
+        public void LeaveLobby(Action onComplete = null)
         {
             if (!_isInLobby)
             {
+                onComplete?.Invoke();
                 return;
             }
 
             // Remove player from Firebase
-            if (_playersRef != null && FirebaseManager.Instance.UserId != null)
-            {
-                _playersRef.Child(FirebaseManager.Instance.UserId).RemoveValueAsync();
-            }
+            string userId = FirebaseManager.Instance?.UserId;
+            Debug.Log($"LobbyManager.LeaveLobby: Checking Firebase removal - playersRef={_playersRef != null}, userId={userId ?? "null"}, FirebaseManager.Instance={FirebaseManager.Instance != null}, IsHost={IsLocalPlayerHost()}");
 
+            // Check if leaving player is host
+            bool isHost = IsLocalPlayerHost();
+
+            if (_playersRef != null && !string.IsNullOrEmpty(userId))
+            {
+                if (isHost)
+                {
+                    Debug.Log($"LobbyManager.LeaveLobby: Host {userId} is leaving, deleting entire lobby {_currentLobbyCode}");
+                    // Host leaving - delete entire lobby
+                    if (_lobbyRef != null)
+                    {
+                        _lobbyRef.RemoveValueAsync().ContinueWith(task =>
+                        {
+                            if (task.IsFaulted)
+                            {
+                                Debug.LogError($"LobbyManager: Failed to delete lobby {_currentLobbyCode} from Firebase: {task.Exception?.Message}");
+                            }
+                            else if (task.IsCanceled)
+                            {
+                                Debug.LogWarning($"LobbyManager: Lobby deletion for {_currentLobbyCode} was canceled");
+                            }
+                            else
+                            {
+                                Debug.Log($"LobbyManager: Successfully deleted lobby {_currentLobbyCode} from Firebase");
+                            }
+
+                            // Clean up listeners AFTER Firebase deletion attempt (success or failure)
+                            CleanupLobbyListenersAndState();
+
+                            // Invoke callback on main thread
+                            InvokeOnMainThread(() => onComplete?.Invoke());
+                        });
+                    }
+                    else
+                    {
+                        Debug.LogError($"LobbyManager.LeaveLobby: Cannot delete lobby - _lobbyRef is null");
+                        CleanupLobbyListenersAndState();
+                        InvokeOnMainThread(() => onComplete?.Invoke());
+                    }
+                }
+                else
+                {
+                    Debug.Log($"LobbyManager.LeaveLobby: Removing player {userId} from Firebase");
+                    _playersRef.Child(userId).RemoveValueAsync().ContinueWith(task =>
+                    {
+                        if (task.IsFaulted)
+                        {
+                            Debug.LogError($"LobbyManager: Failed to remove player {userId} from Firebase: {task.Exception?.Message}");
+                        }
+                        else if (task.IsCanceled)
+                        {
+                            Debug.LogWarning($"LobbyManager: Player removal for {userId} was canceled");
+                        }
+                        else
+                        {
+                            Debug.Log($"LobbyManager: Successfully removed player {userId} from Firebase");
+                        }
+
+                        // Clean up listeners AFTER Firebase removal attempt (success or failure)
+                        CleanupLobbyListenersAndState();
+
+                        // Invoke callback on main thread
+                        InvokeOnMainThread(() => onComplete?.Invoke());
+                    });
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"LobbyManager.LeaveLobby: Cannot remove player from Firebase - playersRef={_playersRef != null}, userId={userId ?? "null"}, isHost={isHost}");
+                // Still clean up even if Firebase removal couldn't start
+                CleanupLobbyListenersAndState();
+                InvokeOnMainThread(() => onComplete?.Invoke());
+            }
+        }
+
+        /// <summary>
+        /// Clean up Firebase listeners and reset lobby state.
+        /// Called after Firebase removal attempt.
+        /// </summary>
+        private void CleanupLobbyListenersAndState()
+        {
             // Clean up listeners
             if (_lobbyRef != null)
             {
@@ -624,13 +705,55 @@ namespace PocketPlanner.Multiplayer
         private void OnLobbyDataChanged(object sender, ValueChangedEventArgs args)
         {
             Debug.Log("LobbyManager: Lobby data changed");
-            // Example: Check if gameStarted flag changed
-            // var lobbyData = args.Snapshot.Value as Dictionary<string, object>;
-            // if (lobbyData != null && lobbyData.ContainsKey("gameStarted"))
-            // {
-            //     bool gameStarted = (bool)lobbyData["gameStarted"];
-            //     // Handle game start
-            // }
+
+            // If we're no longer in a lobby, ignore changes (cleanup already in progress)
+            if (!_isInLobby)
+            {
+                Debug.Log($"LobbyManager: Ignoring lobby data change - already leaving lobby {_currentLobbyCode}");
+                return;
+            }
+
+            // Check if lobby was deleted (snapshot doesn't exist)
+            if (args.Snapshot == null || !args.Snapshot.Exists)
+            {
+                Debug.Log($"LobbyManager: Lobby {_currentLobbyCode} was deleted (likely by host). Cleaning up and returning to main menu.");
+
+                // Clean up listeners and state
+                CleanupLobbyListenersAndState();
+
+                // Notify MultiplayerManager that lobby was deleted
+                InvokeOnMainThread(() =>
+                {
+                    if (MultiplayerManager.Instance != null)
+                    {
+                        Debug.Log($"LobbyManager: Notifying MultiplayerManager about lobby deletion");
+                        MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+                        {
+                            Debug.Log($"LobbyManager: Lobby deletion cleanup complete, loading main menu");
+                            PPSceneManager.LoadMainMenu();
+                        });
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"LobbyManager: MultiplayerManager.Instance is null, loading main menu directly");
+                        PPSceneManager.LoadMainMenu();
+                    }
+                });
+                return;
+            }
+
+            // Lobby still exists, check for data changes
+            var lobbyData = args.Snapshot.Value as Dictionary<string, object>;
+            if (lobbyData != null)
+            {
+                // Example: Check if gameStarted flag changed
+                // if (lobbyData.ContainsKey("gameStarted"))
+                // {
+                //     bool gameStarted = (bool)lobbyData["gameStarted"];
+                //     // Handle game start
+                // }
+                Debug.Log($"LobbyManager: Lobby data updated - keys: {string.Join(", ", lobbyData.Keys)}");
+            }
         }
 
         private void OnPlayerAdded(object sender, ChildChangedEventArgs args)
@@ -691,13 +814,27 @@ namespace PocketPlanner.Multiplayer
 
         private void OnPlayerRemoved(object sender, ChildChangedEventArgs args)
         {
-            if (args.Snapshot == null || !args.Snapshot.Exists) return;
+            if (args.Snapshot == null || !args.Snapshot.Exists)
+            {
+                Debug.Log("LobbyManager.OnPlayerRemoved: Snapshot null or doesn't exist");
+                return;
+            }
 
             string playerId = args.Snapshot.Key;
+            Debug.Log($"LobbyManager.OnPlayerRemoved: Player ID from snapshot key: {playerId}");
+
+            // Check if this is the local player being removed
+            string localPlayerId = _firebaseManager?.UserId;
+            if (string.IsNullOrEmpty(localPlayerId))
+            {
+                localPlayerId = FirebaseManager.Instance?.UserId;
+            }
+            Debug.Log($"LobbyManager.OnPlayerRemoved: Local player ID: {localPlayerId}, Is this player being removed the local player? {playerId == localPlayerId}");
+
             if (_players.ContainsKey(playerId))
             {
                 _players.Remove(playerId);
-                Debug.Log($"LobbyManager: Player removed - {playerId}");
+                Debug.Log($"LobbyManager: Player removed from local dictionary - {playerId}");
                 // Trigger MultiplayerManager events on main thread
                 InvokeOnMainThread(() => {
                     Debug.Log($"LobbyManager.OnPlayerRemoved: In main thread action, MultiplayerManager.Instance = {MultiplayerManager.Instance != null}");
@@ -709,6 +846,18 @@ namespace PocketPlanner.Multiplayer
                     else
                     {
                         Debug.LogError("LobbyManager.OnPlayerRemoved: MultiplayerManager.Instance is null!");
+                    }
+                });
+            }
+            else
+            {
+                Debug.Log($"LobbyManager.OnPlayerRemoved: Player {playerId} not found in local _players dictionary. Dictionary count: {_players.Count}");
+                // Even if not in local dictionary, still notify MultiplayerManager
+                InvokeOnMainThread(() => {
+                    if (MultiplayerManager.Instance != null)
+                    {
+                        Debug.Log($"LobbyManager.OnPlayerRemoved: Player {playerId} not in local dict, but calling RemovePlayerFromFirebase anyway");
+                        MultiplayerManager.Instance.RemovePlayerFromFirebase(playerId);
                     }
                 });
             }

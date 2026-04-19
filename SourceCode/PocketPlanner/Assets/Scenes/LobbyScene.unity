@@ -1358,8 +1358,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Max Players: 8'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
-  m_sharedMaterial: {fileID: -8672131623106280917, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1389,7 +1389,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -1591,8 +1591,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Host: \n DeviceID'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
-  m_sharedMaterial: {fileID: -8672131623106280917, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1622,7 +1622,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -2528,8 +2528,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Room code: ffffff'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
-  m_sharedMaterial: {fileID: -8672131623106280917, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2559,7 +2559,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -2958,8 +2958,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Turn Time: 30'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
-  m_sharedMaterial: {fileID: -8672131623106280917, guid: 5c7726f7fefa32f4791c68f8e0361c30, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2989,7 +2989,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -5631,18 +5631,6 @@ MonoBehaviour:
       - m_Target: {fileID: 1623346021}
         m_TargetAssemblyTypeName: LobbyUIManager, Assembly-CSharp
         m_MethodName: OnLeaveLobbyClicked
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 1
-      - m_Target: {fileID: 1580300655}
-        m_TargetAssemblyTypeName: PPSceneManager, Assembly-CSharp
-        m_MethodName: LoadMainMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

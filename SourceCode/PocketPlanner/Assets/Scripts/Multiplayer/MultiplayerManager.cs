@@ -13,6 +13,25 @@ namespace PocketPlanner.Multiplayer
         // Singleton instance
         public static MultiplayerManager Instance { get; private set; }
 
+        /// <summary>
+        /// Ensures a MultiplayerManager instance exists in the scene.
+        /// If Instance is null, creates a new GameObject with MultiplayerManager component.
+        /// This should be called before using multiplayer features.
+        /// </summary>
+        public static void EnsureInstanceExists()
+        {
+            if (Instance != null) return;
+
+            Debug.LogWarning("MultiplayerManager.EnsureInstanceExists: Instance is null. Creating new MultiplayerManager GameObject.");
+
+            // Create new GameObject
+            GameObject managerObject = new GameObject("MultiplayerManagers");
+            Instance = managerObject.AddComponent<MultiplayerManager>();
+
+            // Note: Awake() will be called immediately after AddComponent, which will set DontDestroyOnLoad
+            Debug.Log($"MultiplayerManager.EnsureInstanceExists: Created new instance with ID {Instance.GetInstanceID()}");
+        }
+
         // Multiplayer state
         public bool IsMultiplayerMode { get; private set; }
         public bool IsLobbyHost { get; private set; }
@@ -83,15 +102,21 @@ namespace PocketPlanner.Multiplayer
 
         private void Awake()
         {
+            Debug.Log($"MultiplayerManager.Awake: Starting awake. Instance = {Instance?.GetInstanceID() ?? 0}, this = {GetInstanceID()}");
+
             // Singleton pattern
             if (Instance != null && Instance != this)
             {
+                Debug.Log($"MultiplayerManager.Awake: Duplicate instance detected! Destroying this gameObject (Instance ID: {Instance.GetInstanceID()}, this ID: {GetInstanceID()})");
                 Destroy(gameObject);
                 return;
             }
 
             Instance = this;
+            Debug.Log($"MultiplayerManager.Awake: Singleton instance set (Instance ID: {Instance.GetInstanceID()})");
+
             DontDestroyOnLoad(gameObject);
+            Debug.Log($"MultiplayerManager.Awake: DontDestroyOnLoad set for gameObject '{gameObject.name}' (scene: {gameObject.scene.name})");
 
             // Initialize state
             IsMultiplayerMode = false;
@@ -102,7 +127,8 @@ namespace PocketPlanner.Multiplayer
 
             // Cache device ID on main thread for use in Firebase callbacks
             _deviceId = SystemInfo.deviceUniqueIdentifier;
-            Debug.Log($"MultiplayerManager: Device ID cached: {_deviceId}");
+            Debug.Log($"MultiplayerManager.Awake: Device ID cached: {_deviceId}");
+            Debug.Log($"MultiplayerManager.Awake: Awake completed successfully.");
         }
 
         private void Start()
@@ -223,8 +249,10 @@ namespace PocketPlanner.Multiplayer
         /// <summary>
         /// Disable multiplayer mode and clean up.
         /// </summary>
-        public void DisableMultiplayerMode()
+        /// <param name="onComplete">Optional callback invoked after lobby cleanup completes</param>
+        public void DisableMultiplayerMode(Action onComplete = null)
         {
+            Debug.Log($"MultiplayerManager.DisableMultiplayerMode: Current state - MultiplayerMode={IsMultiplayerMode}, Host={IsLobbyHost}, Lobby={LobbyCode}, PlayerCount={Players.Count}, LocalPlayerId={LocalPlayerId}");
             IsMultiplayerMode = false;
             IsLobbyHost = false;
             LobbyCode = string.Empty;
@@ -244,16 +272,34 @@ namespace PocketPlanner.Multiplayer
             // Clean up Firebase listeners
             if (_lobbyManager != null)
             {
-                _lobbyManager.LeaveLobby();
-            }
+                Debug.Log("MultiplayerManager: Calling _lobbyManager.LeaveLobby() with callback");
+                _lobbyManager.LeaveLobby(() =>
+                {
+                    Debug.Log("MultiplayerManager: _lobbyManager.LeaveLobby() callback received");
 
-            // Stop SyncManager Firebase listeners
-            if (_syncManager != null)
+                    // Stop SyncManager Firebase listeners
+                    if (_syncManager != null)
+                    {
+                        _syncManager.StopListening();
+                    }
+
+                    Debug.Log("MultiplayerManager: Multiplayer mode disabled");
+                    onComplete?.Invoke();
+                });
+            }
+            else
             {
-                _syncManager.StopListening();
-            }
+                Debug.LogWarning("MultiplayerManager: _lobbyManager is null, cannot leave lobby properly");
 
-            Debug.Log("MultiplayerManager: Multiplayer mode disabled");
+                // Stop SyncManager Firebase listeners
+                if (_syncManager != null)
+                {
+                    _syncManager.StopListening();
+                }
+
+                Debug.Log("MultiplayerManager: Multiplayer mode disabled (without lobby manager)");
+                onComplete?.Invoke();
+            }
         }
 
         /// <summary>
@@ -468,13 +514,45 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         public void RemovePlayerFromFirebase(string playerId)
         {
-            if (string.IsNullOrEmpty(playerId) || !Players.ContainsKey(playerId))
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.Log($"MultiplayerManager: RemovePlayerFromFirebase skipped - playerId null/empty");
                 return;
+            }
 
-            Players.Remove(playerId);
+            bool isLocalPlayer = playerId == LocalPlayerId;
+            bool wasInPlayers = Players.ContainsKey(playerId);
+
+            if (wasInPlayers)
+            {
+                Players.Remove(playerId);
+            }
+
             Debug.Log($"MultiplayerManager: Player left via Firebase - {playerId}");
+            Debug.Log($"MultiplayerManager: wasInPlayers={wasInPlayers}, isLocalPlayer={isLocalPlayer}, LocalPlayerId={LocalPlayerId}");
             Debug.Log($"MultiplayerManager: OnPlayerLeft subscriber count: {GetOnPlayerLeftSubscriberCount()}");
-            OnPlayerLeft?.Invoke(playerId);
+
+            // Always invoke OnPlayerLeft if this is the local player being removed (kicked)
+            // Also invoke if player was in Players dictionary (normal player leave)
+            if (isLocalPlayer || wasInPlayers)
+            {
+                Debug.Log($"MultiplayerManager: INVOKING OnPlayerLeft for player {playerId} (isLocalPlayer={isLocalPlayer}, wasInPlayers={wasInPlayers})");
+                try
+                {
+                    OnPlayerLeft?.Invoke(playerId);
+                    Debug.Log($"MultiplayerManager: OnPlayerLeft invocation completed");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"MultiplayerManager: Exception during OnPlayerLeft invocation: {ex.Message}");
+                    Debug.LogError($"MultiplayerManager: Stack trace: {ex.StackTrace}");
+                }
+            }
+            else
+            {
+                Debug.Log($"MultiplayerManager: Not invoking OnPlayerLeft - player not in Players and not local player");
+            }
+
             CheckAllPlayersReady();
         }
 
@@ -579,9 +657,17 @@ namespace PocketPlanner.Multiplayer
 
         private void OnDestroy()
         {
+            Debug.Log($"MultiplayerManager.OnDestroy: Destroying instance (Instance ID: {GetInstanceID()}, gameObject: '{gameObject.name}', scene: {gameObject.scene.name})");
+            Debug.Log($"MultiplayerManager.OnDestroy: Instance == this? {Instance == this}");
+
             if (Instance == this)
             {
+                Debug.Log($"MultiplayerManager.OnDestroy: Setting Instance to null (was {Instance?.GetInstanceID() ?? 0})");
                 Instance = null;
+            }
+            else
+            {
+                Debug.Log($"MultiplayerManager.OnDestroy: Instance is different (Instance ID: {Instance?.GetInstanceID() ?? 0}), not clearing static Instance.");
             }
 
             // Unsubscribe from Firebase events
@@ -589,7 +675,10 @@ namespace PocketPlanner.Multiplayer
             {
                 _firebaseManager.OnAuthenticationSuccess -= OnFirebaseAuthenticated;
                 _firebaseManager.OnError -= OnFirebaseError;
+                Debug.Log($"MultiplayerManager.OnDestroy: Unsubscribed from Firebase events.");
             }
+
+            Debug.Log($"MultiplayerManager.OnDestroy: Destroy complete.");
         }
     }
 }

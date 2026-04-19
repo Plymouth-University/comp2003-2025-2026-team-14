@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -191,6 +192,7 @@ public class LobbyUIManager : MonoBehaviour
 
             multiplayerManager.OnPlayerJoined += OnPlayerJoined;
             multiplayerManager.OnPlayerLeft += OnPlayerLeft;
+            Debug.Log($"LobbyUIManager: Subscribed to OnPlayerLeft event");
             multiplayerManager.OnPlayerReadyChanged += OnPlayerReadyChanged;
             multiplayerManager.OnAllPlayersReady += OnAllPlayersReady;
             multiplayerManager.OnGameStarted += OnGameStarted;
@@ -233,6 +235,7 @@ public class LobbyUIManager : MonoBehaviour
 
             multiplayerManager.OnPlayerJoined -= OnPlayerJoined;
             multiplayerManager.OnPlayerLeft -= OnPlayerLeft;
+            Debug.Log($"LobbyUIManager: Unsubscribed from OnPlayerLeft event");
             multiplayerManager.OnPlayerReadyChanged -= OnPlayerReadyChanged;
             multiplayerManager.OnAllPlayersReady -= OnAllPlayersReady;
             multiplayerManager.OnGameStarted -= OnGameStarted;
@@ -309,8 +312,13 @@ public class LobbyUIManager : MonoBehaviour
 
     private void UpdatePlayerListUI()
     {
+        Debug.Log($"LobbyUIManager.UpdatePlayerListUI: Called, multiplayerManager={(multiplayerManager != null)}");
         FindManagersIfMissing();
-        if (multiplayerManager == null) return;
+        if (multiplayerManager == null)
+        {
+            Debug.LogWarning("LobbyUIManager.UpdatePlayerListUI: multiplayerManager is null, returning");
+            return;
+        }
 
 
         isHost = multiplayerManager.IsLobbyHost;
@@ -508,9 +516,55 @@ public class LobbyUIManager : MonoBehaviour
 
     private void OnPlayerLeft(string playerId)
     {
-        Debug.Log($"LobbyUIManager: Player left {playerId}");
-        UpdatePlayerListUI();
-        UpdateButtonInteractability();
+        try
+        {
+            Debug.Log($"LobbyUIManager: OnPlayerLeft called with playerId={playerId}");
+            Debug.Log($"LobbyUIManager: Current localPlayerId before update = {localPlayerId}");
+
+            // Update localPlayerId from multiple sources to ensure it's current
+            if (multiplayerManager != null)
+            {
+                localPlayerId = multiplayerManager.LocalPlayerId;
+                Debug.Log($"LobbyUIManager: localPlayerId from multiplayerManager = {localPlayerId}");
+            }
+
+            // Fallback to FirebaseManager if still empty
+            if (string.IsNullOrEmpty(localPlayerId) && FirebaseManager.Instance != null)
+            {
+                localPlayerId = FirebaseManager.Instance.UserId;
+                Debug.Log($"LobbyUIManager: localPlayerId fallback to FirebaseManager: {localPlayerId}");
+            }
+
+            Debug.Log($"LobbyUIManager: Final localPlayerId = {localPlayerId}, IsMultiplayerMode = {multiplayerManager?.IsMultiplayerMode}");
+
+            // Update UI first
+            UpdatePlayerListUI();
+            UpdateButtonInteractability();
+
+            // If the player that left is the local player, we've been kicked or disconnected
+            // Clean up multiplayer mode and return to main menu
+            bool isLocalPlayer = playerId == localPlayerId;
+            Debug.Log($"LobbyUIManager: Checking if player is local - playerId={playerId}, localPlayerId={localPlayerId}, isLocalPlayer={isLocalPlayer}");
+
+            if (isLocalPlayer && multiplayerManager != null && multiplayerManager.IsMultiplayerMode)
+            {
+                Debug.Log($"LobbyUIManager: Local player {playerId} left the lobby (kicked or disconnected). Returning to main menu.");
+                multiplayerManager.DisableMultiplayerMode(() =>
+                {
+                    Debug.Log($"LobbyUIManager: DisableMultiplayerMode callback received, loading main menu");
+                    PPSceneManager.LoadMainMenu();
+                });
+            }
+            else
+            {
+                Debug.Log($"LobbyUIManager: Player {playerId} left but is not local player (local: {localPlayerId}, isLocalPlayer={isLocalPlayer}) or multiplayer mode not active (IsMultiplayerMode={multiplayerManager?.IsMultiplayerMode})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"LobbyUIManager: Exception in OnPlayerLeft: {ex.Message}");
+            Debug.LogError($"LobbyUIManager: Stack trace: {ex.StackTrace}");
+        }
     }
 
     private void OnPlayerReadyChanged(string playerId, bool isReady)
@@ -575,10 +629,43 @@ public class LobbyUIManager : MonoBehaviour
     public void OnLeaveLobbyClicked()
     {
         // This would be attached to a Leave Lobby button in the UI
+        Debug.Log($"LobbyUIManager.OnLeaveLobbyClicked: localPlayerId={localPlayerId}, isHost={isHost}");
+        StartCoroutine(OnLeaveLobbyClickedCoroutine());
+    }
+
+    private IEnumerator OnLeaveLobbyClickedCoroutine()
+    {
         if (multiplayerManager != null)
         {
-            multiplayerManager.DisableMultiplayerMode();
-            // Scene transition back to main menu should be handled elsewhere
+            Debug.Log($"LobbyUIManager: Calling DisableMultiplayerMode with callback");
+            bool cleanupComplete = false;
+
+            multiplayerManager.DisableMultiplayerMode(() =>
+            {
+                Debug.Log($"LobbyUIManager: DisableMultiplayerMode callback received");
+                cleanupComplete = true;
+            });
+
+            // Wait for cleanup to complete (with timeout)
+            float timeout = 3.0f; // 3 second timeout
+            float elapsed = 0f;
+            while (!cleanupComplete && elapsed < timeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (!cleanupComplete)
+            {
+                Debug.LogWarning($"LobbyUIManager: Timeout waiting for DisableMultiplayerMode callback after {elapsed} seconds");
+            }
+
+            Debug.Log($"LobbyUIManager: Calling PPSceneManager.LoadMainMenu");
+            PPSceneManager.LoadMainMenu();
+        }
+        else
+        {
+            Debug.LogError("LobbyUIManager.OnLeaveLobbyClicked: multiplayerManager is null!");
         }
     }
 
