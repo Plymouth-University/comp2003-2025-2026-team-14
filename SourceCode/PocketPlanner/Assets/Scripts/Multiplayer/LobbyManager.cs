@@ -380,17 +380,87 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Check if the local player is the host of the current lobby.
+        /// </summary>
+        private bool IsLocalPlayerHost()
+        {
+            if (!_isInLobby || string.IsNullOrEmpty(_currentLobbyCode))
+                return false;
+
+            // First check MultiplayerManager's IsLobbyHost property (source of truth)
+            if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsLobbyHost)
+                return true;
+
+            // Fallback: check player data in case MultiplayerManager not yet updated
+            string localPlayerId = _firebaseManager?.UserId;
+            if (string.IsNullOrEmpty(localPlayerId))
+            {
+                // Fallback to FirebaseManager.Instance
+                localPlayerId = FirebaseManager.Instance?.UserId;
+                if (string.IsNullOrEmpty(localPlayerId))
+                    return false;
+            }
+
+            foreach (var player in _players.Values)
+            {
+                if (player.PlayerId == localPlayerId && player.IsHost)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Kick a player from the lobby (host only).
         /// </summary>
         public void KickPlayer(string playerId)
         {
             if (!_isInLobby || string.IsNullOrEmpty(_currentLobbyCode))
             {
+                Debug.LogWarning($"LobbyManager: Cannot kick player - not in a valid lobby");
                 return;
             }
 
-            // TODO: Check if local player is host
-            // TODO: Implement Firebase removal
+            // Check if local player is host
+            if (!IsLocalPlayerHost())
+            {
+                Debug.LogWarning($"LobbyManager: Cannot kick player - local player is not host");
+                return;
+            }
+
+            // Ensure player exists
+            if (!_players.ContainsKey(playerId))
+            {
+                Debug.LogWarning($"LobbyManager: Cannot kick player - player {playerId} not found in lobby");
+                return;
+            }
+
+            // Prevent kicking host (should not happen as UI hides kick button for host)
+            if (_players[playerId].IsHost)
+            {
+                Debug.LogError($"LobbyManager: Cannot kick host player {playerId}");
+                return;
+            }
+
+            // Remove player from Firebase
+            if (_playersRef != null)
+            {
+                _playersRef.Child(playerId).RemoveValueAsync().ContinueWith(task =>
+                {
+                    if (task.IsFaulted)
+                    {
+                        Debug.LogError($"LobbyManager: Failed to kick player {playerId} from Firebase: {task.Exception?.Message}");
+                    }
+                    else
+                    {
+                        Debug.Log($"LobbyManager: Player {playerId} kicked from Firebase successfully");
+                    }
+                });
+            }
+            else
+            {
+                Debug.LogError($"LobbyManager: Cannot kick player - Firebase reference not initialized");
+            }
 
             Debug.Log($"LobbyManager: Player {playerId} kicked from lobby");
         }
