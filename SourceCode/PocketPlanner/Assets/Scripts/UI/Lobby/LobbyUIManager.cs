@@ -278,16 +278,16 @@ public class LobbyUIManager : MonoBehaviour
         maxPlayersText.text = $"Max Players: {maxPlayers}";
 
         // Turn time limit: use lobby setting if available, otherwise host setting
-        string turnTimeDisplay = "Unlimited";
+        string turnTimeDisplay = "∞";
         if (lobbyManager != null)
         {
             int turnTimeLimit = lobbyManager.CurrentTurnTimeLimit;
-            turnTimeDisplay = turnTimeLimit == -1 ? "Unlimited" : $"{turnTimeLimit}s";
+            turnTimeDisplay = turnTimeLimit == -1 ? "∞" : $"{turnTimeLimit}s";
         }
         else if (multiplayerManager.IsLobbyHost)
         {
             int turnTimeLimit = multiplayerManager.HostTurnTimeLimit;
-            turnTimeDisplay = turnTimeLimit == -1 ? "Unlimited" : $"{turnTimeLimit}s";
+            turnTimeDisplay = turnTimeLimit == -1 ? "∞" : $"{turnTimeLimit}s";
         }
         turnTimeText.text = $"Turn Time Limit: {turnTimeDisplay}";
 
@@ -371,7 +371,14 @@ public class LobbyUIManager : MonoBehaviour
             if (playerIndex >= CurrentMaxPlayers) break;
 
             // Update player name text
-            playerNameTexts[playerIndex].text = $"{player.PlayerId}"; // Use PlayerId as placeholder for name
+            if (player.PlayerId.Length > 5) // Use PlayerID as a placeholder for player name, clip to 5 chars
+            {
+                playerNameTexts[playerIndex].text = $"{player.PlayerId.Substring(0, 5)}...";
+            }
+            else
+            {
+                playerNameTexts[playerIndex].text = $"{player.PlayerId}";
+            }
 
             // Update checkmark image for players 2-8 (playerIndex 1-7)
             if (playerIndex > 0 && playerIndex - 1 < playerReadyCheckmarks.Count)

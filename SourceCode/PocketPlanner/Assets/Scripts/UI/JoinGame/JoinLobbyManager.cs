@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,7 +14,9 @@ public class JoinLobbyManager : MonoBehaviour
     [SerializeField] private SyncManager syncManager;
 
     [Header("Lobby Code Input")]
-    [SerializeField] private List<TMP_InputField> lobbyCodeInputFields; // List of ordered input fields for lobby code entry (1 character per field)
+    [SerializeField] private List<TMP_InputField> lobbyCodeInputFields; // DEPRECATED: List of ordered input fields for lobby code entry (1 character per field). Use hiddenLobbyCodeInputField and lobbyCodeVisualFields instead.
+    [SerializeField] private List<TextMeshProUGUI> lobbyCodeVisualFields; // List of 6 Visual text elements that mirror the input fields (enforce 1 char limit per field)
+    [SerializeField] private TMP_InputField hiddenLobbyCodeInputField; // Hidden input field that is activated for actual input (enforce 6 char limit, auto-uppercase, and character validation)
 
     [SerializeField] private TextMeshProUGUI errorText; // Text element to display messages to the user (for example if lobby code is invalid, lobby is full or lobby code too short)
 
@@ -24,6 +27,22 @@ public class JoinLobbyManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        // Activate hidden input field on scene load
+        if (hiddenLobbyCodeInputField != null)
+        {
+            hiddenLobbyCodeInputField.ActivateInputField();
+        }
+        else
+        {
+            Debug.LogWarning("JoinLobbyManager: Hidden lobby code input field not assigned.");
+        }
+
+        // Validate visual fields count
+        if (lobbyCodeVisualFields == null || lobbyCodeVisualFields.Count < 6)
+        {
+            Debug.LogWarning("JoinLobbyManager: lobbyCodeVisualFields must have at least 6 elements.");
+        }
+
         FindManagersIfMissing();
         SubscribeToEvents();
         ClearError();
@@ -120,39 +139,34 @@ public class JoinLobbyManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Concatenates the text from each input field to form the lobby code.
+    /// Gets the lobby code from the hidden input field (already validated).
     /// </summary>
     private string GetLobbyCodeFromInputFields()
     {
-        if (lobbyCodeInputFields == null || lobbyCodeInputFields.Count != 6)
+        if (hiddenLobbyCodeInputField == null)
         {
-            Debug.LogError("JoinLobbyManager: lobbyCodeInputFields must have exactly 6 elements.");
+            Debug.LogError("JoinLobbyManager: hiddenLobbyCodeInputField is null.");
             return "";
         }
 
-        string code = "";
-        for (int i = 0; i < lobbyCodeInputFields.Count; i++)
+        string code = hiddenLobbyCodeInputField.text;
+
+        // Ensure code is exactly 6 characters
+        if (string.IsNullOrEmpty(code) || code.Length != 6)
         {
-            var inputField = lobbyCodeInputFields[i];
-            if (inputField == null)
-            {
-                Debug.LogError($"JoinLobbyManager: Input field at index {i} is null.");
-                return "";
-            }
-            string text = inputField.text?.Trim().ToUpper();
-            if (string.IsNullOrEmpty(text) || text.Length != 1)
-            {
-                // Require all fields filled.
-                return "";
-            }
-            char c = text[0];
+            return "";
+        }
+
+        // Validate each character (should already be validated, but double-check)
+        foreach (char c in code)
+        {
             if (!VALID_LOBBY_CODE_CHARS.Contains(c))
             {
                 Debug.LogWarning($"JoinLobbyManager: Invalid character '{c}' in lobby code. Valid characters are: {VALID_LOBBY_CODE_CHARS}");
                 return "";
             }
-            code += c;
         }
+
         return code;
     }
 
@@ -205,22 +219,83 @@ public class JoinLobbyManager : MonoBehaviour
         }
     }
 
+    public void OnHiddenInputFieldChanged()
+    {
+        // Attached to the hidden input field's OnValueChanged event to update visual fields and handle auto-advance/backspace logic
+        // Update the visual input fields to display the content of the hidden input field (ensure 1 character per visual field)
+        if (hiddenLobbyCodeInputField == null) return;
+
+        string text = hiddenLobbyCodeInputField.text;
+
+        // Convert to uppercase
+        text = text.ToUpper();
+
+        // Filter out invalid characters
+        StringBuilder filtered = new StringBuilder();
+        foreach (char c in text)
+        {
+            if (VALID_LOBBY_CODE_CHARS.Contains(c))
+            {
+                filtered.Append(c);
+            }
+        }
+        text = filtered.ToString();
+
+        // Limit to 6 characters
+        if (text.Length > 6)
+        {
+            text = text.Substring(0, 6);
+        }
+
+        // Update hidden input field text if it changed (to reflect validation)
+        if (hiddenLobbyCodeInputField.text != text)
+        {
+            hiddenLobbyCodeInputField.text = text;
+            // Setting text will trigger OnValueChanged again, so return early
+            return;
+        }
+
+        // Update visual fields
+        if (lobbyCodeVisualFields != null && lobbyCodeVisualFields.Count >= 6)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                if (i < text.Length)
+                {
+                    lobbyCodeVisualFields[i].text = text[i].ToString();
+                }
+                else
+                {
+                    lobbyCodeVisualFields[i].text = "";
+                }
+            }
+        }
+    }
+
     /// <summary>
-    /// Called when a lobby code input field changes (for auto-advance functionality).
+    /// DEPRECATED: Called when a lobby code input field changes (for auto-advance functionality).
     /// This can be attached to each input field's OnValueChanged event.
+    /// Now using hidden input field; this method does nothing.
     /// </summary>
     public void OnLobbyCodeInputFieldChanged(int fieldIndex)
     {
-        // Optional: auto-advance to next field when a character is entered
-        if (lobbyCodeInputFields == null || fieldIndex < 0 || fieldIndex >= lobbyCodeInputFields.Count)
-            return;
+        // No-op: Auto-advance is handled by hidden input field
+    }
 
-        var currentField = lobbyCodeInputFields[fieldIndex];
-        if (currentField.text.Length >= 1 && fieldIndex < lobbyCodeInputFields.Count - 1)
-        {
-            lobbyCodeInputFields[fieldIndex + 1].Select();
-            lobbyCodeInputFields[fieldIndex + 1].ActivateInputField();
-        }
+    public void OnVisualInputFieldClicked(int fieldIndex)
+    {
+        // Will be attached to each of the visual input field's on click event to activate the hidden input field (and selects the corresponding character using fieldIndex) for actual input
+        if (hiddenLobbyCodeInputField == null) return;
+
+        hiddenLobbyCodeInputField.ActivateInputField();
+        hiddenLobbyCodeInputField.Select();
+
+        // Set caret position to the clicked field index, but clamp to current text length
+        // If fieldIndex is beyond current text length, place caret at end
+        int caretPosition = Mathf.Clamp(fieldIndex, 0, hiddenLobbyCodeInputField.text.Length);
+        hiddenLobbyCodeInputField.caretPosition = caretPosition;
+        hiddenLobbyCodeInputField.selectionAnchorPosition = caretPosition;
+        hiddenLobbyCodeInputField.selectionFocusPosition = caretPosition;
     }
 
     /// <summary>

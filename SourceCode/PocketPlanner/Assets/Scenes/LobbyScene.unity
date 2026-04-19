@@ -284,10 +284,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 907045406}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &52276528
 MonoBehaviour:
@@ -309,7 +309,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -2231,10 +2231,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1894068511}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &751391081
 MonoBehaviour:
@@ -2256,7 +2256,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -2717,10 +2717,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 468451849}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &875227651
 MonoBehaviour:
@@ -2742,7 +2742,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -3532,10 +3532,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1031866160}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1174839719
 MonoBehaviour:
@@ -3557,7 +3557,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -4016,10 +4016,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 151056665}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1353996243
 MonoBehaviour:
@@ -4041,7 +4041,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -4463,10 +4463,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 622800358}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1637751010
 MonoBehaviour:
@@ -4488,7 +4488,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -4741,10 +4741,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1391429544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1738164685
 MonoBehaviour:
@@ -4766,7 +4766,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
@@ -5710,10 +5710,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1562590427}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 700, y: 50}
+  m_SizeDelta: {x: -200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2130751750
 MonoBehaviour:
@@ -5735,7 +5735,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Empty Slot
+  m_text: Waiting for player...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
   m_sharedMaterial: {fileID: -8569929082868864684, guid: 0d94c1ae923f2a3049a17ad28fc14bac, type: 2}
