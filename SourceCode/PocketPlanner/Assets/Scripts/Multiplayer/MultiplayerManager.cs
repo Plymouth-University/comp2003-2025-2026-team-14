@@ -39,6 +39,7 @@ namespace PocketPlanner.Multiplayer
         // Host lobby settings (set when creating lobby)
         private int _hostMaxPlayers = 8;
         private int _hostTurnTimeLimit = -1;
+        private string _deviceId = string.Empty; // Cached device ID for Firebase operations
         public int HostMaxPlayers => _hostMaxPlayers;
         public int HostTurnTimeLimit => _hostTurnTimeLimit;
 
@@ -58,6 +59,28 @@ namespace PocketPlanner.Multiplayer
         public event Action OnGameEnded;
         public event Action<string> OnError;
 
+        // Debug helper methods to get subscriber counts (can only be accessed from within this class)
+        private int GetOnPlayerJoinedSubscriberCount() => OnPlayerJoined?.GetInvocationList()?.Length ?? 0;
+        private int GetOnPlayerLeftSubscriberCount() => OnPlayerLeft?.GetInvocationList()?.Length ?? 0;
+        private int GetOnPlayerReadyChangedSubscriberCount() => OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0;
+        private int GetOnAllPlayersReadySubscriberCount() => OnAllPlayersReady?.GetInvocationList()?.Length ?? 0;
+        private int GetOnGameStartedSubscriberCount() => OnGameStarted?.GetInvocationList()?.Length ?? 0;
+        private int GetOnLobbyJoinedSubscriberCount() => OnLobbyJoined?.GetInvocationList()?.Length ?? 0;
+
+        // Public method for external classes to get subscriber counts for debugging
+        public Dictionary<string, int> GetEventSubscriberCounts()
+        {
+            return new Dictionary<string, int>
+            {
+                { "OnPlayerJoined", GetOnPlayerJoinedSubscriberCount() },
+                { "OnPlayerLeft", GetOnPlayerLeftSubscriberCount() },
+                { "OnPlayerReadyChanged", GetOnPlayerReadyChangedSubscriberCount() },
+                { "OnAllPlayersReady", GetOnAllPlayersReadySubscriberCount() },
+                { "OnGameStarted", GetOnGameStartedSubscriberCount() },
+                { "OnLobbyJoined", GetOnLobbyJoinedSubscriberCount() }
+            };
+        }
+
         private void Awake()
         {
             // Singleton pattern
@@ -76,6 +99,10 @@ namespace PocketPlanner.Multiplayer
             LobbyCode = string.Empty;
             LocalPlayerId = string.Empty;
             Players = new Dictionary<string, PlayerData>();
+
+            // Cache device ID on main thread for use in Firebase callbacks
+            _deviceId = SystemInfo.deviceUniqueIdentifier;
+            Debug.Log($"MultiplayerManager: Device ID cached: {_deviceId}");
         }
 
         private void Start()
@@ -269,10 +296,10 @@ namespace PocketPlanner.Multiplayer
             Debug.Log($"MultiplayerManager: Lobby created with code: {lobbyCode}");
 
             // Add host as first player
-            var hostPlayer = new PlayerData(LocalPlayerId, "Host", true, SystemInfo.deviceUniqueIdentifier);
+            var hostPlayer = new PlayerData(LocalPlayerId, "Host", true, _deviceId);
             Players[LocalPlayerId] = hostPlayer;
 
-            Debug.Log($"MultiplayerManager: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {OnLobbyJoined?.GetInvocationList()?.Length ?? 0}");
+            Debug.Log($"MultiplayerManager: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {GetOnLobbyJoinedSubscriberCount()}");
             OnLobbyJoined?.Invoke(lobbyCode);
             Debug.Log($"MultiplayerManager: OnLobbyJoined event invoked");
         }
@@ -286,7 +313,9 @@ namespace PocketPlanner.Multiplayer
             Players = players;
             Debug.Log($"MultiplayerManager: Joined lobby {lobbyCode} with {players.Count} players");
 
+            Debug.Log($"MultiplayerManager.OnLobbyJoinedCallback: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {GetOnLobbyJoinedSubscriberCount()}");
             OnLobbyJoined?.Invoke(lobbyCode);
+            Debug.Log($"MultiplayerManager.OnLobbyJoinedCallback: OnLobbyJoined event invoked");
         }
 
         /// <summary>
@@ -393,6 +422,60 @@ namespace PocketPlanner.Multiplayer
                 OnPlayerReadyChanged?.Invoke(LocalPlayerId, isReady);
                 CheckAllPlayersReady();
             }
+        }
+
+        /// <summary>
+        /// Update player data from Firebase events (called by LobbyManager).
+        /// </summary>
+        public void UpdatePlayerFromFirebase(PlayerData playerData)
+        {
+            if (playerData == null || string.IsNullOrEmpty(playerData.PlayerId))
+                return;
+
+            bool isNewPlayer = !Players.ContainsKey(playerData.PlayerId);
+            bool readyStateChanged = false;
+
+            if (Players.TryGetValue(playerData.PlayerId, out var existingPlayer))
+            {
+                readyStateChanged = existingPlayer.IsReady != playerData.IsReady;
+                existingPlayer.UpdateFrom(playerData);
+            }
+            else
+            {
+                Players[playerData.PlayerId] = playerData;
+            }
+
+            // Trigger events on main thread (already on main thread from LobbyManager.InvokeOnMainThread)
+            if (isNewPlayer)
+            {
+                Debug.Log($"MultiplayerManager: Player joined via Firebase - {playerData.DisplayName} ({playerData.PlayerId})");
+                Debug.Log($"MultiplayerManager: OnPlayerJoined subscriber count: {GetOnPlayerJoinedSubscriberCount()}");
+                OnPlayerJoined?.Invoke(playerData.PlayerId);
+            }
+            else if (readyStateChanged)
+            {
+                Debug.Log($"MultiplayerManager: Player ready state changed via Firebase - {playerData.DisplayName} ({playerData.PlayerId}) Ready={playerData.IsReady}");
+                Debug.Log($"MultiplayerManager: OnPlayerReadyChanged subscriber count: {GetOnPlayerReadyChangedSubscriberCount()}");
+                OnPlayerReadyChanged?.Invoke(playerData.PlayerId, playerData.IsReady);
+            }
+
+            // Always check if all players are ready after any player update
+            CheckAllPlayersReady();
+        }
+
+        /// <summary>
+        /// Remove player from Firebase events (called by LobbyManager).
+        /// </summary>
+        public void RemovePlayerFromFirebase(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId) || !Players.ContainsKey(playerId))
+                return;
+
+            Players.Remove(playerId);
+            Debug.Log($"MultiplayerManager: Player left via Firebase - {playerId}");
+            Debug.Log($"MultiplayerManager: OnPlayerLeft subscriber count: {GetOnPlayerLeftSubscriberCount()}");
+            OnPlayerLeft?.Invoke(playerId);
+            CheckAllPlayersReady();
         }
 
         /// <summary>

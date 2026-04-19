@@ -19,6 +19,7 @@ namespace PocketPlanner.Multiplayer
         private Dictionary<string, PlayerData> _players = new Dictionary<string, PlayerData>();
         private int _maxPlayers = 8; // Default from NetworkConstants
         private int _turnTimeLimit = -1; // Default unlimited (-1)
+        private string _deviceId = string.Empty; // Cached device ID for Firebase operations
 
         // Public properties for lobby settings
         public int CurrentMaxPlayers => _maxPlayers;
@@ -46,6 +47,10 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogError("LobbyManager: FirebaseManager not found!");
             }
+
+            // Cache device ID on main thread for use in Firebase callbacks
+            _deviceId = SystemInfo.deviceUniqueIdentifier;
+            Debug.Log($"LobbyManager: Device ID cached: {_deviceId}");
         }
 
         private void Update()
@@ -55,7 +60,9 @@ namespace PocketPlanner.Multiplayer
             {
                 try
                 {
+                    Debug.Log($"LobbyManager.Update: Executing main thread action ({action.Method.Name})");
                     action?.Invoke();
+                    Debug.Log($"LobbyManager.Update: Action executed successfully");
                 }
                 catch (Exception ex)
                 {
@@ -107,7 +114,7 @@ namespace PocketPlanner.Multiplayer
             };
 
             // Add host as first player
-            var hostPlayer = new PlayerData(hostPlayerId, "Host", true, SystemInfo.deviceUniqueIdentifier);
+            var hostPlayer = new PlayerData(hostPlayerId, "Host", true, _deviceId);
             var hostPlayerDict = PlayerDataToDictionary(hostPlayer);
 
             // Add host to players list
@@ -199,16 +206,22 @@ namespace PocketPlanner.Multiplayer
             _lobbyRef = _firebaseManager.DatabaseReference.Child("lobbies").Child(lobbyCode);
             _playersRef = _lobbyRef.Child("players");
 
+            Debug.Log($"LobbyManager: Firebase references set - LobbyRef: {_lobbyRef != null}, PlayersRef: {_playersRef != null}, DatabaseRef: {_firebaseManager.DatabaseReference != null}");
+
             _lobbyRef.GetValueAsync().ContinueWith(task => {
+                Debug.Log($"LobbyManager: GetValueAsync completed - IsCompleted: {task.IsCompleted}, IsFaulted: {task.IsFaulted}, IsCanceled: {task.IsCanceled}");
                 if (task.IsFaulted)
                 {
+                    Debug.LogError($"LobbyManager: GetValueAsync failed - {task.Exception?.Message}");
                     InvokeOnMainThread(onError, $"Failed to join lobby: {task.Exception?.Message}");
                     return;
                 }
 
                 DataSnapshot snapshot = task.Result;
+                Debug.Log($"LobbyManager: Snapshot exists: {snapshot.Exists}, ChildrenCount: {snapshot.ChildrenCount}");
                 if (!snapshot.Exists)
                 {
+                    Debug.LogWarning($"LobbyManager: Lobby not found - {lobbyCode}");
                     InvokeOnMainThread(onError, "Lobby not found");
                     return;
                 }
@@ -220,31 +233,55 @@ namespace PocketPlanner.Multiplayer
                 {
                     maxPlayers = Convert.ToInt32(snapshot.Child("maxPlayers").Value);
                 }
+                Debug.Log($"LobbyManager: Player count: {playerCount}, Max players: {maxPlayers}");
                 if (playerCount >= maxPlayers)
                 {
+                    Debug.LogWarning($"LobbyManager: Lobby is full - {playerCount}/{maxPlayers} players");
                     InvokeOnMainThread(onError, $"Lobby is full (max {maxPlayers} players)");
                     return;
                 }
 
                 // Read turn time limit
                 int turnTimeLimit = -1; // default unlimited
-                if (snapshot.Child("turnTimeLimit").Exists)
+                Dictionary<string, object> playerDict = null;
+
+                try
                 {
-                    turnTimeLimit = Convert.ToInt32(snapshot.Child("turnTimeLimit").Value);
-                }
+                    if (snapshot.Child("turnTimeLimit").Exists)
+                    {
+                        turnTimeLimit = Convert.ToInt32(snapshot.Child("turnTimeLimit").Value);
+                    }
 
-                // Add player to lobby
-                var playerData = new PlayerData(playerId, $"Player{playerCount + 1}", false, SystemInfo.deviceUniqueIdentifier);
-                var playerDict = PlayerDataToDictionary(playerData);
+                    Debug.Log($"LobbyManager: Turn time limit read successfully: {turnTimeLimit}");
 
-                _playersRef.Child(playerId).SetValueAsync(playerDict).ContinueWith(joinTask => {
+                    // Add player to lobby
+                    var playerData = new PlayerData(playerId, $"Player{playerCount + 1}", false, _deviceId);
+                    Debug.Log($"LobbyManager: PlayerData created - PlayerId: {playerId}, DisplayName: {playerData.DisplayName}, DeviceId: {playerData.DeviceId}");
+
+                    playerDict = PlayerDataToDictionary(playerData);
+                    Debug.Log($"LobbyManager: PlayerData converted to dictionary with {playerDict.Count} entries");
+
+                    if (_playersRef == null)
+                    {
+                        Debug.LogError("LobbyManager: _playersRef is null! Cannot add player to Firebase");
+                        InvokeOnMainThread(onError, "Firebase reference lost. Please try again.");
+                        return;
+                    }
+
+                    Debug.Log($"LobbyManager: Adding player to Firebase - PlayerId: {playerId}, PlayersRef valid: {_playersRef != null}");
+
+                    // Now add player to Firebase
+                    _playersRef.Child(playerId).SetValueAsync(playerDict).ContinueWith(joinTask => {
+                    Debug.Log($"LobbyManager: SetValueAsync completed - IsCompleted: {joinTask.IsCompleted}, IsFaulted: {joinTask.IsFaulted}, IsCanceled: {joinTask.IsCanceled}");
                     if (joinTask.IsFaulted)
                     {
+                        Debug.LogError($"LobbyManager: SetValueAsync failed - {joinTask.Exception?.Message}");
                         InvokeOnMainThread(onError, $"Failed to join lobby: {joinTask.Exception?.Message}");
                         return;
                     }
 
                     // Set up listeners and get current player list
+                    Debug.Log($"LobbyManager: SetValueAsync succeeded, setting up listeners");
                     SetupLobbyListeners(lobbyCode);
 
                     _currentLobbyCode = lobbyCode;
@@ -252,12 +289,22 @@ namespace PocketPlanner.Multiplayer
                     _maxPlayers = maxPlayers;
                     _turnTimeLimit = turnTimeLimit;
 
+                    Debug.Log($"LobbyManager: Local state updated - LobbyCode: {_currentLobbyCode}, InLobby: {_isInLobby}");
+
                     // Load all players from Firebase (including the one we just added)
                     LoadCurrentPlayers(() => {
                         // Callback after players are loaded
+                        Debug.Log($"LobbyManager: LoadCurrentPlayers completed, invoking onLobbyJoined with {_players.Count} players");
                         InvokeOnMainThread(() => onLobbyJoined?.Invoke(lobbyCode, _players));
                     });
                 });
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"LobbyManager: Exception in lobby join process: {ex.Message}");
+                    Debug.LogError($"LobbyManager: Stack trace: {ex.StackTrace}");
+                    InvokeOnMainThread(onError, $"Failed to join lobby: {ex.Message}");
+                }
             });
         }
 
@@ -482,11 +529,22 @@ namespace PocketPlanner.Multiplayer
                             var playerData = DictionaryToPlayerData(playerDict);
                             _players[playerData.PlayerId] = playerData;
                             Debug.Log($"LobbyManager: Loaded player {playerData.DisplayName} ({playerData.PlayerId})");
+
+                            // Update MultiplayerManager with loaded player data
+                            Debug.Log($"LobbyManager.LoadCurrentPlayers: MultiplayerManager.Instance = {MultiplayerManager.Instance != null}");
+                            if (MultiplayerManager.Instance != null)
+                            {
+                                Debug.Log($"LobbyManager.LoadCurrentPlayers: Calling UpdatePlayerFromFirebase for {playerData.PlayerId}");
+                                MultiplayerManager.Instance.UpdatePlayerFromFirebase(playerData);
+                            }
+                            else
+                            {
+                                Debug.LogError("LobbyManager.LoadCurrentPlayers: MultiplayerManager.Instance is null!");
+                            }
                         }
                     }
 
                     Debug.Log($"LobbyManager: Loaded {_players.Count} players");
-                    // TODO: Trigger UI update event if needed
                     onComplete?.Invoke();
                 });
             });
@@ -517,7 +575,19 @@ namespace PocketPlanner.Multiplayer
             {
                 _players[playerData.PlayerId] = playerData;
                 Debug.Log($"LobbyManager: Player added - {playerData.DisplayName} ({playerData.PlayerId})");
-                // TODO: Trigger UI update event
+                // Trigger MultiplayerManager events on main thread
+                InvokeOnMainThread(() => {
+                    Debug.Log($"LobbyManager.OnPlayerAdded: In main thread action, MultiplayerManager.Instance = {MultiplayerManager.Instance != null}");
+                    if (MultiplayerManager.Instance != null)
+                    {
+                        Debug.Log($"LobbyManager.OnPlayerAdded: Calling UpdatePlayerFromFirebase for {playerData.PlayerId}");
+                        MultiplayerManager.Instance.UpdatePlayerFromFirebase(playerData);
+                    }
+                    else
+                    {
+                        Debug.LogError("LobbyManager.OnPlayerAdded: MultiplayerManager.Instance is null!");
+                    }
+                });
             }
         }
 
@@ -533,7 +603,19 @@ namespace PocketPlanner.Multiplayer
             {
                 _players[playerData.PlayerId] = playerData;
                 Debug.Log($"LobbyManager: Player updated - {playerData.DisplayName} ({playerData.PlayerId}) Ready={playerData.IsReady}");
-                // TODO: Trigger UI update event
+                // Trigger MultiplayerManager events on main thread
+                InvokeOnMainThread(() => {
+                    Debug.Log($"LobbyManager.OnPlayerChanged: In main thread action, MultiplayerManager.Instance = {MultiplayerManager.Instance != null}");
+                    if (MultiplayerManager.Instance != null)
+                    {
+                        Debug.Log($"LobbyManager.OnPlayerChanged: Calling UpdatePlayerFromFirebase for {playerData.PlayerId}");
+                        MultiplayerManager.Instance.UpdatePlayerFromFirebase(playerData);
+                    }
+                    else
+                    {
+                        Debug.LogError("LobbyManager.OnPlayerChanged: MultiplayerManager.Instance is null!");
+                    }
+                });
             }
         }
 
@@ -546,7 +628,19 @@ namespace PocketPlanner.Multiplayer
             {
                 _players.Remove(playerId);
                 Debug.Log($"LobbyManager: Player removed - {playerId}");
-                // TODO: Trigger UI update event
+                // Trigger MultiplayerManager events on main thread
+                InvokeOnMainThread(() => {
+                    Debug.Log($"LobbyManager.OnPlayerRemoved: In main thread action, MultiplayerManager.Instance = {MultiplayerManager.Instance != null}");
+                    if (MultiplayerManager.Instance != null)
+                    {
+                        Debug.Log($"LobbyManager.OnPlayerRemoved: Calling RemovePlayerFromFirebase for {playerId}");
+                        MultiplayerManager.Instance.RemovePlayerFromFirebase(playerId);
+                    }
+                    else
+                    {
+                        Debug.LogError("LobbyManager.OnPlayerRemoved: MultiplayerManager.Instance is null!");
+                    }
+                });
             }
         }
 
@@ -567,7 +661,12 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         private void InvokeOnMainThread(Action action)
         {
-            if (action == null) return;
+            if (action == null)
+            {
+                Debug.LogWarning("LobbyManager.InvokeOnMainThread: action is null");
+                return;
+            }
+            Debug.Log($"LobbyManager.InvokeOnMainThread: Enqueuing action ({action.Method.Name})");
             _mainThreadActions.Enqueue(action);
         }
 
@@ -591,7 +690,12 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         private void InvokeOnMainThread<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
         {
-            if (action == null) return;
+            if (action == null)
+            {
+                Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T1,T2>: action is null, skipping. Types: {typeof(T1).Name}, {typeof(T2).Name}");
+                return;
+            }
+            Debug.Log($"LobbyManager.InvokeOnMainThread<T1,T2>: Enqueuing action ({action.Method.Name})");
             _mainThreadActions.Enqueue(() => action(arg1, arg2));
         }
     }

@@ -37,6 +37,7 @@ public class LobbyUIManager : MonoBehaviour
     private int CurrentMaxPlayers => lobbyManager != null ? lobbyManager.CurrentMaxPlayers : MAX_PLAYERS;
     private bool isHost = false;
     private string localPlayerId = string.Empty;
+    private bool eventsSubscribed = false;
 
     // Polling for player list changes (fallback if events don't fire)
     private Dictionary<string, PlayerData> lastKnownPlayers = new Dictionary<string, PlayerData>();
@@ -46,6 +47,7 @@ public class LobbyUIManager : MonoBehaviour
 
     private void OnEnable()
     {
+        FindManagersIfMissing();
         SubscribeToEvents();
         // Start polling for player list changes as fallback
         pollingCoroutine = StartCoroutine(PollPlayerListChanges());
@@ -65,6 +67,7 @@ public class LobbyUIManager : MonoBehaviour
     void Start()
     {
         FindManagersIfMissing();
+        SubscribeToEvents(); // Ensure subscriptions in case OnEnable missed them
         ValidateUIReferences();
         InitializeUI();
         UpdateLastKnownPlayers();
@@ -75,6 +78,8 @@ public class LobbyUIManager : MonoBehaviour
 
     private void FindManagersIfMissing()
     {
+        bool wasNull = multiplayerManager == null;
+
         if (firebaseManager == null) firebaseManager = FirebaseManager.Instance;
         if (multiplayerManager == null) multiplayerManager = MultiplayerManager.Instance;
 
@@ -89,6 +94,13 @@ public class LobbyUIManager : MonoBehaviour
         }
 
         if (syncManager == null) syncManager = SyncManager.Instance;
+
+        // If multiplayerManager was null but now is not null, and events aren't subscribed, subscribe
+        if (wasNull && multiplayerManager != null && !eventsSubscribed)
+        {
+            Debug.Log("LobbyUIManager: MultiplayerManager became available, subscribing to events");
+            SubscribeToEvents();
+        }
     }
 
     private void ValidateUIReferences()
@@ -157,32 +169,93 @@ public class LobbyUIManager : MonoBehaviour
 
     private void SubscribeToEvents()
     {
+        Debug.Log($"LobbyUIManager.SubscribeToEvents: multiplayerManager is {(multiplayerManager == null ? "null" : "not null")}, eventsSubscribed={eventsSubscribed}");
+
+        // Unsubscribe first if already subscribed to avoid duplicates
+        if (eventsSubscribed && multiplayerManager != null)
+        {
+            UnsubscribeFromEvents();
+        }
+
         if (multiplayerManager != null)
         {
+            // Log current subscriber counts before subscribing
+            var beforeCounts = multiplayerManager.GetEventSubscriberCounts();
+            Debug.Log($"LobbyUIManager: Before subscribing - " +
+                $"OnPlayerJoined: {beforeCounts.GetValueOrDefault("OnPlayerJoined", 0)}, " +
+                $"OnPlayerLeft: {beforeCounts.GetValueOrDefault("OnPlayerLeft", 0)}, " +
+                $"OnPlayerReadyChanged: {beforeCounts.GetValueOrDefault("OnPlayerReadyChanged", 0)}, " +
+                $"OnAllPlayersReady: {beforeCounts.GetValueOrDefault("OnAllPlayersReady", 0)}, " +
+                $"OnGameStarted: {beforeCounts.GetValueOrDefault("OnGameStarted", 0)}, " +
+                $"OnLobbyJoined: {beforeCounts.GetValueOrDefault("OnLobbyJoined", 0)}");
+
             multiplayerManager.OnPlayerJoined += OnPlayerJoined;
             multiplayerManager.OnPlayerLeft += OnPlayerLeft;
             multiplayerManager.OnPlayerReadyChanged += OnPlayerReadyChanged;
             multiplayerManager.OnAllPlayersReady += OnAllPlayersReady;
             multiplayerManager.OnGameStarted += OnGameStarted;
             multiplayerManager.OnLobbyJoined += OnLobbyJoined;
+            eventsSubscribed = true;
+
+            // Log subscriber counts after subscribing
+            var afterCounts = multiplayerManager.GetEventSubscriberCounts();
+            Debug.Log($"LobbyUIManager: After subscribing - " +
+                $"OnPlayerJoined: {afterCounts.GetValueOrDefault("OnPlayerJoined", 0)}, " +
+                $"OnPlayerLeft: {afterCounts.GetValueOrDefault("OnPlayerLeft", 0)}, " +
+                $"OnPlayerReadyChanged: {afterCounts.GetValueOrDefault("OnPlayerReadyChanged", 0)}, " +
+                $"OnAllPlayersReady: {afterCounts.GetValueOrDefault("OnAllPlayersReady", 0)}, " +
+                $"OnGameStarted: {afterCounts.GetValueOrDefault("OnGameStarted", 0)}, " +
+                $"OnLobbyJoined: {afterCounts.GetValueOrDefault("OnLobbyJoined", 0)}");
+
+            Debug.Log("LobbyUIManager: Subscribed to MultiplayerManager events");
+        }
+        else
+        {
+            eventsSubscribed = false;
+            Debug.LogWarning("LobbyUIManager: Cannot subscribe to events - MultiplayerManager not found");
         }
     }
 
     private void UnsubscribeFromEvents()
     {
+        Debug.Log($"LobbyUIManager.UnsubscribeFromEvents: multiplayerManager is {(multiplayerManager == null ? "null" : "not null")}");
         if (multiplayerManager != null)
         {
+            // Log subscriber counts before unsubscribing
+            var beforeCounts = multiplayerManager.GetEventSubscriberCounts();
+            Debug.Log($"LobbyUIManager: Before unsubscribing - " +
+                $"OnPlayerJoined: {beforeCounts.GetValueOrDefault("OnPlayerJoined", 0)}, " +
+                $"OnPlayerLeft: {beforeCounts.GetValueOrDefault("OnPlayerLeft", 0)}, " +
+                $"OnPlayerReadyChanged: {beforeCounts.GetValueOrDefault("OnPlayerReadyChanged", 0)}, " +
+                $"OnAllPlayersReady: {beforeCounts.GetValueOrDefault("OnAllPlayersReady", 0)}, " +
+                $"OnGameStarted: {beforeCounts.GetValueOrDefault("OnGameStarted", 0)}, " +
+                $"OnLobbyJoined: {beforeCounts.GetValueOrDefault("OnLobbyJoined", 0)}");
+
             multiplayerManager.OnPlayerJoined -= OnPlayerJoined;
             multiplayerManager.OnPlayerLeft -= OnPlayerLeft;
             multiplayerManager.OnPlayerReadyChanged -= OnPlayerReadyChanged;
             multiplayerManager.OnAllPlayersReady -= OnAllPlayersReady;
             multiplayerManager.OnGameStarted -= OnGameStarted;
             multiplayerManager.OnLobbyJoined -= OnLobbyJoined;
+            eventsSubscribed = false;
+
+            // Log subscriber counts after unsubscribing
+            var afterCounts = multiplayerManager.GetEventSubscriberCounts();
+            Debug.Log($"LobbyUIManager: After unsubscribing - " +
+                $"OnPlayerJoined: {afterCounts.GetValueOrDefault("OnPlayerJoined", 0)}, " +
+                $"OnPlayerLeft: {afterCounts.GetValueOrDefault("OnPlayerLeft", 0)}, " +
+                $"OnPlayerReadyChanged: {afterCounts.GetValueOrDefault("OnPlayerReadyChanged", 0)}, " +
+                $"OnAllPlayersReady: {afterCounts.GetValueOrDefault("OnAllPlayersReady", 0)}, " +
+                $"OnGameStarted: {afterCounts.GetValueOrDefault("OnGameStarted", 0)}, " +
+                $"OnLobbyJoined: {afterCounts.GetValueOrDefault("OnLobbyJoined", 0)}");
+
+            Debug.Log("LobbyUIManager: Unsubscribed from MultiplayerManager events");
         }
     }
 
     private void UpdateGameSettingsUI()
     {
+        FindManagersIfMissing();
         if (multiplayerManager == null) return;
 
         // Room code
@@ -236,6 +309,7 @@ public class LobbyUIManager : MonoBehaviour
 
     private void UpdatePlayerListUI()
     {
+        FindManagersIfMissing();
         if (multiplayerManager == null) return;
 
 
@@ -351,6 +425,7 @@ public class LobbyUIManager : MonoBehaviour
 
     private void UpdateButtonInteractability()
     {
+        FindManagersIfMissing();
         if (multiplayerManager == null) return;
 
         isHost = multiplayerManager.IsLobbyHost;
@@ -541,15 +616,38 @@ public class LobbyUIManager : MonoBehaviour
             }
             else
             {
-                // Compare each player
+                // Compare each player - check for new players, removed players, or ready state changes
                 foreach (var kvp in currentPlayers)
                 {
                     if (!lastKnownPlayers.ContainsKey(kvp.Key))
                     {
+                        // New player
                         changed = true;
                         break;
                     }
-                    // Optionally compare ready state or other properties
+                    else
+                    {
+                        // Check if ready state changed
+                        var lastPlayer = lastKnownPlayers[kvp.Key];
+                        if (lastPlayer.IsReady != kvp.Value.IsReady)
+                        {
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Also check for removed players (player in lastKnownPlayers but not in currentPlayers)
+                if (!changed)
+                {
+                    foreach (var kvp in lastKnownPlayers)
+                    {
+                        if (!currentPlayers.ContainsKey(kvp.Key))
+                        {
+                            changed = true;
+                            break;
+                        }
+                    }
                 }
             }
 
