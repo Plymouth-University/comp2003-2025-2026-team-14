@@ -589,8 +589,9 @@ public class LobbyUIManager : MonoBehaviour
 
     private void OnGameStarted()
     {
-        Debug.Log("LobbyUIManager: Game started!");
-        // Optionally disable UI or show loading
+        Debug.Log("LobbyUIManager: Game started! Transitioning to game scene.");
+        // Transition to the main game scene
+        PPSceneManager.LoadMainGame();
     }
 
     private void OnLobbyJoined(string lobbyCode)

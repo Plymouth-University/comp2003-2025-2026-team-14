@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
 using Firebase.Database;
@@ -37,6 +38,9 @@ namespace PocketPlanner.Multiplayer
         private const int GRID_SIZE = 10;
         private const int MAX_PLAYERS = 8;
 
+        // Main thread dispatch
+        private ConcurrentQueue<Action> _mainThreadActions = new ConcurrentQueue<Action>();
+
         private void Awake()
         {
             // Singleton pattern
@@ -59,6 +63,51 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogWarning("SyncManager: GameManager not found. Some features may not work.");
             }
+        }
+
+        private void Update()
+        {
+            while (_mainThreadActions.TryDequeue(out var action))
+            {
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Exception in main thread action: {ex.Message}");
+                }
+            }
+        }
+
+        private void InvokeOnMainThread(Action action)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning("SyncManager.InvokeOnMainThread: action is null");
+                return;
+            }
+            _mainThreadActions.Enqueue(action);
+        }
+
+        private void InvokeOnMainThread<T>(Action<T> action, T arg)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T>: action is null, skipping. Type: {typeof(T).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg));
+        }
+
+        private void InvokeOnMainThread<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T1,T2>: action is null, skipping. Types: {typeof(T1).Name}, {typeof(T2).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg1, arg2));
         }
 
         public void RefreshReferences()
@@ -130,31 +179,51 @@ namespace PocketPlanner.Multiplayer
 
             string path = GetRelativePath(args.Snapshot.Reference);
             Debug.Log($"SyncManager: Value changed at path: {path}");
+            // Debug: log snapshot children for diagnosis
+            if (args.Snapshot.HasChildren)
+            {
+                Debug.Log($"SyncManager: Snapshot has {args.Snapshot.ChildrenCount} children");
+                foreach (DataSnapshot child in args.Snapshot.Children)
+                {
+                    Debug.Log($"SyncManager:   Child: {child.Key} = {child.Value}");
+                }
+            }
 
             // Check if this is a dice roll node
             if (path.Contains("/diceRoll"))
             {
-                ProcessDiceRoll(args.Snapshot);
+                InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, args.Snapshot);
             }
             // Check if this is a placement node
             else if (path.Contains("/placements/"))
             {
-                ProcessPlacement(args.Snapshot);
+                InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
             }
             // Check if this is a player game state node
             else if (path.Contains("/players/") && path.EndsWith("/state"))
             {
-                ProcessPlayerGameState(args.Snapshot);
+                InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, args.Snapshot);
             }
             // Check if this is a shared seed node
             else if (path.Contains("/sharedSeed"))
             {
-                ProcessSharedSeed(args.Snapshot);
+                InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, args.Snapshot);
             }
             // Check if this is a game end node
             else if (path.Contains("/gameEnds/"))
             {
-                ProcessGameEnd(args.Snapshot);
+                InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
+            }
+            // Check if the snapshot contains a sharedSeed child (when games/{lobbyCode} root node changes)
+            else if (args.Snapshot.HasChild("sharedSeed"))
+            {
+                Debug.Log($"SyncManager: Found sharedSeed child in root snapshot");
+                DataSnapshot seedSnapshot = args.Snapshot.Child("sharedSeed");
+                InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, seedSnapshot);
+            }
+            else
+            {
+                Debug.Log($"SyncManager: No matching handler for path: {path}");
             }
         }
 
@@ -221,11 +290,51 @@ namespace PocketPlanner.Multiplayer
 
         private void ProcessSharedSeed(DataSnapshot snapshot)
         {
-            long? seedValue = snapshot.Value as long?;
-            if (seedValue == null) return;
+            object value = snapshot.Value;
+            if (value == null)
+            {
+                Debug.LogWarning("SyncManager: ProcessSharedSeed - snapshot value is null");
+                return;
+            }
+
+            long? seedValue = null;
+
+            // Try multiple conversion methods since Firebase might store numbers as different types
+            if (value is long)
+            {
+                seedValue = (long)value;
+            }
+            else if (value is int)
+            {
+                seedValue = (long)(int)value;
+            }
+            else if (value is double)
+            {
+                // Firebase often stores numbers as doubles
+                seedValue = Convert.ToInt64((double)value);
+            }
+            else
+            {
+                // Try generic conversion
+                try
+                {
+                    seedValue = Convert.ToInt64(value);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Failed to convert shared seed value: {value} (type: {value.GetType().Name}). Error: {ex.Message}");
+                    return;
+                }
+            }
+
+            if (seedValue == null)
+            {
+                Debug.LogError($"SyncManager: ProcessSharedSeed - could not convert value: {value} (type: {value.GetType().Name}) to long");
+                return;
+            }
 
             int seed = (int)seedValue.Value;
-            Debug.Log($"SyncManager: Shared seed received: {seed}");
+            Debug.Log($"SyncManager: Shared seed received: {seed} (original value: {value}, type: {value.GetType().Name})");
 
             // Update MultiplayerManager's shared seed
             if (_multiplayerManager != null)
@@ -891,17 +1000,20 @@ namespace PocketPlanner.Multiplayer
 
             if (args.Snapshot == null || !args.Snapshot.Exists) return;
 
-            // For each player who ended game
-            foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
+            // For each player who ended game - dispatch to main thread
+            InvokeOnMainThread(() =>
             {
-                string playerId = playerSnapshot.Key;
-                var data = playerSnapshot.Value as Dictionary<string, object>;
-                if (data != null && data.ContainsKey("playerId"))
+                foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
                 {
-                    // Notify MultiplayerManager
-                    _multiplayerManager?.OnRemoteGameEnded(playerId);
+                    string playerId = playerSnapshot.Key;
+                    var data = playerSnapshot.Value as Dictionary<string, object>;
+                    if (data != null && data.ContainsKey("playerId"))
+                    {
+                        // Notify MultiplayerManager
+                        _multiplayerManager?.OnRemoteGameEnded(playerId);
+                    }
                 }
-            }
+            });
         }
 
     }

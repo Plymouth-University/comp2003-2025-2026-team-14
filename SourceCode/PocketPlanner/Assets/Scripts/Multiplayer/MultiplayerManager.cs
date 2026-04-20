@@ -46,6 +46,15 @@ namespace PocketPlanner.Multiplayer
         {
             _sharedRandomSeed = seed;
             Debug.Log($"MultiplayerManager: Shared random seed set to {seed}");
+
+            // If game hasn't started yet, mark it as started and invoke event for non-host players
+            if (!_gameStarted)
+            {
+                _gameStarted = true;
+                _currentSynchronizedTurn = 0;
+                Debug.Log($"MultiplayerManager: Game started via shared seed broadcast");
+                OnGameStarted?.Invoke();
+            }
         }
 
         // Game synchronization
@@ -341,6 +350,16 @@ namespace PocketPlanner.Multiplayer
             LobbyCode = lobbyCode;
             Debug.Log($"MultiplayerManager: Lobby created with code: {lobbyCode}");
 
+            // Start listening for game synchronization events
+            if (SyncManager.Instance != null)
+            {
+                SyncManager.Instance.StartListeningForLobby(lobbyCode);
+            }
+            else
+            {
+                Debug.LogWarning("MultiplayerManager: SyncManager instance not available for listening");
+            }
+
             // Add host as first player
             var hostPlayer = new PlayerData(LocalPlayerId, "Host", true, _deviceId);
             Players[LocalPlayerId] = hostPlayer;
@@ -358,6 +377,16 @@ namespace PocketPlanner.Multiplayer
             LobbyCode = lobbyCode;
             Players = players;
             Debug.Log($"MultiplayerManager: Joined lobby {lobbyCode} with {players.Count} players");
+
+            // Start listening for game synchronization events
+            if (SyncManager.Instance != null)
+            {
+                SyncManager.Instance.StartListeningForLobby(lobbyCode);
+            }
+            else
+            {
+                Debug.LogWarning("MultiplayerManager: SyncManager instance not available for listening");
+            }
 
             Debug.Log($"MultiplayerManager.OnLobbyJoinedCallback: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {GetOnLobbyJoinedSubscriberCount()}");
             OnLobbyJoined?.Invoke(lobbyCode);
