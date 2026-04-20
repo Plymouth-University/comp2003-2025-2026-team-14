@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
 using Firebase.Database;
@@ -32,10 +33,14 @@ namespace PocketPlanner.Multiplayer
         public event Action<PlacementActionData> OnPlacementActionReceived;
         public event Action<DiceRollData> OnDiceRollReceived;
         public event Action<PlayerGameData> OnPlayerGameStateReceived;
+        public event Action<TurnCompletionData> OnTurnCompletionReceived;
 
         // Serialization settings
         private const int GRID_SIZE = 10;
         private const int MAX_PLAYERS = 8;
+
+        // Main thread dispatch
+        private ConcurrentQueue<Action> _mainThreadActions = new ConcurrentQueue<Action>();
 
         private void Awake()
         {
@@ -59,6 +64,51 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogWarning("SyncManager: GameManager not found. Some features may not work.");
             }
+        }
+
+        private void Update()
+        {
+            while (_mainThreadActions.TryDequeue(out var action))
+            {
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Exception in main thread action: {ex.Message}");
+                }
+            }
+        }
+
+        private void InvokeOnMainThread(Action action)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning("SyncManager.InvokeOnMainThread: action is null");
+                return;
+            }
+            _mainThreadActions.Enqueue(action);
+        }
+
+        private void InvokeOnMainThread<T>(Action<T> action, T arg)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T>: action is null, skipping. Type: {typeof(T).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg));
+        }
+
+        private void InvokeOnMainThread<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T1,T2>: action is null, skipping. Types: {typeof(T1).Name}, {typeof(T2).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg1, arg2));
         }
 
         public void RefreshReferences()
@@ -130,31 +180,140 @@ namespace PocketPlanner.Multiplayer
 
             string path = GetRelativePath(args.Snapshot.Reference);
             Debug.Log($"SyncManager: Value changed at path: {path}");
+            // Debug: log snapshot children for diagnosis
+            if (args.Snapshot.HasChildren)
+            {
+                Debug.Log($"SyncManager: Snapshot has {args.Snapshot.ChildrenCount} children");
+                foreach (DataSnapshot child in args.Snapshot.Children)
+                {
+                    Debug.Log($"SyncManager:   Child: {child.Key} = {child.Value}");
+                }
+            }
 
-            // Check if this is a dice roll node
-            if (path.Contains("/diceRoll"))
+            bool handled = false;
+
+            // First, check for child nodes in the snapshot (when root lobby node changes)
+            // Check for sharedSeed child
+            if (args.Snapshot.HasChild("sharedSeed"))
             {
-                ProcessDiceRoll(args.Snapshot);
+                Debug.Log($"SyncManager: Found sharedSeed child in root snapshot");
+                DataSnapshot seedSnapshot = args.Snapshot.Child("sharedSeed");
+                InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, seedSnapshot);
+                handled = true;
             }
-            // Check if this is a placement node
-            else if (path.Contains("/placements/"))
+
+            // Check for turn/{turnNumber}/diceRoll children
+            if (args.Snapshot.HasChild("turn"))
             {
-                ProcessPlacement(args.Snapshot);
+                DataSnapshot turnSnapshot = args.Snapshot.Child("turn");
+                foreach (DataSnapshot turnChild in turnSnapshot.Children)
+                {
+                    if (turnChild.HasChild("diceRoll"))
+                    {
+                        Debug.Log($"SyncManager: Found diceRoll child in turn {turnChild.Key}");
+                        DataSnapshot diceRollSnapshot = turnChild.Child("diceRoll");
+                        InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, diceRollSnapshot);
+                        handled = true;
+                    }
+
+                    // Check for turn/{turnNumber}/placements/{playerId} children
+                    if (turnChild.HasChild("placements"))
+                    {
+                        DataSnapshot placementsSnapshot = turnChild.Child("placements");
+                        foreach (DataSnapshot placementChild in placementsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found placement child for player {placementChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessPlacement, placementChild);
+                            handled = true;
+                        }
+                    }
+
+                    // Check for turn/{turnNumber}/completions/{playerId} children
+                    if (turnChild.HasChild("completions"))
+                    {
+                        DataSnapshot completionsSnapshot = turnChild.Child("completions");
+                        foreach (DataSnapshot completionChild in completionsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found completion child for player {completionChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, completionChild);
+                            handled = true;
+                        }
+                    }
+                }
             }
-            // Check if this is a player game state node
-            else if (path.Contains("/players/") && path.EndsWith("/state"))
+
+            // Check for players/{playerId}/state children
+            if (args.Snapshot.HasChild("players"))
             {
-                ProcessPlayerGameState(args.Snapshot);
+                DataSnapshot playersSnapshot = args.Snapshot.Child("players");
+                foreach (DataSnapshot playerChild in playersSnapshot.Children)
+                {
+                    if (playerChild.HasChild("state"))
+                    {
+                        Debug.Log($"SyncManager: Found state child for player {playerChild.Key}");
+                        DataSnapshot stateSnapshot = playerChild.Child("state");
+                        InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, stateSnapshot);
+                        handled = true;
+                    }
+                }
             }
-            // Check if this is a shared seed node
-            else if (path.Contains("/sharedSeed"))
+
+            // Check for gameEnds/{playerId} children (though this should be handled by separate listener)
+            if (args.Snapshot.HasChild("gameEnds"))
             {
-                ProcessSharedSeed(args.Snapshot);
+                DataSnapshot gameEndsSnapshot = args.Snapshot.Child("gameEnds");
+                foreach (DataSnapshot gameEndChild in gameEndsSnapshot.Children)
+                {
+                    Debug.Log($"SyncManager: Found gameEnd child for player {gameEndChild.Key}");
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, gameEndChild);
+                    handled = true;
+                }
             }
-            // Check if this is a game end node
-            else if (path.Contains("/gameEnds/"))
+
+            // Fallback: keep original path.Contains() checks for cases where listener might be attached to deeper node
+            if (!handled)
             {
-                ProcessGameEnd(args.Snapshot);
+                // Check if this is a dice roll node
+                if (path.Contains("/diceRoll"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a placement node
+                else if (path.Contains("/placements/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a turn completion node
+                else if (path.Contains("/completions/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a player game state node
+                else if (path.Contains("/players/") && path.EndsWith("/state"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a shared seed node
+                else if (path.Contains("/sharedSeed"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a game end node
+                else if (path.Contains("/gameEnds/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
+                    handled = true;
+                }
+            }
+
+            if (!handled)
+            {
+                Debug.Log($"SyncManager: No matching handler for path: {path}");
             }
         }
 
@@ -219,13 +378,70 @@ namespace PocketPlanner.Multiplayer
             }
         }
 
+        private void ProcessTurnCompletion(DataSnapshot snapshot)
+        {
+            string json = snapshot.Value as string;
+            if (string.IsNullOrEmpty(json)) return;
+
+            try
+            {
+                var turnCompletionData = DeserializeTurnCompletion(json);
+                Debug.Log($"SyncManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber}");
+                OnTurnCompletionReceived?.Invoke(turnCompletionData);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to process turn completion data: {ex.Message}");
+            }
+        }
+
         private void ProcessSharedSeed(DataSnapshot snapshot)
         {
-            long? seedValue = snapshot.Value as long?;
-            if (seedValue == null) return;
+            object value = snapshot.Value;
+            if (value == null)
+            {
+                Debug.LogWarning("SyncManager: ProcessSharedSeed - snapshot value is null");
+                return;
+            }
+
+            long? seedValue = null;
+
+            // Try multiple conversion methods since Firebase might store numbers as different types
+            if (value is long)
+            {
+                seedValue = (long)value;
+            }
+            else if (value is int)
+            {
+                seedValue = (long)(int)value;
+            }
+            else if (value is double)
+            {
+                // Firebase often stores numbers as doubles
+                seedValue = Convert.ToInt64((double)value);
+            }
+            else
+            {
+                // Try generic conversion
+                try
+                {
+                    seedValue = Convert.ToInt64(value);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Failed to convert shared seed value: {value} (type: {value.GetType().Name}). Error: {ex.Message}");
+                    return;
+                }
+            }
+
+            if (seedValue == null)
+            {
+                Debug.LogError($"SyncManager: ProcessSharedSeed - could not convert value: {value} (type: {value.GetType().Name}) to long");
+                return;
+            }
 
             int seed = (int)seedValue.Value;
-            Debug.Log($"SyncManager: Shared seed received: {seed}");
+            Debug.Log($"SyncManager: Shared seed received: {seed} (original value: {value}, type: {value.GetType().Name})");
 
             // Update MultiplayerManager's shared seed
             if (_multiplayerManager != null)
@@ -379,6 +595,42 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogError($"SyncManager: Failed to deserialize dice roll: {ex.Message}");
                 return new DiceRollData();
+            }
+        }
+
+        /// <summary>
+        /// Serialize turn completion data for broadcasting.
+        /// </summary>
+        /// <param name="playerId">ID of the player who completed the turn</param>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        /// <returns>JSON string representing turn completion data</returns>
+        public string SerializeTurnCompletion(string playerId, int turnNumber, bool gameEnded)
+        {
+            var turnCompletionData = new TurnCompletionData
+            {
+                playerId = playerId,
+                turnNumber = turnNumber,
+                timestamp = GetCurrentTimestamp(),
+                gameEnded = gameEnded
+            };
+
+            return JsonUtility.ToJson(turnCompletionData);
+        }
+
+        /// <summary>
+        /// Deserialize turn completion data from JSON.
+        /// </summary>
+        public TurnCompletionData DeserializeTurnCompletion(string json)
+        {
+            try
+            {
+                return JsonUtility.FromJson<TurnCompletionData>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to deserialize turn completion: {ex.Message}");
+                return new TurnCompletionData();
             }
         }
 
@@ -859,6 +1111,50 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Broadcast turn completion to all players in the lobby.
+        /// </summary>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        public async Task BroadcastTurnCompletion(int turnNumber, bool gameEnded)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no local player ID");
+                return;
+            }
+
+            // Serialize the turn completion data
+            string json = SerializeTurnCompletion(playerId, turnNumber, gameEnded);
+            LogSerializationStats(json, "TurnCompletion");
+
+            // Determine Firebase path
+            string path = $"games/{_multiplayerManager.LobbyCode}/turn/{turnNumber}/completions/{playerId}";
+
+            try
+            {
+                await _firebaseManager.DatabaseReference.Child(path).SetValueAsync(json);
+                Debug.Log($"SyncManager: Turn completion broadcast to {path}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast turn completion: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Start listening for game end events from other players.
         /// </summary>
         public void ListenForGameEnds()
@@ -891,17 +1187,20 @@ namespace PocketPlanner.Multiplayer
 
             if (args.Snapshot == null || !args.Snapshot.Exists) return;
 
-            // For each player who ended game
-            foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
+            // For each player who ended game - dispatch to main thread
+            InvokeOnMainThread(() =>
             {
-                string playerId = playerSnapshot.Key;
-                var data = playerSnapshot.Value as Dictionary<string, object>;
-                if (data != null && data.ContainsKey("playerId"))
+                foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
                 {
-                    // Notify MultiplayerManager
-                    _multiplayerManager?.OnRemoteGameEnded(playerId);
+                    string playerId = playerSnapshot.Key;
+                    var data = playerSnapshot.Value as Dictionary<string, object>;
+                    if (data != null && data.ContainsKey("playerId"))
+                    {
+                        // Notify MultiplayerManager
+                        _multiplayerManager?.OnRemoteGameEnded(playerId);
+                    }
                 }
-            }
+            });
         }
 
     }
@@ -919,6 +1218,15 @@ namespace PocketPlanner.Multiplayer
         public bool flipped;
         public int starsAwarded;
         public long timestamp;
+    }
+
+    [Serializable]
+    public class TurnCompletionData
+    {
+        public string playerId;
+        public int turnNumber;
+        public long timestamp;
+        public bool gameEnded; // true if player ended game this turn (cannot continue)
     }
 
     [Serializable]
