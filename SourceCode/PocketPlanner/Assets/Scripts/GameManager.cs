@@ -28,6 +28,10 @@ public class GameManager : MonoBehaviour
     private bool firstTurnCompleted;
     private bool gameEnded;
 
+    // Multiplayer turn tracking
+    private HashSet<string> playersCompletedCurrentTurn = new HashSet<string>();
+    private bool waitingForOtherPlayers = false;
+
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
     private static readonly int[] WILDCARD_COSTS = { -1, -2, -3 };
@@ -243,6 +247,7 @@ public class GameManager : MonoBehaviour
             SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
             SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
             SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+            SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
         }
     }
 
@@ -528,6 +533,22 @@ public class GameManager : MonoBehaviour
             );
         }
 
+        // Broadcast turn completion in multiplayer mode
+        if (SyncManager != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+            if (!string.IsNullOrEmpty(localPlayerId))
+            {
+                // Add local player to completed tracking
+                playersCompletedCurrentTurn.Add(localPlayerId);
+                waitingForOtherPlayers = true;
+
+                // Broadcast turn completion (game not ended)
+                _ = SyncManager.BroadcastTurnCompletion(currentTurn, false);
+                Debug.Log($"GameManager: Turn completion broadcast for turn {currentTurn}");
+            }
+        }
+
         // Start new turn (will roll dice and clear selection)
         startNewTurn();
     }
@@ -623,6 +644,65 @@ public class GameManager : MonoBehaviour
 
         // For now, just log the action
         // TODO: Update UI with opponent progress
+    }
+
+    /// <summary>
+    /// Handle turn completion received from other players in multiplayer mode.
+    /// Tracks when all players have completed the current turn.
+    /// </summary>
+    private void OnOpponentTurnCompletionReceived(TurnCompletionData turnCompletionData)
+    {
+        if (turnCompletionData == null) return;
+
+        Debug.Log($"GameManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber} (gameEnded: {turnCompletionData.gameEnded})");
+
+        // Only track completions for the current turn
+        if (turnCompletionData.turnNumber == currentTurn)
+        {
+            playersCompletedCurrentTurn.Add(turnCompletionData.playerId);
+            CheckAllPlayersCompletedTurn();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Turn completion for turn {turnCompletionData.turnNumber} ignored (current turn is {currentTurn})");
+        }
+    }
+
+    /// <summary>
+    /// Check if all players have completed the current turn.
+    /// Called when a player's turn completion is received.
+    /// </summary>
+    private void CheckAllPlayersCompletedTurn()
+    {
+        if (!waitingForOtherPlayers) return;
+
+        // Get the multiplayer manager to access player list
+        MultiplayerManager multiplayerManager = MultiplayerManager.Instance;
+        if (multiplayerManager == null || !multiplayerManager.IsMultiplayerMode)
+        {
+            Debug.LogWarning("GameManager: Cannot check all players completed - multiplayer manager not available");
+            return;
+        }
+
+        // Get all player IDs in the lobby
+        var allPlayerIds = multiplayerManager.Players.Keys;
+        int totalPlayers = allPlayerIds.Count;
+        int completedPlayers = playersCompletedCurrentTurn.Count;
+
+        Debug.Log($"GameManager: Turn completion progress - {completedPlayers}/{totalPlayers} players completed turn {currentTurn}");
+
+        // Check if all players have completed this turn
+        if (playersCompletedCurrentTurn.Count >= totalPlayers)
+        {
+            Debug.Log($"GameManager: All {totalPlayers} players have completed turn {currentTurn}");
+
+            // Clear the tracking for this turn
+            playersCompletedCurrentTurn.Clear();
+            waitingForOtherPlayers = false;
+
+            // Optional: Trigger UI update or other actions
+            // OnAllPlayersCompletedTurn?.Invoke();
+        }
     }
 
 

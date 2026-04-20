@@ -33,6 +33,7 @@ namespace PocketPlanner.Multiplayer
         public event Action<PlacementActionData> OnPlacementActionReceived;
         public event Action<DiceRollData> OnDiceRollReceived;
         public event Action<PlayerGameData> OnPlayerGameStateReceived;
+        public event Action<TurnCompletionData> OnTurnCompletionReceived;
 
         // Serialization settings
         private const int GRID_SIZE = 10;
@@ -226,6 +227,18 @@ namespace PocketPlanner.Multiplayer
                             handled = true;
                         }
                     }
+
+                    // Check for turn/{turnNumber}/completions/{playerId} children
+                    if (turnChild.HasChild("completions"))
+                    {
+                        DataSnapshot completionsSnapshot = turnChild.Child("completions");
+                        foreach (DataSnapshot completionChild in completionsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found completion child for player {completionChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, completionChild);
+                            handled = true;
+                        }
+                    }
                 }
             }
 
@@ -270,6 +283,12 @@ namespace PocketPlanner.Multiplayer
                 else if (path.Contains("/placements/"))
                 {
                     InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a turn completion node
+                else if (path.Contains("/completions/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, args.Snapshot);
                     handled = true;
                 }
                 // Check if this is a player game state node
@@ -356,6 +375,23 @@ namespace PocketPlanner.Multiplayer
             catch (Exception ex)
             {
                 Debug.LogError($"SyncManager: Failed to process player game state: {ex.Message}");
+            }
+        }
+
+        private void ProcessTurnCompletion(DataSnapshot snapshot)
+        {
+            string json = snapshot.Value as string;
+            if (string.IsNullOrEmpty(json)) return;
+
+            try
+            {
+                var turnCompletionData = DeserializeTurnCompletion(json);
+                Debug.Log($"SyncManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber}");
+                OnTurnCompletionReceived?.Invoke(turnCompletionData);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to process turn completion data: {ex.Message}");
             }
         }
 
@@ -559,6 +595,42 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogError($"SyncManager: Failed to deserialize dice roll: {ex.Message}");
                 return new DiceRollData();
+            }
+        }
+
+        /// <summary>
+        /// Serialize turn completion data for broadcasting.
+        /// </summary>
+        /// <param name="playerId">ID of the player who completed the turn</param>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        /// <returns>JSON string representing turn completion data</returns>
+        public string SerializeTurnCompletion(string playerId, int turnNumber, bool gameEnded)
+        {
+            var turnCompletionData = new TurnCompletionData
+            {
+                playerId = playerId,
+                turnNumber = turnNumber,
+                timestamp = GetCurrentTimestamp(),
+                gameEnded = gameEnded
+            };
+
+            return JsonUtility.ToJson(turnCompletionData);
+        }
+
+        /// <summary>
+        /// Deserialize turn completion data from JSON.
+        /// </summary>
+        public TurnCompletionData DeserializeTurnCompletion(string json)
+        {
+            try
+            {
+                return JsonUtility.FromJson<TurnCompletionData>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to deserialize turn completion: {ex.Message}");
+                return new TurnCompletionData();
             }
         }
 
@@ -1039,6 +1111,50 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Broadcast turn completion to all players in the lobby.
+        /// </summary>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        public async Task BroadcastTurnCompletion(int turnNumber, bool gameEnded)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no local player ID");
+                return;
+            }
+
+            // Serialize the turn completion data
+            string json = SerializeTurnCompletion(playerId, turnNumber, gameEnded);
+            LogSerializationStats(json, "TurnCompletion");
+
+            // Determine Firebase path
+            string path = $"games/{_multiplayerManager.LobbyCode}/turn/{turnNumber}/completions/{playerId}";
+
+            try
+            {
+                await _firebaseManager.DatabaseReference.Child(path).SetValueAsync(json);
+                Debug.Log($"SyncManager: Turn completion broadcast to {path}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast turn completion: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Start listening for game end events from other players.
         /// </summary>
         public void ListenForGameEnds()
@@ -1102,6 +1218,15 @@ namespace PocketPlanner.Multiplayer
         public bool flipped;
         public int starsAwarded;
         public long timestamp;
+    }
+
+    [Serializable]
+    public class TurnCompletionData
+    {
+        public string playerId;
+        public int turnNumber;
+        public long timestamp;
+        public bool gameEnded; // true if player ended game this turn (cannot continue)
     }
 
     [Serializable]
