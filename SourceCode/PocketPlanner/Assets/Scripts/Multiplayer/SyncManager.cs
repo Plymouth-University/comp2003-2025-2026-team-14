@@ -189,39 +189,110 @@ namespace PocketPlanner.Multiplayer
                 }
             }
 
-            // Check if this is a dice roll node
-            if (path.Contains("/diceRoll"))
-            {
-                InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, args.Snapshot);
-            }
-            // Check if this is a placement node
-            else if (path.Contains("/placements/"))
-            {
-                InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
-            }
-            // Check if this is a player game state node
-            else if (path.Contains("/players/") && path.EndsWith("/state"))
-            {
-                InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, args.Snapshot);
-            }
-            // Check if this is a shared seed node
-            else if (path.Contains("/sharedSeed"))
-            {
-                InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, args.Snapshot);
-            }
-            // Check if this is a game end node
-            else if (path.Contains("/gameEnds/"))
-            {
-                InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
-            }
-            // Check if the snapshot contains a sharedSeed child (when games/{lobbyCode} root node changes)
-            else if (args.Snapshot.HasChild("sharedSeed"))
+            bool handled = false;
+
+            // First, check for child nodes in the snapshot (when root lobby node changes)
+            // Check for sharedSeed child
+            if (args.Snapshot.HasChild("sharedSeed"))
             {
                 Debug.Log($"SyncManager: Found sharedSeed child in root snapshot");
                 DataSnapshot seedSnapshot = args.Snapshot.Child("sharedSeed");
                 InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, seedSnapshot);
+                handled = true;
             }
-            else
+
+            // Check for turn/{turnNumber}/diceRoll children
+            if (args.Snapshot.HasChild("turn"))
+            {
+                DataSnapshot turnSnapshot = args.Snapshot.Child("turn");
+                foreach (DataSnapshot turnChild in turnSnapshot.Children)
+                {
+                    if (turnChild.HasChild("diceRoll"))
+                    {
+                        Debug.Log($"SyncManager: Found diceRoll child in turn {turnChild.Key}");
+                        DataSnapshot diceRollSnapshot = turnChild.Child("diceRoll");
+                        InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, diceRollSnapshot);
+                        handled = true;
+                    }
+
+                    // Check for turn/{turnNumber}/placements/{playerId} children
+                    if (turnChild.HasChild("placements"))
+                    {
+                        DataSnapshot placementsSnapshot = turnChild.Child("placements");
+                        foreach (DataSnapshot placementChild in placementsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found placement child for player {placementChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessPlacement, placementChild);
+                            handled = true;
+                        }
+                    }
+                }
+            }
+
+            // Check for players/{playerId}/state children
+            if (args.Snapshot.HasChild("players"))
+            {
+                DataSnapshot playersSnapshot = args.Snapshot.Child("players");
+                foreach (DataSnapshot playerChild in playersSnapshot.Children)
+                {
+                    if (playerChild.HasChild("state"))
+                    {
+                        Debug.Log($"SyncManager: Found state child for player {playerChild.Key}");
+                        DataSnapshot stateSnapshot = playerChild.Child("state");
+                        InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, stateSnapshot);
+                        handled = true;
+                    }
+                }
+            }
+
+            // Check for gameEnds/{playerId} children (though this should be handled by separate listener)
+            if (args.Snapshot.HasChild("gameEnds"))
+            {
+                DataSnapshot gameEndsSnapshot = args.Snapshot.Child("gameEnds");
+                foreach (DataSnapshot gameEndChild in gameEndsSnapshot.Children)
+                {
+                    Debug.Log($"SyncManager: Found gameEnd child for player {gameEndChild.Key}");
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, gameEndChild);
+                    handled = true;
+                }
+            }
+
+            // Fallback: keep original path.Contains() checks for cases where listener might be attached to deeper node
+            if (!handled)
+            {
+                // Check if this is a dice roll node
+                if (path.Contains("/diceRoll"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a placement node
+                else if (path.Contains("/placements/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a player game state node
+                else if (path.Contains("/players/") && path.EndsWith("/state"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a shared seed node
+                else if (path.Contains("/sharedSeed"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a game end node
+                else if (path.Contains("/gameEnds/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
+                    handled = true;
+                }
+            }
+
+            if (!handled)
             {
                 Debug.Log($"SyncManager: No matching handler for path: {path}");
             }
