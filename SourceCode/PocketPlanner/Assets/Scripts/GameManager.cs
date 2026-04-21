@@ -32,6 +32,8 @@ public class GameManager : MonoBehaviour
     private HashSet<string> playersCompletedCurrentTurn = new HashSet<string>();
     private bool waitingForOtherPlayers = false;
     private bool _multiplayerEventsSubscribed = false;
+    private bool _multiplayerManagerEventsSubscribed = false;
+    private bool _firstTurnDiceRolled = false;
 
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
@@ -124,6 +126,14 @@ public class GameManager : MonoBehaviour
             _multiplayerEventsSubscribed = false;
             Debug.Log("GameManager: Unsubscribed from SyncManager events");
         }
+
+        // Unsubscribe from MultiplayerManager events
+        if (MultiplayerManager.Instance != null && _multiplayerManagerEventsSubscribed)
+        {
+            MultiplayerManager.Instance.OnGameStarted -= OnMultiplayerGameStarted;
+            _multiplayerManagerEventsSubscribed = false;
+            Debug.Log("GameManager: Unsubscribed from MultiplayerManager events");
+        }
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -137,18 +147,81 @@ public class GameManager : MonoBehaviour
         if (scene.name == "MainGameScene")
         {
             initializeFirstTurnGameState(); // Reset state
-            if (diceManager != null)
-            {
-                diceManager.RollAllDice();
-                diceManager.ClearSelection();
-                Debug.Log("GameManager: Dice rolled for new game.");
-            }
 
-            // Update dice UI if available
-            if (diceUIManager != null)
+            // Roll dice for first turn (deterministic in multiplayer if seed available)
+            // In multiplayer mode, delay rolling until shared seed is available (handled by OnMultiplayerGameStarted)
+            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+            if (isMultiplayer && sharedRandomSeed == -1)
             {
-                diceUIManager.OnDiceRolled();
-                diceUIManager.HighlightDoubleFaces();
+                Debug.Log("GameManager: Multiplayer mode detected but shared seed not yet available. Delaying dice roll until game starts.");
+                // Dice will be rolled when OnMultiplayerGameStarted event fires
+            }
+            else
+            {
+                // Single player or multiplayer with seed already available
+                if (diceManager != null)
+                {
+                    if (!_firstTurnDiceRolled)
+                    {
+                        RollDiceForCurrentTurn();
+                        Debug.Log("GameManager: Dice rolled for new game.");
+                    }
+                    else
+                    {
+                        Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in OnSceneLoaded()");
+                    }
+                }
+                else
+                {
+                    // DiceManager not found - use fallback path
+                    if (!_firstTurnDiceRolled)
+                    {
+                        // Check if we're in multiplayer mode with shared seed available
+                        if (isMultiplayer && sharedRandomSeed != -1)
+                        {
+                            // Multiplayer deterministic rolling
+                            dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                            Debug.Log($"GameManager: First turn dice rolled deterministically via dicePool in OnSceneLoaded (no dice manager), seed: {sharedRandomSeed}, turn: {currentTurn}");
+                        }
+                        else
+                        {
+                            // Single player or multiplayer without seed yet
+                            dicePool.RollAll();
+                            Debug.Log($"GameManager: First turn dice rolled via dicePool in OnSceneLoaded (no dice manager)");
+                        }
+
+                        _firstTurnDiceRolled = true;
+                        Debug.Log($"GameManager: First turn dice rolled flag set to true in OnSceneLoaded");
+
+                        // Clear dice selection
+                        dicePool.ClearSelection();
+
+                        // Still need to update UI even without dice manager
+                        if (diceUIManager != null)
+                        {
+                            diceUIManager.OnDiceRolled();
+                            diceUIManager.HighlightDoubleFaces();
+                            diceUIManager.updateTurnText(currentTurn);
+                        }
+
+                        // Auto-end check after dice roll
+                        CheckForGameEndAfterRoll();
+
+                        // Broadcast dice roll to multiplayer if active
+                        // Note: Skip broadcasting in fallback path since diceManager is null
+                        // and we can't easily get dice faces from dicePool without manager
+                        if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+                        {
+                            Debug.LogWarning("GameManager: Cannot broadcast dice roll in fallback path in OnSceneLoaded (diceManager is null)");
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in OnSceneLoaded() fallback path");
+                    }
+                }
             }
         }
     }
@@ -228,22 +301,78 @@ public class GameManager : MonoBehaviour
         InitializeEndGameUI();
         InitializeAutoEndDetector();
 
-        // Roll dice for first turn
-        if (diceManager != null)
+        // Roll dice for first turn (deterministic in multiplayer if seed available)
+        // In multiplayer mode, delay rolling until shared seed is available (handled by OnMultiplayerGameStarted)
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+        if (isMultiplayer && sharedRandomSeed == -1)
         {
-            diceManager.RollAllDice();
-            diceManager.ClearSelection();
+            Debug.Log("GameManager: Multiplayer mode detected but shared seed not yet available. Delaying dice roll until game starts.");
+            // Dice will be rolled when OnMultiplayerGameStarted event fires
         }
         else
         {
-            dicePool.RollAll();
-        }
+            // Single player or multiplayer with seed already available
+            if (diceManager != null)
+            {
+                if (!_firstTurnDiceRolled)
+                {
+                    RollDiceForCurrentTurn();
+                }
+                else
+                {
+                    Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in Start()");
+                }
+            }
+            else
+            {
+                if (!_firstTurnDiceRolled)
+                {
+                    // Check if we're in multiplayer mode with shared seed available
+                    if (isMultiplayer && sharedRandomSeed != -1)
+                    {
+                        // Multiplayer deterministic rolling
+                        dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                        Debug.Log($"GameManager: First turn dice rolled deterministically via dicePool (no dice manager), seed: {sharedRandomSeed}, turn: {currentTurn}");
+                    }
+                    else
+                    {
+                        // Single player or multiplayer without seed yet
+                        dicePool.RollAll();
+                        Debug.Log($"GameManager: First turn dice rolled via dicePool (no dice manager)");
+                    }
 
-        // Update dice UI
-        if (diceUIManager != null)
-        {
-            diceUIManager.OnDiceRolled();
-            diceUIManager.HighlightDoubleFaces();
+                    _firstTurnDiceRolled = true;
+                    Debug.Log($"GameManager: First turn dice rolled flag set to true");
+
+                    // Clear dice selection
+                    dicePool.ClearSelection();
+
+                    // Still need to update UI even without dice manager
+                    if (diceUIManager != null)
+                    {
+                        diceUIManager.OnDiceRolled();
+                        diceUIManager.HighlightDoubleFaces();
+                        diceUIManager.updateTurnText(currentTurn);
+                    }
+
+                    // Auto-end check after dice roll
+                    CheckForGameEndAfterRoll();
+
+                    // Broadcast dice roll to multiplayer if active
+                    // Note: Skip broadcasting in fallback path since diceManager is null
+                    // and we can't easily get dice faces from dicePool without manager
+                    if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+                    {
+                        Debug.LogWarning("GameManager: Cannot broadcast dice roll in fallback path (diceManager is null)");
+                    }
+                }
+                else
+                {
+                    Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in Start() fallback path");
+                }
+            }
         }
 
         // Subscribe to multiplayer events
@@ -265,35 +394,37 @@ public class GameManager : MonoBehaviour
         currentTurn = 1;
         wildcardsUsed = 0;
         gameEnded = false;
+        _firstTurnDiceRolled = false;
 
         // Reset multiplayer turn tracking
         playersCompletedCurrentTurn.Clear();
         waitingForOtherPlayers = false;
     }
 
-
-    public void startNewTurn()
+    /// <summary>
+    /// Roll dice for the current turn (does not increment turn counter).
+    /// Used for initial dice roll and when game starts in multiplayer mode.
+    /// </summary>
+    private void RollDiceForCurrentTurn()
     {
-        Debug.Log($"GameManager: Starting new turn. Current turn was {currentTurn}, incrementing to {currentTurn + 1}");
-        currentTurn++;
-        waterDieUsedThisTurn = false;
+        // Check if we're in multiplayer mode with a valid shared random seed
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
 
-        // Roll dice for new turn
         if (diceManager != null)
         {
-            // Check if we're in multiplayer mode with a valid shared random seed
-            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
-            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
-
+            // Use DiceManager if available
             if (isMultiplayer && sharedRandomSeed != -1)
             {
-                // Multiplayer deterministic dice rolling
+                // Multiplayer deterministic dice rolling for current turn
                 diceManager.RollDeterministicDice(sharedRandomSeed, currentTurn);
+                Debug.Log($"GameManager: Deterministic dice rolled for turn {currentTurn} (seed: {sharedRandomSeed})");
             }
             else
             {
                 // Single player or multiplayer without seed yet
                 diceManager.RollAllDice();
+                Debug.Log($"GameManager: Regular dice rolled for turn {currentTurn}");
             }
 
             diceManager.ClearSelection();
@@ -309,26 +440,84 @@ public class GameManager : MonoBehaviour
             // Auto-end check after dice roll
             CheckForGameEndAfterRoll();
 
-            // Broadcast dice roll to multiplayer if active
-            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+            // Broadcast dice roll to multiplayer if active and seed is available
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode) && MultiplayerManager.Instance.SharedRandomSeed != -1)
             {
                 var shapeDice = diceManager.GetShapeDice();
                 var buildingDice = diceManager.GetBuildingDice();
                 int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
                 int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
-                int broadcastSeed = MultiplayerManager.Instance != null ? MultiplayerManager.Instance.SharedRandomSeed : 0;
-                if (broadcastSeed == -1)
-                {
-                    Debug.LogWarning("GameManager: Shared random seed not yet set, using 0");
-                    broadcastSeed = 0;
-                }
-                SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
+                int broadcastSeed = MultiplayerManager.Instance.SharedRandomSeed;
+                _ = SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
             }
         }
         else
         {
-            Debug.LogWarning("GameManager: DiceManager not available, cannot roll dice.");
+            // Fallback: use DicePool directly (DiceManager not available)
+            Debug.LogWarning("GameManager: DiceManager not available, using DicePool fallback.");
+
+            if (dicePool == null)
+            {
+                Debug.LogError("GameManager: DicePool is also null, cannot roll dice.");
+                return;
+            }
+
+            if (isMultiplayer && sharedRandomSeed != -1)
+            {
+                // Multiplayer deterministic dice rolling for current turn
+                dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                Debug.Log($"GameManager: Deterministic dice rolled via DicePool for turn {currentTurn} (seed: {sharedRandomSeed})");
+            }
+            else
+            {
+                // Single player or multiplayer without seed yet
+                dicePool.RollAll();
+                Debug.Log($"GameManager: Regular dice rolled via DicePool for turn {currentTurn}");
+            }
+
+            dicePool.ClearSelection();
+
+            // Update dice UI
+            if (diceUIManager != null)
+            {
+                diceUIManager.OnDiceRolled();
+                diceUIManager.HighlightDoubleFaces();
+                diceUIManager.updateTurnText(currentTurn);
+            }
+
+            // Auto-end check after dice roll
+            CheckForGameEndAfterRoll();
+
+            // Broadcast dice roll to multiplayer if active and seed is available
+            // Note: We can still broadcast using dicePool faces
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode) && MultiplayerManager.Instance.SharedRandomSeed != -1)
+            {
+                var shapeDice = dicePool.GetShapeDice();
+                var buildingDice = dicePool.GetBuildingDice();
+                int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
+                int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
+                int broadcastSeed = MultiplayerManager.Instance.SharedRandomSeed;
+                _ = SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
+            }
         }
+
+        // Mark first turn dice as rolled
+        if (currentTurn == 1)
+        {
+            _firstTurnDiceRolled = true;
+            Debug.Log($"GameManager: First turn dice rolled flag set to true");
+        }
+    }
+
+
+    public void startNewTurn()
+    {
+        Debug.Log($"GameManager: Starting new turn. Current turn was {currentTurn}, incrementing to {currentTurn + 1}");
+        currentTurn++;
+        waterDieUsedThisTurn = false;
+
+        // Roll dice for new turn using helper method
+        RollDiceForCurrentTurn();
 
         // Additional turn start logic here
     }
@@ -692,22 +881,81 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void SubscribeToMultiplayerEvents()
     {
-        if (_multiplayerEventsSubscribed) return;
-
-        if (SyncManager != null)
+        // Subscribe to SyncManager events
+        if (!_multiplayerEventsSubscribed)
         {
-            Debug.Log($"GameManager: Subscribing to SyncManager events...");
-            Debug.Log($"GameManager: SyncManager instance ID: {SyncManager.GetInstanceID()}, type: {SyncManager.GetType().FullName}");
-            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
-            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
-            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
-            SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
-            _multiplayerEventsSubscribed = true;
-            Debug.Log($"GameManager: Successfully subscribed to SyncManager events");
+            if (SyncManager != null)
+            {
+                Debug.Log($"GameManager: Subscribing to SyncManager events...");
+                Debug.Log($"GameManager: SyncManager instance ID: {SyncManager.GetInstanceID()}, type: {SyncManager.GetType().FullName}");
+                SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
+                SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
+                SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+                SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
+                _multiplayerEventsSubscribed = true;
+                Debug.Log($"GameManager: Successfully subscribed to SyncManager events");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: SyncManager is null, cannot subscribe to multiplayer events");
+            }
+        }
+
+        // Subscribe to MultiplayerManager events
+        if (!_multiplayerManagerEventsSubscribed)
+        {
+            if (MultiplayerManager.Instance != null)
+            {
+                Debug.Log($"GameManager: Subscribing to MultiplayerManager events...");
+                MultiplayerManager.Instance.OnGameStarted += OnMultiplayerGameStarted;
+                _multiplayerManagerEventsSubscribed = true;
+                Debug.Log($"GameManager: Successfully subscribed to MultiplayerManager events");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: MultiplayerManager instance is null, cannot subscribe to events");
+            }
+        }
+
+        // If game already started (seed already available) and we haven't rolled first-turn dice, roll now
+        // This handles the case where the seed was received before event subscription
+        if (MultiplayerManager.Instance != null &&
+            MultiplayerManager.Instance.SharedRandomSeed != -1 &&
+            currentTurn == 1 && !_firstTurnDiceRolled)
+        {
+            Debug.Log("GameManager: Seed already available, rolling deterministic dice after subscription.");
+            RollDiceForCurrentTurn();
+        }
+    }
+
+    /// <summary>
+    /// Called when multiplayer game starts (shared seed is available).
+    /// Rolls deterministic dice for first turn if not already rolled.
+    /// </summary>
+    private void OnMultiplayerGameStarted()
+    {
+        Debug.Log($"GameManager: Multiplayer game started event received. Current turn: {currentTurn}, seed: {MultiplayerManager.Instance?.SharedRandomSeed ?? -1}");
+
+        // Only roll dice for first turn if we're still on turn 1 and haven't rolled dice yet
+        if (currentTurn == 1 && !_firstTurnDiceRolled)
+        {
+            Debug.Log("GameManager: Rolling deterministic dice for first turn (game started event)");
+            RollDiceForCurrentTurn();
         }
         else
         {
-            Debug.LogWarning("GameManager: SyncManager is null, cannot subscribe to multiplayer events");
+            if (currentTurn != 1)
+            {
+                Debug.Log($"GameManager: Game started event received but current turn is {currentTurn}, not rolling dice");
+            }
+            else if (_firstTurnDiceRolled)
+            {
+                Debug.Log($"GameManager: Game started event received but first turn dice already rolled (flag is true), not rolling again");
+            }
+            else
+            {
+                Debug.Log($"GameManager: Game started event received but not rolling dice for unknown reason");
+            }
         }
     }
 
