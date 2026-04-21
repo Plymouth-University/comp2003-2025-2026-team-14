@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
 using PocketPlanner.Core;
+using PocketPlanner.Multiplayer;
 
 public class ShapeManager : MonoBehaviour
 {
@@ -346,6 +347,16 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
+        // Prevent shape placement in multiplayer mode if player has already completed this turn
+        if (GameManager.Instance != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            if (GameManager.Instance.IsWaitingForOtherPlayers)
+            {
+                Debug.LogWarning($"ShapeManager: Attempted to place shape on turn {GameManager.Instance.CurrentTurn} after already completing this turn. Placement ignored.");
+                return;
+            }
+        }
+
         Vector2 screenPosition = Vector2.zero;
         bool positionFound = false;
 

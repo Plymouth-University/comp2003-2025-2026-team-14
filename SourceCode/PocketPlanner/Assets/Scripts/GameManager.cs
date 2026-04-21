@@ -31,6 +31,7 @@ public class GameManager : MonoBehaviour
     // Multiplayer turn tracking
     private HashSet<string> playersCompletedCurrentTurn = new HashSet<string>();
     private bool waitingForOtherPlayers = false;
+    private bool _multiplayerEventsSubscribed = false;
 
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
@@ -38,6 +39,7 @@ public class GameManager : MonoBehaviour
 
     // Public properties for game state access
     public int CurrentTurn => currentTurn;
+    public bool IsWaitingForOtherPlayers => waitingForOtherPlayers;
     public ScoreComponents CurrentScore => currentScore;
     public int Stars => stars;
     public int WildcardsUsed => wildcardsUsed;
@@ -118,6 +120,9 @@ public class GameManager : MonoBehaviour
             SyncManager.OnPlacementActionReceived -= OnOpponentPlacementAction;
             SyncManager.OnDiceRollReceived -= OnOpponentDiceRollReceived;
             SyncManager.OnPlayerGameStateReceived -= OnOpponentGameStateReceived;
+            SyncManager.OnTurnCompletionReceived -= OnOpponentTurnCompletionReceived;
+            _multiplayerEventsSubscribed = false;
+            Debug.Log("GameManager: Unsubscribed from SyncManager events");
         }
     }
 
@@ -242,13 +247,7 @@ public class GameManager : MonoBehaviour
         }
 
         // Subscribe to multiplayer events
-        if (SyncManager != null)
-        {
-            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
-            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
-            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
-            SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
-        }
+        SubscribeToMultiplayerEvents();
     }
 
     // Update is called once per frame
@@ -266,11 +265,16 @@ public class GameManager : MonoBehaviour
         currentTurn = 1;
         wildcardsUsed = 0;
         gameEnded = false;
+
+        // Reset multiplayer turn tracking
+        playersCompletedCurrentTurn.Clear();
+        waitingForOtherPlayers = false;
     }
 
 
     public void startNewTurn()
     {
+        Debug.Log($"GameManager: Starting new turn. Current turn was {currentTurn}, incrementing to {currentTurn + 1}");
         currentTurn++;
         waterDieUsedThisTurn = false;
 
@@ -540,17 +544,29 @@ public class GameManager : MonoBehaviour
             if (!string.IsNullOrEmpty(localPlayerId))
             {
                 // Add local player to completed tracking
-                playersCompletedCurrentTurn.Add(localPlayerId);
+                bool localAdded = playersCompletedCurrentTurn.Add(localPlayerId);
+                Debug.Log($"GameManager: Added local player {localPlayerId} to completed set: {localAdded} (already in set: {!localAdded})");
                 waitingForOtherPlayers = true;
 
                 // Broadcast turn completion (game not ended)
                 _ = SyncManager.BroadcastTurnCompletion(currentTurn, false);
                 Debug.Log($"GameManager: Turn completion broadcast for turn {currentTurn}");
+
+                // Check if all players have already completed (e.g., single player in lobby)
+                CheckAllPlayersCompletedTurn();
             }
         }
 
         // Start new turn (will roll dice and clear selection)
-        startNewTurn();
+        // In multiplayer mode, wait for all players to complete before starting new turn
+        if (MultiplayerManager.Instance == null || !MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            startNewTurn();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Waiting for other players to complete turn {currentTurn}");
+        }
     }
 
     /// <summary>
@@ -652,14 +668,17 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void OnOpponentTurnCompletionReceived(TurnCompletionData turnCompletionData)
     {
+        Debug.Log($"GameManager: OnOpponentTurnCompletionReceived method called (turnCompletionData is {(turnCompletionData != null ? "not null" : "null")})");
         if (turnCompletionData == null) return;
 
         Debug.Log($"GameManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber} (gameEnded: {turnCompletionData.gameEnded})");
+        Debug.Log($"GameManager: Current turn is {currentTurn}, waitingForOtherPlayers: {waitingForOtherPlayers}, playersCompletedCurrentTurn count: {playersCompletedCurrentTurn.Count}");
 
         // Only track completions for the current turn
         if (turnCompletionData.turnNumber == currentTurn)
         {
-            playersCompletedCurrentTurn.Add(turnCompletionData.playerId);
+            bool added = playersCompletedCurrentTurn.Add(turnCompletionData.playerId);
+            Debug.Log($"GameManager: Added player {turnCompletionData.playerId} to completed set: {added} (already in set: {!added})");
             CheckAllPlayersCompletedTurn();
         }
         else
@@ -669,12 +688,40 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Subscribe to SyncManager multiplayer events if not already subscribed.
+    /// </summary>
+    private void SubscribeToMultiplayerEvents()
+    {
+        if (_multiplayerEventsSubscribed) return;
+
+        if (SyncManager != null)
+        {
+            Debug.Log($"GameManager: Subscribing to SyncManager events...");
+            Debug.Log($"GameManager: SyncManager instance ID: {SyncManager.GetInstanceID()}, type: {SyncManager.GetType().FullName}");
+            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
+            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
+            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+            SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
+            _multiplayerEventsSubscribed = true;
+            Debug.Log($"GameManager: Successfully subscribed to SyncManager events");
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: SyncManager is null, cannot subscribe to multiplayer events");
+        }
+    }
+
+    /// <summary>
     /// Check if all players have completed the current turn.
     /// Called when a player's turn completion is received.
     /// </summary>
     private void CheckAllPlayersCompletedTurn()
     {
-        if (!waitingForOtherPlayers) return;
+        if (!waitingForOtherPlayers)
+        {
+            Debug.Log($"GameManager: CheckAllPlayersCompletedTurn called but waitingForOtherPlayers is false (turn {currentTurn})");
+            return;
+        }
 
         // Get the multiplayer manager to access player list
         MultiplayerManager multiplayerManager = MultiplayerManager.Instance;
@@ -689,7 +736,17 @@ public class GameManager : MonoBehaviour
         int totalPlayers = allPlayerIds.Count;
         int completedPlayers = playersCompletedCurrentTurn.Count;
 
+        // Debug logging for player IDs
         Debug.Log($"GameManager: Turn completion progress - {completedPlayers}/{totalPlayers} players completed turn {currentTurn}");
+        Debug.Log($"GameManager: All player IDs in lobby: {string.Join(", ", allPlayerIds)}");
+        Debug.Log($"GameManager: Completed player IDs: {string.Join(", ", playersCompletedCurrentTurn)}");
+
+        // Check which players are missing from the completed set
+        var missingPlayers = allPlayerIds.Where(id => !playersCompletedCurrentTurn.Contains(id)).ToList();
+        if (missingPlayers.Count > 0)
+        {
+            Debug.Log($"GameManager: Missing completions from players: {string.Join(", ", missingPlayers)}");
+        }
 
         // Check if all players have completed this turn
         if (playersCompletedCurrentTurn.Count >= totalPlayers)
@@ -700,8 +757,15 @@ public class GameManager : MonoBehaviour
             playersCompletedCurrentTurn.Clear();
             waitingForOtherPlayers = false;
 
+            // Start the next turn now that all players have completed
+            startNewTurn();
+
             // Optional: Trigger UI update or other actions
             // OnAllPlayersCompletedTurn?.Invoke();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Not all players completed yet. Still waiting for {totalPlayers - completedPlayers} more players.");
         }
     }
 
@@ -1113,6 +1177,9 @@ public class GameManager : MonoBehaviour
         scoreManager = FindAnyObjectByType<ScoreManager>();
         syncManager = FindAnyObjectByType<SyncManager>();
         wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
+
+        // Subscribe to multiplayer events if SyncManager found
+        SubscribeToMultiplayerEvents();
 
         // Refresh references in other managers
         if (zoneManager != null)

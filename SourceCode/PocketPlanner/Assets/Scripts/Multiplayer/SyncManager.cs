@@ -51,6 +51,7 @@ namespace PocketPlanner.Multiplayer
                 return;
             }
             Instance = this;
+            Debug.Log($"SyncManager: Singleton instance set (ID: {GetInstanceID()})");
             DontDestroyOnLoad(gameObject);
         }
 
@@ -387,6 +388,7 @@ namespace PocketPlanner.Multiplayer
             {
                 var turnCompletionData = DeserializeTurnCompletion(json);
                 Debug.Log($"SyncManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber}");
+                Debug.Log($"SyncManager: OnTurnCompletionReceived has {OnTurnCompletionReceived?.GetInvocationList()?.Length ?? 0} subscribers");
                 OnTurnCompletionReceived?.Invoke(turnCompletionData);
             }
             catch (Exception ex)
