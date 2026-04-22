@@ -534,6 +534,8 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
         if (isCheckingGameEnd) return; // Prevent re-entrancy
+        if (autoEndDetector == null) return; // Auto-end detector not ready
+        if (!firstTurnCompleted) return; // For now don't check for game end before first turn is completed
 
         isCheckingGameEnd = true;
 
