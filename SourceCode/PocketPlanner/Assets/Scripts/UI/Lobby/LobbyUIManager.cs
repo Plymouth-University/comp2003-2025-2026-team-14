@@ -556,11 +556,7 @@ public class LobbyUIManager : MonoBehaviour
             if (isLocalPlayer && multiplayerManager != null && multiplayerManager.IsMultiplayerMode)
             {
                 Debug.Log($"LobbyUIManager: Local player {playerId} left the lobby (kicked or disconnected). Returning to main menu.");
-                multiplayerManager.DisableMultiplayerMode(() =>
-                {
-                    Debug.Log($"LobbyUIManager: DisableMultiplayerMode callback received, loading main menu");
-                    PPSceneManager.LoadMainMenu();
-                });
+                GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
             }
             else
             {
@@ -638,44 +634,9 @@ public class LobbyUIManager : MonoBehaviour
     {
         // This would be attached to a Leave Lobby button in the UI
         Debug.Log($"LobbyUIManager.OnLeaveLobbyClicked: localPlayerId={localPlayerId}, isHost={isHost}");
-        StartCoroutine(OnLeaveLobbyClickedCoroutine());
+        GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
     }
 
-    private IEnumerator OnLeaveLobbyClickedCoroutine()
-    {
-        if (multiplayerManager != null)
-        {
-            Debug.Log($"LobbyUIManager: Calling DisableMultiplayerMode with callback");
-            bool cleanupComplete = false;
-
-            multiplayerManager.DisableMultiplayerMode(() =>
-            {
-                Debug.Log($"LobbyUIManager: DisableMultiplayerMode callback received");
-                cleanupComplete = true;
-            });
-
-            // Wait for cleanup to complete (with timeout)
-            float timeout = 3.0f; // 3 second timeout
-            float elapsed = 0f;
-            while (!cleanupComplete && elapsed < timeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            if (!cleanupComplete)
-            {
-                Debug.LogWarning($"LobbyUIManager: Timeout waiting for DisableMultiplayerMode callback after {elapsed} seconds");
-            }
-
-            Debug.Log($"LobbyUIManager: Calling PPSceneManager.LoadMainMenu");
-            PPSceneManager.LoadMainMenu();
-        }
-        else
-        {
-            Debug.LogError("LobbyUIManager.OnLeaveLobbyClicked: multiplayerManager is null!");
-        }
-    }
 
     private IEnumerator PollPlayerListChanges()
     {

@@ -727,17 +727,12 @@ namespace PocketPlanner.Multiplayer
                     if (MultiplayerManager.Instance != null)
                     {
                         Debug.Log($"LobbyManager: Notifying MultiplayerManager about lobby deletion");
-                        MultiplayerManager.Instance.DisableMultiplayerMode(() =>
-                        {
-                            Debug.Log($"LobbyManager: Lobby deletion cleanup complete, loading main menu");
-                            PPSceneManager.LoadMainMenu();
-                        });
                     }
                     else
                     {
                         Debug.LogWarning($"LobbyManager: MultiplayerManager.Instance is null, loading main menu directly");
-                        PPSceneManager.LoadMainMenu();
                     }
+                    GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
                 });
                 return;
             }

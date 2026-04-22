@@ -34,6 +34,7 @@ public class GameManager : MonoBehaviour
     private bool _multiplayerEventsSubscribed = false;
     private bool _multiplayerManagerEventsSubscribed = false;
     private bool _firstTurnDiceRolled = false;
+    private bool _isLeavingLobby = false;
 
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
@@ -1320,8 +1321,73 @@ public class GameManager : MonoBehaviour
     public void ReturnToMainMenu()
     {
         Debug.Log("Returning to main menu");
-        // Load main menu scene
-        PPSceneManager.LoadMainMenu();
+        LeaveMultiplayerAndReturnToMainMenu();
+    }
+
+    /// <summary>
+    /// Leave multiplayer lobby and return to main menu.
+    /// If not in multiplayer mode, simply returns to main menu.
+    /// </summary>
+    public void LeaveMultiplayerAndReturnToMainMenu()
+    {
+        if (_isLeavingLobby)
+        {
+            Debug.LogWarning("GameManager: Already leaving lobby, ignoring duplicate call.");
+            return;
+        }
+        StartCoroutine(LeaveMultiplayerAndReturnToMainMenuCoroutine());
+    }
+
+    private IEnumerator LeaveMultiplayerAndReturnToMainMenuCoroutine()
+    {
+        if (_isLeavingLobby)
+        {
+            Debug.LogWarning("GameManager: Already leaving lobby, ignoring duplicate call.");
+            yield break;
+        }
+
+        _isLeavingLobby = true;
+        try
+        {
+            // Check if in multiplayer mode
+            if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+            {
+                Debug.Log("GameManager: Leaving multiplayer lobby...");
+                bool cleanupComplete = false;
+
+                MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+                {
+                    cleanupComplete = true;
+                });
+
+                // Wait for cleanup to complete (with timeout)
+                float timeout = 3.0f; // 3 second timeout
+                float elapsed = 0f;
+                while (!cleanupComplete && elapsed < timeout)
+                {
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (!cleanupComplete)
+                {
+                    Debug.LogWarning($"GameManager: Timeout waiting for DisableMultiplayerMode callback after {elapsed} seconds");
+                }
+
+                Debug.Log("GameManager: Multiplayer cleanup complete, loading main menu.");
+            }
+            else
+            {
+                Debug.Log("GameManager: Not in multiplayer mode, proceeding to main menu.");
+            }
+
+            // Load main menu scene
+            PPSceneManager.LoadMainMenu();
+        }
+        finally
+        {
+            _isLeavingLobby = false;
+        }
     }
 
     void ResetGameState()
