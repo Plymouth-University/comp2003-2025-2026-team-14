@@ -9,6 +9,9 @@ using PocketPlanner.Multiplayer;
 
 public class ShapeManager : MonoBehaviour
 {
+    // Singleton instance
+    public static ShapeManager Instance { get; private set; }
+
     [Header("Shape Type Prefabs")]
     [SerializeField] private GameObject TShapePrefab;
     [SerializeField] private GameObject LShapePrefab;
@@ -40,6 +43,14 @@ public class ShapeManager : MonoBehaviour
 
     void Awake()
     {
+        // Singleton pattern
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
       // Instead of: PlayerInput playerInput = GetComponent<PlayerInput>();
       // Use:
       PlayerInput playerInput = GameManager.Instance.GetComponent<PlayerInput>();
@@ -347,6 +358,13 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
+        // Disable shape placement while spectating other players
+        if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+        {
+            Debug.Log("ShapeManager: Shape placement disabled while spectating other players.");
+            return;
+        }
+
         // Prevent shape placement in multiplayer mode if player has already completed this turn
         if (GameManager.Instance != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
         {
@@ -513,5 +531,118 @@ public class ShapeManager : MonoBehaviour
         }
 
         Debug.Log($"Added {starCount} star visual(s) to shape {shape.shapeData.shapeName}");
+    }
+
+    /// <summary>
+    /// Get all currently placed shapes on the board as BoardShapeData list.
+    /// Used for backing up local player's board before switching to spectator mode.
+    /// </summary>
+    public System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> GetCurrentBoardState()
+    {
+        System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> boardState =
+            new System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData>();
+
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("ShapeManager: TilemapManager.Instance is null, cannot get board state");
+            return boardState;
+        }
+
+        // Get unique shapes from grid (same logic as SyncManager.SerializeBoardState)
+        System.Collections.Generic.HashSet<ShapeController> uniqueShapes = new System.Collections.Generic.HashSet<ShapeController>();
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null && tile.occupyingShape != null && !uniqueShapes.Contains(tile.occupyingShape))
+                {
+                    uniqueShapes.Add(tile.occupyingShape);
+                }
+            }
+        }
+
+        // Convert each shape to BoardShapeData
+        foreach (ShapeController shape in uniqueShapes)
+        {
+            if (shape == null || shape.shapeData == null) continue;
+
+            // TODO: Track stars per shape - for now set to 0
+            var boardShapeData = PocketPlanner.Core.ShapeSerializationHelper.ShapeControllerToBoardShapeData(shape, 0);
+            if (boardShapeData != null)
+            {
+                boardState.Add(boardShapeData);
+            }
+        }
+
+        Debug.Log($"ShapeManager: GetCurrentBoardState found {boardState.Count} shapes");
+        return boardState;
+    }
+
+    /// <summary>
+    /// Remove all shapes from the board (destroy GameObjects).
+    /// Used when switching to spectator mode to clear local player's shapes.
+    /// </summary>
+    public void ClearAllShapes()
+    {
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("ShapeManager: TilemapManager.Instance is null, cannot clear shapes");
+            return;
+        }
+
+        int shapeCount = 0;
+        System.Collections.Generic.HashSet<ShapeController> uniqueShapes = new System.Collections.Generic.HashSet<ShapeController>();
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null && tile.occupyingShape != null && !uniqueShapes.Contains(tile.occupyingShape))
+                {
+                    uniqueShapes.Add(tile.occupyingShape);
+                }
+            }
+        }
+
+        foreach (ShapeController shape in uniqueShapes)
+        {
+            if (shape != null && shape.gameObject != null)
+            {
+                Destroy(shape.gameObject);
+                shapeCount++;
+            }
+        }
+
+        // Also clear active shape reference
+        activeShape = null;
+
+        Debug.Log($"ShapeManager: ClearAllShapes destroyed {shapeCount} shapes");
+    }
+
+    /// <summary>
+    /// Create shapes from BoardShapeData list and place them on the board.
+    /// Used for displaying opponent's board in spectator mode.
+    /// </summary>
+    /// <param name="boardState">List of BoardShapeData representing shapes to place</param>
+    /// <returns>List of created ShapeController instances</returns>
+    public System.Collections.Generic.List<ShapeController> PlaceShapesFromBoardState(
+        System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> boardState)
+    {
+        System.Collections.Generic.List<ShapeController> createdShapes =
+            new System.Collections.Generic.List<ShapeController>();
+
+        if (boardState == null || boardState.Count == 0)
+        {
+            Debug.Log("ShapeManager: PlaceShapesFromBoardState - empty board state");
+            return createdShapes;
+        }
+
+        // Use ShapeSerializationHelper to create shapes
+        createdShapes = PocketPlanner.Core.ShapeSerializationHelper.CreateShapesFromBoardShapeDataList(
+            boardState, this, this.transform);
+
+        Debug.Log($"ShapeManager: PlaceShapesFromBoardState created {createdShapes.Count} shapes");
+        return createdShapes;
     }
 }

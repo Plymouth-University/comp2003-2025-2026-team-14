@@ -685,7 +685,8 @@ namespace PocketPlanner.Multiplayer
                     positionY = shape.position.y,
                     rotation = shape.RotationState,
                     flipped = shape.IsFlipped,
-                    turnPlaced = 0 // TODO: Track turn placed if needed
+                    turnPlaced = 0, // TODO: Track turn placed if needed
+                    starsAwarded = 0 // TODO: Track stars per shape if needed
                 };
                 boardState.shapes.Add(shapeData);
             }
@@ -1205,6 +1206,101 @@ namespace PocketPlanner.Multiplayer
             });
         }
 
+        /// <summary>
+        /// Fetch all placements for a specific player across all turns and convert to BoardShapeData list.
+        /// Used for spectator mode to display another player's board.
+        /// </summary>
+        /// <param name="playerId">The player ID to fetch placements for</param>
+        /// <param name="callback">Callback with list of BoardShapeData (empty list if no placements)</param>
+        public void FetchPlayerBoardState(string playerId, System.Action<System.Collections.Generic.List<BoardShapeData>> callback)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot fetch player board state - Firebase not ready");
+                callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>());
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot fetch player board state - no lobby code");
+                callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>());
+                return;
+            }
+
+            string lobbyCode = _multiplayerManager.LobbyCode;
+            DatabaseReference placementsRef = _firebaseManager.DatabaseReference
+                .Child($"games/{lobbyCode}/turn");
+
+            // Fetch all turns
+            placementsRef.GetValueAsync().ContinueWith(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    Debug.LogError($"SyncManager: Failed to fetch placements for player {playerId}: {task.Exception}");
+                    InvokeOnMainThread(() => callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>()));
+                    return;
+                }
+
+                DataSnapshot turnsSnapshot = task.Result;
+                if (!turnsSnapshot.Exists)
+                {
+                    Debug.Log($"SyncManager: No turns found for player {playerId}");
+                    InvokeOnMainThread(() => callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>()));
+                    return;
+                }
+
+                System.Collections.Generic.List<BoardShapeData> boardShapes = new System.Collections.Generic.List<BoardShapeData>();
+
+                // Iterate through each turn
+                foreach (DataSnapshot turnSnapshot in turnsSnapshot.Children)
+                {
+                    // Check if this turn has placements for the target player
+                    DataSnapshot placementsSnapshot = turnSnapshot.Child("placements");
+                    if (!placementsSnapshot.Exists) continue;
+
+                    DataSnapshot playerPlacementSnapshot = placementsSnapshot.Child(playerId);
+                    if (!playerPlacementSnapshot.Exists) continue;
+
+                    // Deserialize PlacementActionData
+                    string json = playerPlacementSnapshot.Value as string;
+                    if (string.IsNullOrEmpty(json))
+                    {
+                        Debug.LogWarning($"SyncManager: Empty placement JSON for player {playerId} in turn {turnSnapshot.Key}");
+                        continue;
+                    }
+
+                    try
+                    {
+                        PlacementActionData placementData = UnityEngine.JsonUtility.FromJson<PlacementActionData>(json);
+                        if (placementData != null)
+                        {
+                            // Convert to BoardShapeData
+                            BoardShapeData boardShapeData = new BoardShapeData
+                            {
+                                shapeType = placementData.shapeType,
+                                buildingType = placementData.buildingType,
+                                positionX = placementData.positionX,
+                                positionY = placementData.positionY,
+                                rotation = placementData.rotation,
+                                flipped = placementData.flipped,
+                                turnPlaced = int.TryParse(turnSnapshot.Key, out int turnNumber) ? turnNumber : 0,
+                                starsAwarded = placementData.starsAwarded
+                            };
+                            boardShapes.Add(boardShapeData);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"SyncManager: Failed to deserialize placement for player {playerId}: {ex.Message}");
+                    }
+                }
+
+                Debug.Log($"SyncManager: Fetched {boardShapes.Count} placements for player {playerId}");
+                InvokeOnMainThread(() => callback?.Invoke(boardShapes));
+            });
+        }
+
     }
 
     // Data structures for serialization
@@ -1282,5 +1378,6 @@ namespace PocketPlanner.Multiplayer
         public int rotation; // 0-3
         public bool flipped;
         public int turnPlaced; // optional
+        public int starsAwarded; // number of stars awarded for this placement (0, 1, or 2)
     }
 }

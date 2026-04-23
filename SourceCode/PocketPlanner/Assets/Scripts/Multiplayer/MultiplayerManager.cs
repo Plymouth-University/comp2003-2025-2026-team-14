@@ -659,6 +659,19 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Get the display name for a specific player ID.
+        /// Falls back to the player ID if no display name is found.
+        /// </summary>
+        public string GetPlayerDisplayName(string playerId)
+        {
+            if (Players.TryGetValue(playerId, out PlayerData playerData))
+            {
+                return playerData.DisplayName;
+            }
+            return playerId;
+        }
+
+        /// <summary>
         /// Get the number of players in the lobby.
         /// </summary>
         public int GetPlayerCount()

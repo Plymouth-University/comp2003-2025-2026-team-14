@@ -50,6 +50,11 @@ public class GameManager : MonoBehaviour
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
     public bool GameEnded => gameEnded;
+    // Spectator mode
+    public bool IsSpectatingOtherPlayers { get; private set; }
+    public string CurrentSpectatedPlayerId { get; private set; }
+    public event System.Action<bool> OnSpectatorModeChanged;
+    public event System.Action<string> OnSpectatedPlayerChanged;
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
     public ScoreManager ScoreManager => scoreManager;
@@ -378,6 +383,25 @@ public class GameManager : MonoBehaviour
 
         // Subscribe to multiplayer events
         SubscribeToMultiplayerEvents();
+
+        // Initialize SpectatorManager for multiplayer when it wasn't available
+        // when OnGameStarted fired (host scenario: SpectatorManager is part of
+        // MainGameScene and didn't exist when event fired in lobby scene)
+        if (SpectatorManager.Instance != null &&
+            MultiplayerManager.Instance != null &&
+            MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
+            SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
+            Debug.Log($"GameManager: SpectatorManager initialized from Start() with {playerIds.Count} players");
+
+            SpectatorUIManager spectatorUI = FindAnyObjectByType<SpectatorUIManager>();
+            if (spectatorUI != null)
+            {
+                spectatorUI.OnSpectatorDataReady();
+            }
+        }
     }
 
     // Update is called once per frame
@@ -948,8 +972,8 @@ public class GameManager : MonoBehaviour
             MultiplayerManager.Instance.SharedRandomSeed != -1 &&
             currentTurn == 1 && !_firstTurnDiceRolled)
         {
-            Debug.Log("GameManager: Seed already available, rolling deterministic dice after subscription.");
-            RollDiceForCurrentTurn();
+            Debug.Log("GameManager: Seed already available, initializing game after subscription.");
+            OnMultiplayerGameStarted();
         }
     }
 
@@ -960,6 +984,26 @@ public class GameManager : MonoBehaviour
     private void OnMultiplayerGameStarted()
     {
         Debug.Log($"GameManager: Multiplayer game started event received. Current turn: {currentTurn}, seed: {MultiplayerManager.Instance?.SharedRandomSeed ?? -1}");
+
+        // Initialize spectator mode with all player IDs
+        if (MultiplayerManager.Instance != null)
+        {
+            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
+            if (SpectatorManager.Instance != null && playerIds.Count > 0)
+            {
+                string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+                SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
+                Debug.Log($"GameManager: SpectatorManager initialized from OnMultiplayerGameStarted with {playerIds.Count} players");
+
+                // Notify SpectatorUIManager that data is ready (show panel)
+                SpectatorUIManager spectatorUI = FindObjectOfType<SpectatorUIManager>();
+                if (spectatorUI != null)
+                {
+                    spectatorUI.OnSpectatorDataReady();
+                    Debug.Log("GameManager: SpectatorUIManager notified of data ready");
+                }
+            }
+        }
 
         // Only roll dice for first turn if we're still on turn 1 and haven't rolled dice yet
         if (currentTurn == 1 && !_firstTurnDiceRolled)
@@ -1192,6 +1236,7 @@ public class GameManager : MonoBehaviour
     // Input system callback for mouse click (starting position selection).
     public void OnMouseClickTEST()
     {
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
         if (firstTurnCompleted) return; // Only allow selection before first turn
         Vector2 screenPos = Mouse.current.position.ReadValue();
         GridPosition gridPos = ScreenToGridPosition(screenPos);
@@ -1201,6 +1246,7 @@ public class GameManager : MonoBehaviour
     // Input system callback for touch press (starting position selecting)
     public void OnTouchPress()
     {
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
         Debug.Log("OnTouchPress called");
         if (SceneManager.GetActiveScene().name != "MainGameScene")
         {
@@ -1210,7 +1256,7 @@ public class GameManager : MonoBehaviour
         if (firstTurnCompleted)
         {
             Debug.Log("OnTouchPress: First turn completed");
-            return;  
+            return;
         }  // Only allow selection before first turn
         if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged)
         {
@@ -1225,6 +1271,7 @@ public class GameManager : MonoBehaviour
     // Temp
     public void OnPlaceShapeInput()
     {
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
         if (shapeManager != null)
             shapeManager.OnPlaceShapeInput();
     }
@@ -1517,6 +1564,7 @@ public class GameManager : MonoBehaviour
         syncManager = FindAnyObjectByType<SyncManager>();
         wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
 
+
         // Subscribe to multiplayer events if SyncManager found
         SubscribeToMultiplayerEvents();
 
@@ -1554,6 +1602,35 @@ public class GameManager : MonoBehaviour
             shapeManager
         );
         Debug.Log("GameManager: AutoEndDetector initialized");
+    }
+
+    /// <summary>
+    /// Set spectator mode on/off and notify listeners.
+    /// </summary>
+    public void SetSpectatorMode(bool isSpectating)
+    {
+        if (IsSpectatingOtherPlayers == isSpectating)
+            return;
+
+        IsSpectatingOtherPlayers = isSpectating;
+        OnSpectatorModeChanged?.Invoke(isSpectating);
+
+        // Disable/enable input based on spectator mode
+        // Input disabling is handled by UI managers listening to OnSpectatorModeChanged
+        Debug.Log($"GameManager: Spectator mode set to {isSpectating}");
+    }
+
+    /// <summary>
+    /// Set the currently spectated player ID and notify listeners.
+    /// </summary>
+    public void SetSpectatedPlayer(string playerId)
+    {
+        if (CurrentSpectatedPlayerId == playerId)
+            return;
+
+        CurrentSpectatedPlayerId = playerId;
+        OnSpectatedPlayerChanged?.Invoke(playerId);
+        Debug.Log($"GameManager: Spectated player set to {playerId}");
     }
 
 }
