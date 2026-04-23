@@ -29,7 +29,7 @@ namespace PocketPlanner.UI
         private GameManager gameManager;
 
         // List of opponent player IDs (excluding local player)
-        private List<string> opponentPlayerIds;
+        private List<string> opponentPlayerIds = new List<string>();
         private int currentOpponentIndex = -1; // -1 = local player, 0+ = opponent index
 
         private void Awake()
@@ -75,13 +75,16 @@ namespace PocketPlanner.UI
         /// <summary>
         /// Call this after SpectatorManager.Initialize() to show the panel
         /// when opponents are available.
+        /// Uses SpectatorManager.Instance directly since this may be called
+        /// from GameManager.Start() before SpectatorUIManager.Start() runs.
         /// </summary>
         public void OnSpectatorDataReady()
         {
-            if (spectatorManager != null)
-                opponentPlayerIds = spectatorManager.GetOpponentPlayerIds();
+            var specManager = spectatorManager ?? SpectatorManager.Instance;
+            if (specManager != null)
+                opponentPlayerIds = specManager.GetOpponentPlayerIds();
 
-            bool hasOpponents = opponentPlayerIds.Count > 0;
+            bool hasOpponents = opponentPlayerIds != null && opponentPlayerIds.Count > 0;
 
             if (spectatorPanel != null)
                 spectatorPanel.SetActive(hasOpponents);

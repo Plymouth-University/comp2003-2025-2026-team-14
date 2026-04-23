@@ -229,6 +229,11 @@ public class GameManager : MonoBehaviour
                     }
                 }
             }
+
+            // Initialize spectator mode for multiplayer now that the game scene is loaded.
+            // OnMultiplayerGameStarted may have fired in the lobby scene before
+            // SpectatorManager/SpectatorUIManager existed (they are in MainGameScene).
+            TryInitializeSpectatorMode();
         }
     }
 
@@ -384,24 +389,10 @@ public class GameManager : MonoBehaviour
         // Subscribe to multiplayer events
         SubscribeToMultiplayerEvents();
 
-        // Initialize SpectatorManager for multiplayer when it wasn't available
-        // when OnGameStarted fired (host scenario: SpectatorManager is part of
-        // MainGameScene and didn't exist when event fired in lobby scene)
-        if (SpectatorManager.Instance != null &&
-            MultiplayerManager.Instance != null &&
-            MultiplayerManager.Instance.IsMultiplayerMode)
-        {
-            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
-            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
-            SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
-            Debug.Log($"GameManager: SpectatorManager initialized from Start() with {playerIds.Count} players");
-
-            SpectatorUIManager spectatorUI = FindAnyObjectByType<SpectatorUIManager>();
-            if (spectatorUI != null)
-            {
-                spectatorUI.OnSpectatorDataReady();
-            }
-        }
+        // Initialize SpectatorManager for multiplayer mode now that the game scene is fully loaded.
+        // This handles the case where OnMultiplayerGameStarted fired in the lobby scene
+        // before SpectatorManager/SpectatorUIManager existed (they're in MainGameScene).
+        TryInitializeSpectatorMode();
     }
 
     // Update is called once per frame
@@ -1631,6 +1622,35 @@ public class GameManager : MonoBehaviour
         CurrentSpectatedPlayerId = playerId;
         OnSpectatedPlayerChanged?.Invoke(playerId);
         Debug.Log($"GameManager: Spectated player set to {playerId}");
+    }
+
+    /// <summary>
+    /// Initialize SpectatorManager and notify SpectatorUIManager for multiplayer mode.
+    /// This is safe to call even if not in multiplayer mode or if managers aren't ready.
+    /// </summary>
+    private void TryInitializeSpectatorMode()
+    {
+        if (SpectatorManager.Instance != null &&
+            MultiplayerManager.Instance != null &&
+            MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
+
+            // Only initialize if not already initialized (avoid duplicate init)
+            if (SpectatorManager.Instance.GetOpponentPlayerIds().Count == 0 && playerIds.Count > 0)
+            {
+                SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
+                Debug.Log($"GameManager: SpectatorManager initialized with {playerIds.Count} players");
+            }
+
+            SpectatorUIManager spectatorUI = FindAnyObjectByType<SpectatorUIManager>();
+            if (spectatorUI != null)
+            {
+                spectatorUI.OnSpectatorDataReady();
+                Debug.Log("GameManager: SpectatorUIManager notified of data ready");
+            }
+        }
     }
 
 }
