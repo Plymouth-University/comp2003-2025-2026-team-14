@@ -567,8 +567,9 @@ public class ShapeManager : MonoBehaviour
         {
             if (shape == null || shape.shapeData == null) continue;
 
-            // TODO: Track stars per shape - for now set to 0
-            var boardShapeData = PocketPlanner.Core.ShapeSerializationHelper.ShapeControllerToBoardShapeData(shape, 0);
+            // Detect stars from the shape's child GameObjects (created by AddStarVisualToShape)
+            int starCount = GetStarCountForShape(shape);
+            var boardShapeData = PocketPlanner.Core.ShapeSerializationHelper.ShapeControllerToBoardShapeData(shape, starCount);
             if (boardShapeData != null)
             {
                 boardState.Add(boardShapeData);
@@ -577,6 +578,32 @@ public class ShapeManager : MonoBehaviour
 
         Debug.Log($"ShapeManager: GetCurrentBoardState found {boardState.Count} shapes");
         return boardState;
+    }
+
+    /// <summary>
+    /// Count how many stars are displayed on a shape by inspecting its child GameObjects.
+    /// Star visuals are added as children named "Star" (1 star) and/or "Star2" (2 stars)
+    /// by AddStarVisualToShape.
+    /// For multi-tile shapes, stars are attached to a random child tile (not the shape root),
+    /// so we search all descendants recursively.
+    /// </summary>
+    private int GetStarCountForShape(ShapeController shape)
+    {
+        if (shape == null) return 0;
+
+        int starCount = 0;
+        // Use GetComponentsInChildren to search all descendants recursively,
+        // since stars are attached to random child tiles for multi-tile shapes.
+        foreach (Transform child in shape.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == shape.transform) continue; // Skip the root shape itself
+            if (child.name == "Star2")
+                return 2; // Star2 only created for 2-star shapes
+            if (child.name == "Star")
+                starCount = 1;
+        }
+        Debug.Log($"GetStarCountForShape: Detected {starCount} star(s) on shape {shape.name}");
+        return starCount;
     }
 
     /// <summary>
