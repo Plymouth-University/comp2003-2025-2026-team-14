@@ -559,6 +559,9 @@ public class GameManager : MonoBehaviour
         isCheckingGameEnd = false;
     }
 
+    /// <summary>
+    ///  Show wildcard prompt when AutoEndDetector determines no valid placements exist and player has wildcards available.
+    /// </summary>
     private void ShowWildcardPrompt()
     {
         // Find WildcardPromptManager in scene
@@ -582,6 +585,25 @@ public class GameManager : MonoBehaviour
             GetNextWildcardCost(),
             HandleWildcardChoice
         );
+    }
+
+    /// <summary>
+    ///  Hide the end game wildcard prompt (Used in TriggerGameEnd to ensure prompt is closed if game is ending in multiplayer)
+    /// </summary>
+    private void HideWildcardPrompt()
+    {
+        // Find WildcardPromptManager in scene
+        if (wildcardPromptManager == null)
+        {
+            Debug.LogWarning("GameManager: WildcardPromptManager reference not set, attempting to find in scene...");
+            wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
+        }
+        WildcardPromptManager promptManager = wildcardPromptManager;
+
+        if (promptManager != null)
+        {
+            promptManager.Hide();
+        }
     }
 
     public void HandleWildcardChoice(bool useWildcard)
@@ -1154,6 +1176,7 @@ public class GameManager : MonoBehaviour
 
         // Disable further game interactions
         // (Optional) Disable dice UI, shape movement, etc.
+        HideWildcardPrompt(); // Ensure wildcard prompt is closed if game is ending
     }
 
     /// <summary>
