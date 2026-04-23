@@ -199,7 +199,8 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
-        /// Load opponent's board from cache or fetch from Firebase.
+        /// Load opponent's board — shows cached version immediately if available,
+        /// then always fetches fresh data from Firebase to keep the display up to date.
         /// </summary>
         private void LoadOpponentBoard(string opponentId)
         {
@@ -209,33 +210,34 @@ namespace PocketPlanner.Multiplayer
                 return;
             }
 
+            // Show cached version immediately for fast response
             if (cachedOpponentBoards.TryGetValue(opponentId, out List<BoardShapeData> cachedBoard))
             {
-                // Use cached board state
                 ShapeManager.Instance.PlaceShapesFromBoardState(cachedBoard);
-                Debug.Log($"SpectatorManager: Loaded cached board for {opponentId} ({cachedBoard.Count} shapes)");
+                Debug.Log($"SpectatorManager: Loaded cached board for {opponentId} ({cachedBoard.Count} shapes) — will refresh from Firebase");
             }
-            else
+
+            // Always fetch from Firebase to get the latest board state
+            Debug.Log($"SpectatorManager: Fetching fresh board state for {opponentId} from Firebase...");
+            syncManager.FetchPlayerBoardState(opponentId, (boardState) =>
             {
-                // Fetch from Firebase
-                Debug.Log($"SpectatorManager: Fetching board state for {opponentId} from Firebase...");
-                syncManager.FetchPlayerBoardState(opponentId, (boardState) =>
+                if (boardState != null)
                 {
-                    if (boardState != null)
+                    cachedOpponentBoards[opponentId] = boardState;
+
+                    // Only update display if we're still viewing this player
+                    if (CurrentSpectatedPlayerId == opponentId && ShapeManager.Instance != null)
                     {
-                        cachedOpponentBoards[opponentId] = boardState;
-                        if (ShapeManager.Instance != null)
-                        {
-                            ShapeManager.Instance.PlaceShapesFromBoardState(boardState);
-                        }
-                        Debug.Log($"SpectatorManager: Fetched and cached board for {opponentId} ({boardState.Count} shapes)");
+                        ShapeManager.Instance.ClearAllShapes();
+                        ShapeManager.Instance.PlaceShapesFromBoardState(boardState);
                     }
-                    else
-                    {
-                        Debug.LogError($"SpectatorManager: Failed to fetch board state for {opponentId}");
-                    }
-                });
-            }
+                    Debug.Log($"SpectatorManager: Refreshed board for {opponentId} from Firebase ({boardState.Count} shapes)");
+                }
+                else
+                {
+                    Debug.LogWarning($"SpectatorManager: Failed to fetch fresh board state for {opponentId} — using cached data if available");
+                }
+            });
         }
 
         /// <summary>
