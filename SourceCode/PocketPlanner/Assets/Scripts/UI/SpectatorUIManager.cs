@@ -18,11 +18,16 @@ namespace PocketPlanner.UI
         [SerializeField] private Button cycleButton;
         [SerializeField] private TextMeshProUGUI playerIndicatorText;
         [SerializeField] private Button closeButton; // Optional: quick return to local player
+        [SerializeField] private Image readyStatus; // Optional: update with readySprite if spectated player's turn is completed
 
         [Header("Settings")]
         [SerializeField] private string localPlayerHeader = "Your Board";
         [SerializeField] private string opponentHeaderPrefix = "Viewing: ";
         [SerializeField] private string playerIndicatorFormat = "{0} / {1}"; // current index, total opponents
+        
+        [Header("Ready Status Sprites")]
+        [SerializeField] private Sprite readySprite;
+        [SerializeField] private Sprite notReadySprite;
 
         // Managers
         private SpectatorManager spectatorManager;
@@ -61,6 +66,7 @@ namespace PocketPlanner.UI
             spectatorManager.OnSpectatedPlayerChanged += OnSpectatedPlayerChanged;
             gameManager.OnSpectatorModeChanged += OnSpectatorModeChanged;
             gameManager.OnSpectatedPlayerChanged += OnSpectatedPlayerChanged;
+            gameManager.OnPlayerTurnCompletionChanged += OnPlayerTurnCompletionChanged;
 
             // Set up button listeners
             if (cycleButton != null)
@@ -98,6 +104,7 @@ namespace PocketPlanner.UI
 
             UpdateHeader();
             UpdatePlayerIndicator();
+            UpdateReadyStatus();
         }
 
         private void OnDestroy()
@@ -111,6 +118,7 @@ namespace PocketPlanner.UI
             {
                 gameManager.OnSpectatorModeChanged -= OnSpectatorModeChanged;
                 gameManager.OnSpectatedPlayerChanged -= OnSpectatedPlayerChanged;
+                gameManager.OnPlayerTurnCompletionChanged -= OnPlayerTurnCompletionChanged;
             }
         }
 
@@ -134,6 +142,8 @@ namespace PocketPlanner.UI
             // Disable/enable cycle button if no opponents
             if (cycleButton != null)
                 cycleButton.interactable = opponentPlayerIds.Count > 0;
+
+            UpdateReadyStatus();
         }
 
         /// <summary>
@@ -143,6 +153,7 @@ namespace PocketPlanner.UI
         {
             UpdateHeader();
             UpdatePlayerIndicator();
+            UpdateReadyStatus();
         }
 
         /// <summary>
@@ -187,6 +198,34 @@ namespace PocketPlanner.UI
             if (index < 0) index = 0;
 
             playerIndicatorText.text = string.Format(playerIndicatorFormat, index + 1, opponentPlayerIds.Count);
+        }
+
+        /// <summary>
+        /// Update the ready status image to reflect whether the currently viewed player
+        /// has completed their turn. Uses readySprite if completed, notReadySprite if not.
+        /// </summary>
+        private void UpdateReadyStatus()
+        {
+            if (readyStatus == null || spectatorManager == null || gameManager == null)
+                return;
+
+            string currentPlayerId = spectatorManager.CurrentSpectatedPlayerId;
+            bool hasCompleted = gameManager.HasPlayerCompletedTurn(currentPlayerId);
+
+            readyStatus.sprite = hasCompleted ? readySprite : notReadySprite;
+            Debug.Log($"SpectatorUIManager: Updated ready status for {currentPlayerId} - completed: {hasCompleted}");
+        }
+
+        /// <summary>
+        /// Called when any player's turn completion status changes in multiplayer.
+        /// Updates the ready status display if the affected player is currently being viewed.
+        /// </summary>
+        private void OnPlayerTurnCompletionChanged(string playerId, bool completed)
+        {
+            if (spectatorManager != null && spectatorManager.CurrentSpectatedPlayerId == playerId)
+            {
+                UpdateReadyStatus();
+            }
         }
 
         /// <summary>

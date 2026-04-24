@@ -50,11 +50,13 @@ public class GameManager : MonoBehaviour
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
     public bool GameEnded => gameEnded;
+    public bool HasPlayerCompletedTurn(string playerId) => playersCompletedCurrentTurn != null && playersCompletedCurrentTurn.Contains(playerId);
     // Spectator mode
     public bool IsSpectatingOtherPlayers { get; private set; }
     public string CurrentSpectatedPlayerId { get; private set; }
     public event System.Action<bool> OnSpectatorModeChanged;
     public event System.Action<string> OnSpectatedPlayerChanged;
+    public event System.Action<string, bool> OnPlayerTurnCompletionChanged;
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
     public ScoreManager ScoreManager => scoreManager;
@@ -783,6 +785,7 @@ public class GameManager : MonoBehaviour
                 // Add local player to completed tracking
                 bool localAdded = playersCompletedCurrentTurn.Add(localPlayerId);
                 Debug.Log($"GameManager: Added local player {localPlayerId} to completed set: {localAdded} (already in set: {!localAdded})");
+                OnPlayerTurnCompletionChanged?.Invoke(localPlayerId, true);
                 waitingForOtherPlayers = true;
 
                 // Broadcast turn completion (game not ended)
@@ -916,6 +919,7 @@ public class GameManager : MonoBehaviour
         {
             bool added = playersCompletedCurrentTurn.Add(turnCompletionData.playerId);
             Debug.Log($"GameManager: Added player {turnCompletionData.playerId} to completed set: {added} (already in set: {!added})");
+            OnPlayerTurnCompletionChanged?.Invoke(turnCompletionData.playerId, true);
             CheckAllPlayersCompletedTurn();
         }
         else
@@ -1072,6 +1076,13 @@ public class GameManager : MonoBehaviour
             // Clear the tracking for this turn
             playersCompletedCurrentTurn.Clear();
             waitingForOtherPlayers = false;
+
+            // Notify UI that the local player is no longer 'completed' for the new turn
+            string localPlayerId = multiplayerManager.LocalPlayerId;
+            if (!string.IsNullOrEmpty(localPlayerId))
+            {
+                OnPlayerTurnCompletionChanged?.Invoke(localPlayerId, false);
+            }
 
             // Start the next turn now that all players have completed
             startNewTurn();
