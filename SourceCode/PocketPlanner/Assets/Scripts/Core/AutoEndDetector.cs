@@ -56,7 +56,17 @@ namespace PocketPlanner.Core
 
             // Get positions to check once (same for all shape dice)
             List<GridPosition> positionsToCheck = GetPositionsToCheck();
-            if (positionsToCheck.Count == 0) return false;
+            if (positionsToCheck.Count == 0)
+            {
+                // If no positions to check on first turn, assume valid placement exists
+                // (player needs to select starting position)
+                if (!gameManager.FirstTurnCompleted)
+                {
+                    Debug.LogWarning("AutoEndDetector: No positions to check on first turn. Assuming valid placement exists.");
+                    return true;
+                }
+                return false;
+            }
 
             // For each shape die, check if shape can be placed
             foreach (var shapeDie in shapeDice)

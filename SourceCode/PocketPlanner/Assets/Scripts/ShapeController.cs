@@ -294,7 +294,7 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Resets the dragging state when shape placement is confirmed or shape is no longer interactive.
     /// </summary>
-    private void ResetDraggingState()
+    public void ResetDraggingState()
     {
         isBeingDragged = false;
         draggingTouchId = -1;
@@ -311,6 +311,13 @@ public class ShapeController : MonoBehaviour
 
     public void OnShapeConfirm() //Invoked by Input System
     {
+        // Disable shape confirmation while spectating other players
+        if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+        {
+            Debug.Log("ShapeController: Shape confirmation disabled while spectating other players.");
+            return;
+        }
+
         if (isPlacementConfirmed)
             return;
 
@@ -385,6 +392,13 @@ public class ShapeController : MonoBehaviour
 
     public void OnShapeRotate() //Invoked by Input System
     {
+        // Disable shape rotation while spectating other players
+        if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+        {
+            Debug.Log("ShapeController: Shape rotation disabled while spectating other players.");
+            return;
+        }
+
         if (isPlacementConfirmed) return;
         RotationState = (RotationState + 1) % 4;
         UpdateVisual();
@@ -394,6 +408,13 @@ public class ShapeController : MonoBehaviour
 
     public void OnShapeFlip() //Invoked by Input System
     {
+        // Disable shape flip while spectating other players
+        if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+        {
+            Debug.Log("ShapeController: Shape flip disabled while spectating other players.");
+            return;
+        }
+
         if (isPlacementConfirmed) return;
         IsFlipped = !IsFlipped;
         UpdateVisual();
@@ -735,7 +756,7 @@ public class ShapeController : MonoBehaviour
     /// Marks the shape's tiles as occupied by this shape.
     /// Should only be called when placement is confirmed.
     /// </summary>
-    private void FinalizePlacement()
+    public void FinalizePlacement()
     {
         List<GridPosition> occupied = GetOccupiedPositions();
         Debug.Log($"FinalizePlacement: Marking {occupied.Count} tiles as occupied");
