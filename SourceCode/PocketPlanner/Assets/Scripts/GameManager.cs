@@ -528,6 +528,14 @@ public class GameManager : MonoBehaviour
 
     public void startNewTurn()
     {
+        // Return to local player's board before starting a new turn
+        // so auto-end detection checks the correct (local) board
+        if (SpectatorManager.Instance != null && SpectatorManager.Instance.IsSpectating)
+        {
+            Debug.Log("GameManager: Returning to local board at start of new turn");
+            SpectatorManager.Instance.SwitchToPlayer(SpectatorManager.Instance.LocalPlayerId);
+        }
+
         Debug.Log($"GameManager: Starting new turn. Current turn was {currentTurn}, incrementing to {currentTurn + 1}");
         currentTurn++;
         waterDieUsedThisTurn = false;
@@ -1198,6 +1206,14 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
 
+        // Return to local player's board before ending the game so
+        // scoring uses the correct (local) board
+        if (SpectatorManager.Instance != null && SpectatorManager.Instance.IsSpectating)
+        {
+            Debug.Log("GameManager: Returning to local board before game end");
+            SpectatorManager.Instance.SwitchToPlayer(SpectatorManager.Instance.LocalPlayerId);
+        }
+
         gameEnded = true;
         BroadcastGameEndToMultiplayer();
         Debug.Log("Game ended! Calculating final score...");
@@ -1248,7 +1264,7 @@ public class GameManager : MonoBehaviour
         {
             Debug.Log("OnTouchPress: First turn completed");
             return;
-        }  // Only allow selection before first turn
+        }  // Only allow selection during first turn
         if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged)
         {
             Debug.Log("OnTouchPress: Shape is being dragged");
