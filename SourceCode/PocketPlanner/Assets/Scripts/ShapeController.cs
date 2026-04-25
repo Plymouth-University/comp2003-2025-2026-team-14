@@ -222,73 +222,97 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Processes touch movement delta to move shape on grid.
     /// Accumulates delta until threshold exceeded, then moves shape by whole grid cells.
+    /// Handles edge cases where the shape has been rotated so some tiles are outside
+    /// grid bounds: tries larger steps and diagonal directions to bring all tiles back.
     /// </summary>
     private void ProcessTouchMovement(Vector2 screenDelta)
     {
-        // Convert screen delta to world delta
         Vector2 worldDelta = screenDelta / pixelsPerUnit;
-
         accumulatedDelta += worldDelta;
 
-        // Check if accumulated delta exceeds half a cell in either axis
         int moveX = 0;
         int moveY = 0;
 
         if (Mathf.Abs(accumulatedDelta.x) >= 0.5f)
-        {
             moveX = (int)Mathf.Sign(accumulatedDelta.x);
-        }
         if (Mathf.Abs(accumulatedDelta.y) >= 0.5f)
-        {
             moveY = (int)Mathf.Sign(accumulatedDelta.y);
-        }
+
+        if (moveX == 0 && moveY == 0)
+            return;
 
         bool moved = false;
+        int bestDirX, bestDirY, bestSteps;
+        bestDirX = bestDirY = bestSteps = 0;
 
-        // Attempt horizontal movement
-        if (moveX != 0)
+        // 1. Try the exact drag direction (handles diagonal, normal, and single-axis drags)
+        if (TryFindMovement(moveX, moveY, out int steps))
         {
-            GridPosition newPos = new GridPosition(position.x + moveX, position.y);
-            if (WouldBeInBounds(newPos))
-            {
-                if (moveX > 0)
-                    MoveRight();
-                else
-                    MoveLeft();
-                // Deduct the moved amount from accumulated delta
-                accumulatedDelta.x -= moveX;
-                moved = true;
-            }
-            else
-            {
-                // Movement blocked, reset accumulated delta for this axis to prevent stuck
-                accumulatedDelta.x = 0;
-            }
+            bestDirX = moveX; bestDirY = moveY; bestSteps = steps;
+        }
+        // 2. Diagonal drag but combined direction fails – try each axis separately
+        else if (moveX != 0 && moveY != 0)
+        {
+            if (TryFindMovement(moveX, 0, out steps))
+            { bestDirX = moveX; bestDirY = 0; bestSteps = steps; }
+            else if (TryFindMovement(0, moveY, out steps))
+            { bestDirX = 0; bestDirY = moveY; bestSteps = steps; }
+        }
+        // 3. Pure horizontal drag failed – try adding vertical to escape corners
+        else if (moveX != 0 && moveY == 0)
+        {
+            if (TryFindMovement(moveX, 1, out steps)) { bestDirX = moveX; bestDirY = 1; bestSteps = steps; }
+            else if (TryFindMovement(moveX, -1, out steps)) { bestDirX = moveX; bestDirY = -1; bestSteps = steps; }
+        }
+        // 4. Pure vertical drag failed – try adding horizontal to escape corners
+        else if (moveY != 0 && moveX == 0)
+        {
+            if (TryFindMovement(1, moveY, out steps)) { bestDirX = 1; bestDirY = moveY; bestSteps = steps; }
+            else if (TryFindMovement(-1, moveY, out steps)) { bestDirX = -1; bestDirY = moveY; bestSteps = steps; }
         }
 
-        // Attempt vertical movement
-        if (moveY != 0)
+        if (bestSteps > 0)
         {
-            GridPosition newPos = new GridPosition(position.x, position.y + moveY);
-            if (WouldBeInBounds(newPos))
-            {
-                if (moveY > 0)
-                    MoveUp();
-                else
-                    MoveDown();
-                accumulatedDelta.y -= moveY;
-                moved = true;
-            }
-            else
-            {
-                accumulatedDelta.y = 0;
-            }
+            // Apply only 1 step — subsequent drag frames will continue the movement.
+            // Applied directly (not via Move* methods) because the intermediate
+            // 1-step position may not pass WouldBeInBounds individually, even though
+            // a nearby multi-step position is valid.
+            position.x += bestDirX;
+            position.y += bestDirY;
+            transform.position += new Vector3(bestDirX, bestDirY, 0);
+            UpdatePositionValidity();
+            accumulatedDelta = Vector2.zero;
+            moved = true;
+        }
+        else
+        {
+            // Nothing worked — reset deltas for axes that had intent
+            if (moveX != 0) accumulatedDelta.x = 0;
+            if (moveY != 0) accumulatedDelta.y = 0;
         }
 
         if (moved)
+            UpdateGhostColor();
+    }
+
+    /// <summary>
+    /// Tries to find N steps (1-5) in the given direction where all shape tiles
+    /// fit within grid bounds. Returns true and outputs the step count if found.
+    /// </summary>
+    private bool TryFindMovement(int dirX, int dirY, out int steps)
+    {
+        for (int s = 1; s <= 5; s++)
         {
-            UpdateGhostColor(); // Update ghost color based on new position validity
+            GridPosition newPos = new GridPosition(position.x + s * dirX,
+                                                    position.y + s * dirY);
+            if (WouldBeInBounds(newPos))
+            {
+                steps = s;
+                return true;
+            }
         }
+        steps = 0;
+        return false;
     }
 
     /// <summary>
