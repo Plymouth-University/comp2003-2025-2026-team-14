@@ -413,11 +413,6 @@ public class GameManager : MonoBehaviour
         {
             selectedStartingPosition = 0; // No default in multiplayer; player must explicitly select
             _startingPositionConfirmed = false;
-            // Unhighlight the auto-highlighted position 1 (done in TilemapManager.Start)
-            if (TilemapManager.Instance != null)
-            {
-                TilemapManager.Instance.UnhighlightAllStartingTiles();
-            }
         }
         else
         {
@@ -433,6 +428,27 @@ public class GameManager : MonoBehaviour
         // Reset multiplayer turn tracking
         playersCompletedCurrentTurn.Clear();
         waitingForOtherPlayers = false;
+
+        // Delay initial highlight to guarantee board exists (Start() order is non-deterministic)
+        StartCoroutine(ApplyInitialStartingHighlight());
+    }
+
+    private IEnumerator ApplyInitialStartingHighlight()
+    {
+        yield return new WaitForEndOfFrame();
+        if (TilemapManager.Instance == null) yield break;
+
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        if (isMultiplayer)
+        {
+            // No default position in multiplayer; clear any stale highlights
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+        else
+        {
+            // Single-player: highlight the default position 1
+            TilemapManager.Instance.HighlightStartingTile(1);
+        }
     }
 
     /// <summary>

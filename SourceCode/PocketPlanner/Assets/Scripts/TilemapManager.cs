@@ -91,8 +91,9 @@ public class TilemapManager : MonoBehaviour
         GenerateBoard();
         AdjustCamera();
 
-        // Temporary: Highlight starting tile 1 on game start
-        HighlightStartingTile(1);
+        // No longer auto-highlighting position 1 here.
+        // Highlighting is controlled by GameManager.initializeFirstTurnGameState()
+        // based on game mode (single-player vs multiplayer).
 
         // Test coordinate conversions
         TestCoordinateConversions();

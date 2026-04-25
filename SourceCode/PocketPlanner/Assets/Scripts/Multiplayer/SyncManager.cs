@@ -493,7 +493,7 @@ namespace PocketPlanner.Multiplayer
         /// </summary>
         private void ProcessStartingPositionLock(DataSnapshot snapshot)
         {
-            string json = snapshot.GetRawJsonValue();
+            string json = snapshot.Value as string;
             if (string.IsNullOrEmpty(json))
             {
                 Debug.LogWarning("SyncManager: ProcessStartingPositionLock - empty snapshot value");
