@@ -84,6 +84,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Button restartButton;
     [SerializeField] private Button mainMenuButton;
 
+    [Header("Top Panel Options UI")]
+    [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private Button scoreGuideButton;
+    [SerializeField] private TextMeshProUGUI feedbackText;
+
     // Inputs
     private InputAction touchPositionAction; 
     private InputAction mousePositionAction;
@@ -241,6 +246,10 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Find and assign references to UI elements in the scene. Called in OnSceneLoaded to refresh references after scene changes.
+    /// Use for both end game UI and top panel options UI. Make sure to reinitialize button listeners after reassigning references.
+    /// </summary>
     void FindAndAssignUIReferences()
     {
         // Find EndGamePanel by name
@@ -267,6 +276,31 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogWarning("GameManager: Could not find EndGamePanel in scene.");
+        }
+
+        // Find top panel buttons and feedback text
+        panelObj = GameObject.Find("OptionsPanel");
+        if (panelObj != null)
+        {
+            // Find child objects for buttons and feedback text
+            Transform feedbackTextTransform = panelObj.transform.Find("FeedbackText");
+            if (feedbackTextTransform != null)
+                feedbackText = feedbackTextTransform.GetComponent<TextMeshProUGUI>();
+
+            Transform returnToMenuBtn = panelObj.transform.Find("MenuButton");
+            if (returnToMenuBtn != null)
+                returnToMenuButton = returnToMenuBtn.GetComponent<Button>();
+            
+            Transform scoreGuideBtn = panelObj.transform.Find("ScoreGuideButton");
+            if (scoreGuideBtn != null)
+                scoreGuideButton = scoreGuideBtn.GetComponent<Button>();
+            
+            // Reinitialize button listeners
+            InitializeOptionsUI();
+        }
+        else 
+        {
+            Debug.LogWarning("GameManager: Could not find OptionsPanel in scene.");
         }
     }
 
@@ -314,6 +348,8 @@ public class GameManager : MonoBehaviour
 
         // Initialize end game UI
         InitializeEndGameUI();
+        // Initialize top panel UI
+        InitializeOptionsUI();
         InitializeAutoEndDetector();
 
         // Roll dice for first turn (deterministic in multiplayer if seed available)
@@ -1407,6 +1443,36 @@ public class GameManager : MonoBehaviour
         // Hide panel initially
         if (endGamePanel != null)
             endGamePanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Initialize top panel options UI elements (button listeners).
+    /// Call this in Start() after UI references are set.
+    /// </summary>
+    private void InitializeOptionsUI()
+    {
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+            returnToMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Return to menu button not assigned in top options panel.");
+        }
+        if (scoreGuideButton != null)
+        {
+            //scoreGuideButton.onClick.RemoveListener(ShowScoreGuide);
+            //scoreGuideButton.onClick.AddListener(ShowScoreGuide);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Score guide button not assigned in top options panel.");
+        }
+        if (feedbackText != null)
+        {
+            feedbackText.text = "";
+        }
     }
 
     /// <summary>
