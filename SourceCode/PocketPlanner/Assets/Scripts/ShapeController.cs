@@ -222,8 +222,9 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Processes touch movement delta to move shape on grid.
     /// Accumulates delta until threshold exceeded, then moves shape by whole grid cells.
-    /// Handles edge cases where the shape has been rotated so some tiles are outside
-    /// grid bounds: tries larger steps and diagonal directions to bring all tiles back.
+    /// Uses per-axis delta subtraction for smooth touch tracking.
+    /// When a single-step move would leave tiles out of bounds after a rotation,
+    /// tries multi-step / diagonal fallback directions to escape the edge/corner.
     /// </summary>
     private void ProcessTouchMovement(Vector2 screenDelta)
     {
@@ -242,53 +243,147 @@ public class ShapeController : MonoBehaviour
             return;
 
         bool moved = false;
-        int bestDirX, bestDirY, bestSteps;
-        bestDirX = bestDirY = bestSteps = 0;
+        bool escapedHorizontal = false; // true if horizontal block did a diagonal escape
 
-        // 1. Try the exact drag direction (handles diagonal, normal, and single-axis drags)
-        if (TryFindMovement(moveX, moveY, out int steps))
+        // Attempt horizontal movement
+        if (moveX != 0)
         {
-            bestDirX = moveX; bestDirY = moveY; bestSteps = steps;
-        }
-        // 2. Diagonal drag but combined direction fails – try each axis separately
-        else if (moveX != 0 && moveY != 0)
-        {
-            if (TryFindMovement(moveX, 0, out steps))
-            { bestDirX = moveX; bestDirY = 0; bestSteps = steps; }
-            else if (TryFindMovement(0, moveY, out steps))
-            { bestDirX = 0; bestDirY = moveY; bestSteps = steps; }
-        }
-        // 3. Pure horizontal drag failed – try adding vertical to escape corners
-        else if (moveX != 0 && moveY == 0)
-        {
-            if (TryFindMovement(moveX, 1, out steps)) { bestDirX = moveX; bestDirY = 1; bestSteps = steps; }
-            else if (TryFindMovement(moveX, -1, out steps)) { bestDirX = moveX; bestDirY = -1; bestSteps = steps; }
-        }
-        // 4. Pure vertical drag failed – try adding horizontal to escape corners
-        else if (moveY != 0 && moveX == 0)
-        {
-            if (TryFindMovement(1, moveY, out steps)) { bestDirX = 1; bestDirY = moveY; bestSteps = steps; }
-            else if (TryFindMovement(-1, moveY, out steps)) { bestDirX = -1; bestDirY = moveY; bestSteps = steps; }
+            GridPosition newPos = new GridPosition(position.x + moveX, position.y);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveX > 0) MoveRight(); else MoveLeft();
+                accumulatedDelta.x -= moveX;
+                moved = true;
+            }
+            else if (TryEscapeEdge(moveX, 0, out int escapeY))
+            {
+                // Apply 1-step diagonal escape directly (intermediate positions
+                // may not pass WouldBeInBounds so we skip the Move* methods).
+                position.x += moveX;
+                position.y += escapeY;
+                transform.position += new Vector3(moveX, escapeY, 0);
+                UpdatePositionValidity();
+                accumulatedDelta.x -= moveX;
+                accumulatedDelta.y = 0;
+                moved = true;
+                escapedHorizontal = true; // already consumed vertical axis
+            }
+            else
+            {
+                accumulatedDelta.x = 0;
+            }
         }
 
-        if (bestSteps > 0)
+        // Attempt vertical movement (skip if horizontal escape already consumed it)
+        if (moveY != 0 && !escapedHorizontal)
         {
-            // Apply only 1 step — subsequent drag frames will continue the movement.
-            // Applied directly (not via Move* methods) because the intermediate
-            // 1-step position may not pass WouldBeInBounds individually, even though
-            // a nearby multi-step position is valid.
-            position.x += bestDirX;
-            position.y += bestDirY;
-            transform.position += new Vector3(bestDirX, bestDirY, 0);
-            UpdatePositionValidity();
-            accumulatedDelta = Vector2.zero;
-            moved = true;
+            GridPosition newPos = new GridPosition(position.x, position.y + moveY);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveY > 0) MoveUp(); else MoveDown();
+                accumulatedDelta.y -= moveY;
+                moved = true;
+            }
+            else if (TryEscapeEdge(0, moveY, out int escapeX))
+            {
+                position.x += escapeX;
+                position.y += moveY;
+                transform.position += new Vector3(escapeX, moveY, 0);
+                UpdatePositionValidity();
+                accumulatedDelta.y -= moveY;
+                accumulatedDelta.x = 0;
+                moved = true;
+            }
+            else
+            {
+                accumulatedDelta.y = 0;
+            }
         }
-        else
+
+        if (moved)
+            UpdateGhostColor();
+    }
+
+    /// <summary>
+    /// When a single-axis move is blocked (e.g. after rotation pushed tiles
+    /// off-grid), searches for a diagonal escape direction that moves toward
+    /// valid bounds.  Returns true and outputs the orthogonal axis step if found.
+    /// dirAxis is the primary drag axis (horizontal=moveX, vertical=moveY).
+    /// orthoAxis is the orthogonal axis (0 for a pure drag, we try ±1).
+    /// </summary>
+    private bool TryEscapeEdge(int dirX, int dirY, out int escapeOrtho)
+    {
+        escapeOrtho = 0;
+
+        // 1. Try multi-step in the pure drag direction (handles edge, not corner)
+        if (TryFindMovement(dirX, dirY, out _))
         {
-            // Nothing worked — reset deltas for axes that had intent
-            if (moveX != 0) accumulatedDelta.x = 0;
-            if (moveY != 0) accumulatedDelta.y = 0;
+            escapeOrtho = 0;
+            return true;
+        }
+
+        // 2. Corner case — try adding the orthogonal axis
+        if (dirX != 0 && dirY == 0)
+        {
+            if (TryFindMovement(dirX, 1, out _)) { escapeOrtho = 1; return true; }
+            if (TryFindMovement(dirX, -1, out _)) { escapeOrtho = -1; return true; }
+        }
+        else if (dirY != 0 && dirX == 0)
+        {
+            if (TryFindMovement(1, dirY, out _)) { escapeOrtho = 1; return true; }
+            if (TryFindMovement(-1, dirY, out _)) { escapeOrtho = -1; return true; }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Original touch-movement implementation (before edge/corner escape fix).
+    /// Kept as reference for testing drag precision.
+    /// </summary>
+    private void ProcessTouchMovementOriginal(Vector2 screenDelta)
+    {
+        Vector2 worldDelta = screenDelta / pixelsPerUnit;
+        accumulatedDelta += worldDelta;
+
+        int moveX = 0;
+        int moveY = 0;
+
+        if (Mathf.Abs(accumulatedDelta.x) >= 0.5f)
+            moveX = (int)Mathf.Sign(accumulatedDelta.x);
+        if (Mathf.Abs(accumulatedDelta.y) >= 0.5f)
+            moveY = (int)Mathf.Sign(accumulatedDelta.y);
+
+        bool moved = false;
+
+        if (moveX != 0)
+        {
+            GridPosition newPos = new GridPosition(position.x + moveX, position.y);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveX > 0) MoveRight(); else MoveLeft();
+                accumulatedDelta.x -= moveX;
+                moved = true;
+            }
+            else
+            {
+                accumulatedDelta.x = 0;
+            }
+        }
+
+        if (moveY != 0)
+        {
+            GridPosition newPos = new GridPosition(position.x, position.y + moveY);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveY > 0) MoveUp(); else MoveDown();
+                accumulatedDelta.y -= moveY;
+                moved = true;
+            }
+            else
+            {
+                accumulatedDelta.y = 0;
+            }
         }
 
         if (moved)
