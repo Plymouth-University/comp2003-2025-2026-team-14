@@ -760,11 +760,6 @@ public class GameManager : MonoBehaviour
             {
                 boardManager.DeactivateStartingTileLabels();
                 boardManager.UnhighlightAllStartingTiles();
-                // Unlock starting tiles in multiplayer (locks are only needed during selection phase)
-                if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
-                {
-                    TilemapManager.Instance?.UnlockAllStartingTiles();
-                }
                 Debug.Log("GameManager: First turn marked as completed");
             }
         }
@@ -1139,6 +1134,16 @@ public class GameManager : MonoBehaviour
         if (playersCompletedCurrentTurn.Count >= totalPlayers)
         {
             Debug.Log($"GameManager: All {totalPlayers} players have completed turn {currentTurn}");
+
+            // If this was the first turn, clear all starting position highlights/locks now that
+            // every player has placed their first shape. UnhighlightAllStartingTiles clears any
+            // remaining yellow highlights (red locks survive it via re-application). Unlock
+            // afterwards to restore everything permanently.
+            if (currentTurn == 1 && TilemapManager.Instance != null)
+            {
+                TilemapManager.Instance.UnhighlightAllStartingTiles();
+                TilemapManager.Instance.UnlockAllStartingTiles();
+            }
 
             // Clear the tracking for this turn
             playersCompletedCurrentTurn.Clear();
