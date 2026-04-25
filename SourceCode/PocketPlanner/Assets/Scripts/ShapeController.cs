@@ -222,28 +222,28 @@ public class ShapeController : MonoBehaviour
     /// <summary>
     /// Processes touch movement delta to move shape on grid.
     /// Accumulates delta until threshold exceeded, then moves shape by whole grid cells.
+    /// Uses per-axis delta subtraction for smooth touch tracking.
+    /// When a single-step move would leave tiles out of bounds after a rotation,
+    /// tries multi-step / diagonal fallback directions to escape the edge/corner.
     /// </summary>
     private void ProcessTouchMovement(Vector2 screenDelta)
     {
-        // Convert screen delta to world delta
         Vector2 worldDelta = screenDelta / pixelsPerUnit;
-
         accumulatedDelta += worldDelta;
 
-        // Check if accumulated delta exceeds half a cell in either axis
         int moveX = 0;
         int moveY = 0;
 
         if (Mathf.Abs(accumulatedDelta.x) >= 0.5f)
-        {
             moveX = (int)Mathf.Sign(accumulatedDelta.x);
-        }
         if (Mathf.Abs(accumulatedDelta.y) >= 0.5f)
-        {
             moveY = (int)Mathf.Sign(accumulatedDelta.y);
-        }
+
+        if (moveX == 0 && moveY == 0)
+            return;
 
         bool moved = false;
+        bool escapedHorizontal = false; // true if horizontal block did a diagonal escape
 
         // Attempt horizontal movement
         if (moveX != 0)
@@ -251,31 +251,132 @@ public class ShapeController : MonoBehaviour
             GridPosition newPos = new GridPosition(position.x + moveX, position.y);
             if (WouldBeInBounds(newPos))
             {
-                if (moveX > 0)
-                    MoveRight();
-                else
-                    MoveLeft();
-                // Deduct the moved amount from accumulated delta
+                if (moveX > 0) MoveRight(); else MoveLeft();
+                accumulatedDelta.x -= moveX;
+                moved = true;
+            }
+            else if (TryEscapeEdge(moveX, 0, out int escapeY))
+            {
+                // Apply 1-step diagonal escape directly (intermediate positions
+                // may not pass WouldBeInBounds so we skip the Move* methods).
+                position.x += moveX;
+                position.y += escapeY;
+                transform.position += new Vector3(moveX, escapeY, 0);
+                UpdatePositionValidity();
+                accumulatedDelta.x -= moveX;
+                accumulatedDelta.y = 0;
+                moved = true;
+                escapedHorizontal = true; // already consumed vertical axis
+            }
+            else
+            {
+                accumulatedDelta.x = 0;
+            }
+        }
+
+        // Attempt vertical movement (skip if horizontal escape already consumed it)
+        if (moveY != 0 && !escapedHorizontal)
+        {
+            GridPosition newPos = new GridPosition(position.x, position.y + moveY);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveY > 0) MoveUp(); else MoveDown();
+                accumulatedDelta.y -= moveY;
+                moved = true;
+            }
+            else if (TryEscapeEdge(0, moveY, out int escapeX))
+            {
+                position.x += escapeX;
+                position.y += moveY;
+                transform.position += new Vector3(escapeX, moveY, 0);
+                UpdatePositionValidity();
+                accumulatedDelta.y -= moveY;
+                accumulatedDelta.x = 0;
+                moved = true;
+            }
+            else
+            {
+                accumulatedDelta.y = 0;
+            }
+        }
+
+        if (moved)
+            UpdateGhostColor();
+    }
+
+    /// <summary>
+    /// When a single-axis move is blocked (e.g. after rotation pushed tiles
+    /// off-grid), searches for a diagonal escape direction that moves toward
+    /// valid bounds.  Returns true and outputs the orthogonal axis step if found.
+    /// dirAxis is the primary drag axis (horizontal=moveX, vertical=moveY).
+    /// orthoAxis is the orthogonal axis (0 for a pure drag, we try ±1).
+    /// </summary>
+    private bool TryEscapeEdge(int dirX, int dirY, out int escapeOrtho)
+    {
+        escapeOrtho = 0;
+
+        // 1. Try multi-step in the pure drag direction (handles edge, not corner)
+        if (TryFindMovement(dirX, dirY, out _))
+        {
+            escapeOrtho = 0;
+            return true;
+        }
+
+        // 2. Corner case — try adding the orthogonal axis
+        if (dirX != 0 && dirY == 0)
+        {
+            if (TryFindMovement(dirX, 1, out _)) { escapeOrtho = 1; return true; }
+            if (TryFindMovement(dirX, -1, out _)) { escapeOrtho = -1; return true; }
+        }
+        else if (dirY != 0 && dirX == 0)
+        {
+            if (TryFindMovement(1, dirY, out _)) { escapeOrtho = 1; return true; }
+            if (TryFindMovement(-1, dirY, out _)) { escapeOrtho = -1; return true; }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Original touch-movement implementation (before edge/corner escape fix).
+    /// Kept as reference for testing drag precision.
+    /// </summary>
+    private void ProcessTouchMovementOriginal(Vector2 screenDelta)
+    {
+        Vector2 worldDelta = screenDelta / pixelsPerUnit;
+        accumulatedDelta += worldDelta;
+
+        int moveX = 0;
+        int moveY = 0;
+
+        if (Mathf.Abs(accumulatedDelta.x) >= 0.5f)
+            moveX = (int)Mathf.Sign(accumulatedDelta.x);
+        if (Mathf.Abs(accumulatedDelta.y) >= 0.5f)
+            moveY = (int)Mathf.Sign(accumulatedDelta.y);
+
+        bool moved = false;
+
+        if (moveX != 0)
+        {
+            GridPosition newPos = new GridPosition(position.x + moveX, position.y);
+            if (WouldBeInBounds(newPos))
+            {
+                if (moveX > 0) MoveRight(); else MoveLeft();
                 accumulatedDelta.x -= moveX;
                 moved = true;
             }
             else
             {
-                // Movement blocked, reset accumulated delta for this axis to prevent stuck
                 accumulatedDelta.x = 0;
             }
         }
 
-        // Attempt vertical movement
         if (moveY != 0)
         {
             GridPosition newPos = new GridPosition(position.x, position.y + moveY);
             if (WouldBeInBounds(newPos))
             {
-                if (moveY > 0)
-                    MoveUp();
-                else
-                    MoveDown();
+                if (moveY > 0) MoveUp(); else MoveDown();
                 accumulatedDelta.y -= moveY;
                 moved = true;
             }
@@ -286,9 +387,27 @@ public class ShapeController : MonoBehaviour
         }
 
         if (moved)
+            UpdateGhostColor();
+    }
+
+    /// <summary>
+    /// Tries to find N steps (1-5) in the given direction where all shape tiles
+    /// fit within grid bounds. Returns true and outputs the step count if found.
+    /// </summary>
+    private bool TryFindMovement(int dirX, int dirY, out int steps)
+    {
+        for (int s = 1; s <= 5; s++)
         {
-            UpdateGhostColor(); // Update ghost color based on new position validity
+            GridPosition newPos = new GridPosition(position.x + s * dirX,
+                                                    position.y + s * dirY);
+            if (WouldBeInBounds(newPos))
+            {
+                steps = s;
+                return true;
+            }
         }
+        steps = 0;
+        return false;
     }
 
     /// <summary>
