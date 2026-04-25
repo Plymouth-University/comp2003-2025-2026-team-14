@@ -1266,6 +1266,10 @@ public class GameManager : MonoBehaviour
     {
         if (IsSpectatingOtherPlayers) return; // Disable input while spectating
         Debug.Log("OnTouchPress called");
+        // Starting position selection only happens before a shape is created.
+        // Once a shape exists, the starting position has already been selected,
+        // so skip to prevent overlapping UI touches from changing it mid-placement.
+        if (shapeManager != null && shapeManager.activeShape != null) return;
         if (SceneManager.GetActiveScene().name != "MainGameScene")
         {
             Debug.Log("OnTouchPress: Scene is not MainGameScene");
