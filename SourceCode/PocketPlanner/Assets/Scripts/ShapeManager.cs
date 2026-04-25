@@ -617,8 +617,13 @@ public class ShapeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Remove all shapes from the board (destroy GameObjects).
-    /// Used when switching to spectator mode to clear local player's shapes.
+    /// Remove all shapes from the board (destroy GameObjects) and clear all
+    /// tile occupancy references. Used when switching to spectator mode or when
+    /// restoring the local player's board after spectating.
+    ///
+    /// Explicitly nulls tile.occupyingShape and tile.zone on every grid tile
+    /// after destruction to prevent Unity destroyed-object edge cases in
+    /// TilemapManager.IsOccupied() checks performed by the auto-end detector.
     /// </summary>
     public void ClearAllShapes()
     {
@@ -651,10 +656,29 @@ public class ShapeManager : MonoBehaviour
             }
         }
 
+        // Explicitly null tile.occupyingShape and tile.zone on every grid tile.
+        // Destroy() leaves references to destroyed MonoBehaviours on tiles,
+        // and Unity's overloaded != null for destroyed objects can behave
+        // inconsistently in certain code paths (e.g. IsOccupied used by the
+        // auto-end detector), causing tiles to be incorrectly reported as
+        // occupied after a spectate cycle.
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null)
+                {
+                    tile.occupyingShape = null;
+                    tile.zone = null;
+                }
+            }
+        }
+
         // Also clear active shape reference
         activeShape = null;
 
-        Debug.Log($"ShapeManager: ClearAllShapes destroyed {shapeCount} shapes");
+        Debug.Log($"ShapeManager: ClearAllShapes destroyed {shapeCount} shapes and cleared all tile references");
     }
 
     /// <summary>
