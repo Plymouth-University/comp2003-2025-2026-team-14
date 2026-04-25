@@ -265,6 +265,10 @@ namespace PocketPlanner.Multiplayer
         /// <summary>
         /// Backup local player's current board state before switching to spectator mode.
         /// Should be called when about to spectate another player.
+        /// If there is an active unconfirmed (ghost) shape, it is destroyed first since
+        /// ghost shapes are not registered in grid tiles (FinalizePlacement hasn't been called)
+        /// and would otherwise persist in the scene through the spectate cycle, causing
+        /// duplicate shape issues when switching back to the local player's board.
         /// </summary>
         public void BackupLocalPlayerBoard()
         {
@@ -273,6 +277,20 @@ namespace PocketPlanner.Multiplayer
                 Debug.LogError("SpectatorManager: ShapeManager not available, cannot backup board");
                 return;
             }
+
+            // Destroy any active unconfirmed ghost shape before backing up.
+            // Ghost shapes (isPlacedOnGrid=true, isPlacementConfirmed=false) are NOT
+            // registered in tile.occupyingShape (only FinalizePlacement does that),
+            // so they won't be found by ClearAllShapes() later. If we don't clean them
+            // up here, they persist through the spectate cycle and cause duplicate shapes.
+            if (ShapeManager.Instance.activeShape != null && !ShapeManager.Instance.activeShape.isPlacementConfirmed)
+            {
+                ShapeController ghostShape = ShapeManager.Instance.activeShape;
+                Destroy(ghostShape.gameObject);
+                ShapeManager.Instance.activeShape = null;
+                Debug.Log("SpectatorManager: Destroyed active ghost shape before board backup");
+            }
+
             localPlayerShapesBackup = ShapeManager.Instance.GetCurrentBoardState();
             Debug.Log($"SpectatorManager: Backed up local player board ({localPlayerShapesBackup.Count} shapes)");
         }
