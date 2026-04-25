@@ -358,6 +358,16 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
+        // Disable shape placement when no starting position is selected on first turn
+        if (GameManager.Instance != null && !GameManager.Instance.FirstTurnCompleted)
+        {
+            if (GameManager.Instance.SelectedStartingPosition == 0)
+            {
+                Debug.Log("ShapeManager: Shape placement disabled until starting position is selected on first turn.");
+                return;
+            }
+        }
+
         // Disable shape placement while spectating other players
         if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
         {
