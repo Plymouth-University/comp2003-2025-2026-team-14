@@ -57,6 +57,10 @@ public class TilemapManager : MonoBehaviour
 
     private Dictionary<int, Color> originalStartingTileColors = new Dictionary<int, Color>();
 
+    // Starting position locking (multiplayer)
+    private HashSet<int> _lockedStartingPositions = new HashSet<int>();
+    private Dictionary<int, Color> _lockedTileOriginalColors = new Dictionary<int, Color>();
+
     [Header("Camera Settings")]
     [SerializeField] private float boardPadding = 1.0f;
 
@@ -329,6 +333,72 @@ public class TilemapManager : MonoBehaviour
             Debug.Log($"TilemapManager: Restored original color {kvp.Value} for tile {kvp.Key} at cell {cellPos}");
         }
         originalStartingTileColors.Clear();
+
+        // Re-apply red for locked starting tiles (so they stay locked after unhighlight)
+        foreach (int lockedPos in _lockedStartingPositions)
+        {
+            Vector3Int cellPos = LogicalToTilemapCell(GetStartingTilePosition(lockedPos));
+            boardTilemap.SetTileFlags(cellPos, TileFlags.None);
+            boardTilemap.SetColor(cellPos, Color.red);
+        }
+    }
+
+    /// <summary>
+    /// Lock a starting tile (set to red) for multiplayer starting position selection.
+    /// Removes the tile from highlight tracking to isolate lock from highlight logic.
+    /// </summary>
+    public void LockStartingTile(int number)
+    {
+        if (_lockedStartingPositions.Contains(number)) return;
+
+        _lockedStartingPositions.Add(number);
+        GridPosition pos = GetStartingTilePosition(number);
+        if (pos.x < 0 || pos.y < 0) return;
+
+        Vector3Int cellPos = LogicalToTilemapCell(pos);
+
+        // Store the original color (before any highlighting), not the current color.
+        // The current color may be yellow if locally highlighted at the time of locking.
+        Color restoreColor;
+        if (originalStartingTileColors.TryGetValue(number, out Color originalBeforeHighlight))
+        {
+            restoreColor = originalBeforeHighlight;
+            originalStartingTileColors.Remove(number);
+        }
+        else
+        {
+            restoreColor = boardTilemap.GetColor(cellPos);
+        }
+        _lockedTileOriginalColors[number] = restoreColor;
+
+        boardTilemap.SetTileFlags(cellPos, TileFlags.None);
+        boardTilemap.SetColor(cellPos, Color.red);
+        Debug.Log($"TilemapManager: Locked starting tile {number} (red)");
+    }
+
+    /// <summary>
+    /// Restore all locked starting tiles to their pre-lock colors and clear lock state.
+    /// </summary>
+    public void UnlockAllStartingTiles()
+    {
+        foreach (var kvp in _lockedTileOriginalColors)
+        {
+            GridPosition pos = GetStartingTilePosition(kvp.Key);
+            Vector3Int cellPos = LogicalToTilemapCell(pos);
+            boardTilemap.SetTileFlags(cellPos, TileFlags.None);
+            boardTilemap.SetColor(cellPos, kvp.Value);
+        }
+        _lockedTileOriginalColors.Clear();
+        _lockedStartingPositions.Clear();
+        Debug.Log("TilemapManager: All starting tiles unlocked");
+    }
+
+    /// <summary>
+    /// Returns true if the given starting position number (1-8) is locked by another player.
+    /// </summary>
+    public bool IsStartingTileLocked(int number)
+    {
+        return _lockedStartingPositions.Contains(number);
     }
 
     /// <summary>

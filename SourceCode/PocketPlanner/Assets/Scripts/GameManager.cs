@@ -27,6 +27,7 @@ public class GameManager : MonoBehaviour
     private int previouslySelectedStartingPosition = 0;
     private bool firstTurnCompleted;
     private bool gameEnded;
+    private bool _startingPositionConfirmed; // In multiplayer, prevents changing once broadcast
 
     // Multiplayer turn tracking
     private HashSet<string> playersCompletedCurrentTurn = new HashSet<string>();
@@ -131,6 +132,7 @@ public class GameManager : MonoBehaviour
             SyncManager.OnDiceRollReceived -= OnOpponentDiceRollReceived;
             SyncManager.OnPlayerGameStateReceived -= OnOpponentGameStateReceived;
             SyncManager.OnTurnCompletionReceived -= OnOpponentTurnCompletionReceived;
+            SyncManager.OnStartingPositionLocked -= OnStartingPositionLocked;
             _multiplayerEventsSubscribed = false;
             Debug.Log("GameManager: Unsubscribed from SyncManager events");
         }
@@ -406,7 +408,21 @@ public class GameManager : MonoBehaviour
     public void initializeFirstTurnGameState()
     {
         // Initialize game state for first turn
-        selectedStartingPosition = 1; // Default starting position (player should select)
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        if (isMultiplayer)
+        {
+            selectedStartingPosition = 0; // No default in multiplayer; player must explicitly select
+            _startingPositionConfirmed = false;
+            // Unhighlight the auto-highlighted position 1 (done in TilemapManager.Start)
+            if (TilemapManager.Instance != null)
+            {
+                TilemapManager.Instance.UnhighlightAllStartingTiles();
+            }
+        }
+        else
+        {
+            selectedStartingPosition = 1; // Default starting position (player should select)
+        }
         firstTurnCompleted = false;
         waterDieUsedThisTurn = false;
         currentTurn = 1;
@@ -728,6 +744,11 @@ public class GameManager : MonoBehaviour
             {
                 boardManager.DeactivateStartingTileLabels();
                 boardManager.UnhighlightAllStartingTiles();
+                // Unlock starting tiles in multiplayer (locks are only needed during selection phase)
+                if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+                {
+                    TilemapManager.Instance?.UnlockAllStartingTiles();
+                }
                 Debug.Log("GameManager: First turn marked as completed");
             }
         }
@@ -929,6 +950,35 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Handle starting position lock received from another player.
+    /// Locks the tile visually (red) and resets local selection if the position was ours.
+    /// </summary>
+    private void OnStartingPositionLocked(int positionNumber, string playerId)
+    {
+        string localId = MultiplayerManager.Instance?.LocalPlayerId;
+        if (playerId == localId) return; // Ignore own locks
+
+        Debug.Log($"GameManager: Starting position {positionNumber} locked by player {playerId}");
+
+        // Lock the position visually (red tile)
+        if (TilemapManager.Instance != null)
+        {
+            TilemapManager.Instance.LockStartingTile(positionNumber);
+        }
+
+        // If the local player had selected this position, reset it (race condition resolved)
+        if (selectedStartingPosition == positionNumber)
+        {
+            Debug.LogWarning($"GameManager: Your starting position {positionNumber} was taken by another player. Select a different position.");
+            selectedStartingPosition = 0;
+            previouslySelectedStartingPosition = 0;
+            _startingPositionConfirmed = false;
+            // Re-unhighlight to clear any yellow highlighting
+            TilemapManager.Instance?.UnhighlightAllStartingTiles();
+        }
+    }
+
+    /// <summary>
     /// Subscribe to SyncManager multiplayer events if not already subscribed.
     /// </summary>
     private void SubscribeToMultiplayerEvents()
@@ -944,6 +994,7 @@ public class GameManager : MonoBehaviour
                 SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
                 SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
                 SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
+                SyncManager.OnStartingPositionLocked += OnStartingPositionLocked;
                 _multiplayerEventsSubscribed = true;
                 Debug.Log($"GameManager: Successfully subscribed to SyncManager events");
             }
@@ -1493,11 +1544,13 @@ public class GameManager : MonoBehaviour
         wildcardsUsed = 0;
         gameEnded = false;
         stars = 0;
+        _startingPositionConfirmed = false;
 
-        // Unhighlight any highlighted starting tiles
+        // Unhighlight any highlighted starting tiles and unlock locked ones
         if (TilemapManager.Instance != null)
         {
             TilemapManager.Instance.UnhighlightAllStartingTiles();
+            TilemapManager.Instance.UnlockAllStartingTiles();
         }
 
         Debug.Log("GameManager: Game state reset for new game.");
@@ -1553,6 +1606,22 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+
+        // In multiplayer, do not allow changing once a position has been confirmed (broadcasted)
+        if (isMultiplayer && _startingPositionConfirmed)
+        {
+            Debug.Log($"Starting position already confirmed ({selectedStartingPosition}). Cannot change.");
+            return;
+        }
+
+        // Check if this starting position is already locked by another player
+        if (isMultiplayer && TilemapManager.Instance.IsStartingTileLocked(startingNumber))
+        {
+            Debug.Log($"Starting position {startingNumber} is locked by another player.");
+            return;
+        }
+
         // If same starting position already selected, do nothing
         if (selectedStartingPosition == startingNumber)
         {
@@ -1572,6 +1641,14 @@ public class GameManager : MonoBehaviour
         // Highlight the newly selected starting tile
         TilemapManager.Instance.HighlightStartingTile(selectedStartingPosition);
         previouslySelectedStartingPosition = selectedStartingPosition;
+
+        // In multiplayer, broadcast the lock and confirm the selection
+        if (isMultiplayer)
+        {
+            _startingPositionConfirmed = true;
+            SyncManager.Instance?.BroadcastStartingPositionLock(startingNumber);
+            Debug.Log($"Broadcasted starting position lock for position {startingNumber}");
+        }
     }
 
     void RefreshManagerReferences()

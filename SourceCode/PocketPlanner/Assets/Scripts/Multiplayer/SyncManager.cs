@@ -29,11 +29,15 @@ namespace PocketPlanner.Multiplayer
         private DatabaseReference _placementsRef;
         private DatabaseReference _gameEndsRef;
 
+        // Track known starting position locks to avoid duplicate event firing
+        private Dictionary<int, string> _lockedStartingPositions = new Dictionary<int, string>();
+
         // Events
         public event Action<PlacementActionData> OnPlacementActionReceived;
         public event Action<DiceRollData> OnDiceRollReceived;
         public event Action<PlayerGameData> OnPlayerGameStateReceived;
         public event Action<TurnCompletionData> OnTurnCompletionReceived;
+        public event Action<int, string> OnStartingPositionLocked; // (positionNumber, playerId)
 
         // Serialization settings
         private const int GRID_SIZE = 10;
@@ -172,6 +176,7 @@ namespace PocketPlanner.Multiplayer
             }
 
             Debug.Log("SyncManager: Firebase listeners stopped");
+            _lockedStartingPositions.Clear();
         }
 
         // Firebase event handlers
@@ -271,6 +276,18 @@ namespace PocketPlanner.Multiplayer
                 }
             }
 
+            // Check for startingPositions/{positionNumber} children (starting position locking)
+            if (args.Snapshot.HasChild("startingPositions"))
+            {
+                DataSnapshot spSnapshot = args.Snapshot.Child("startingPositions");
+                foreach (DataSnapshot child in spSnapshot.Children)
+                {
+                    Debug.Log($"SyncManager: Found startingPositions child for position {child.Key}");
+                    InvokeOnMainThread<DataSnapshot>(ProcessStartingPositionLock, child);
+                }
+                handled = true;
+            }
+
             // Fallback: keep original path.Contains() checks for cases where listener might be attached to deeper node
             if (!handled)
             {
@@ -308,6 +325,12 @@ namespace PocketPlanner.Multiplayer
                 else if (path.Contains("/gameEnds/"))
                 {
                     InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a starting position lock node
+                else if (path.Contains("/startingPositions/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessStartingPositionLock, args.Snapshot);
                     handled = true;
                 }
             }
@@ -462,6 +485,45 @@ namespace PocketPlanner.Multiplayer
             // The actual processing is done in OnGameEndValueChanged which listens to the parent node
             // This ensures we get all game end events, not just individual player changes
             Debug.Log($"SyncManager: Game end node changed at path: {GetRelativePath(snapshot.Reference)}");
+        }
+
+        /// <summary>
+        /// Process a remote starting position lock notification.
+        /// Fires the OnStartingPositionLocked event if the lock is new.
+        /// </summary>
+        private void ProcessStartingPositionLock(DataSnapshot snapshot)
+        {
+            string json = snapshot.GetRawJsonValue();
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogWarning("SyncManager: ProcessStartingPositionLock - empty snapshot value");
+                return;
+            }
+
+            try
+            {
+                var data = JsonUtility.FromJson<StartingPositionLockData>(json);
+                if (data == null)
+                {
+                    Debug.LogError("SyncManager: Failed to deserialize starting position lock data");
+                    return;
+                }
+
+                int posNum = data.positionNumber;
+                string playerId = data.playerId;
+
+                // Skip if we already know about this lock (avoids duplicate event firings)
+                if (_lockedStartingPositions.TryGetValue(posNum, out string existingId) && existingId == playerId)
+                    return;
+
+                _lockedStartingPositions[posNum] = playerId;
+                Debug.Log($"SyncManager: Starting position {posNum} locked by player {playerId}");
+                OnStartingPositionLocked?.Invoke(posNum, playerId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to process starting position lock: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -1114,6 +1176,51 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Broadcast a starting position lock to all players in the lobby.
+        /// Each position (1-8) can only be claimed by one player.
+        /// </summary>
+        public async Task BroadcastStartingPositionLock(int positionNumber)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - no local player ID");
+                return;
+            }
+
+            var lockData = new StartingPositionLockData
+            {
+                playerId = playerId,
+                positionNumber = positionNumber
+            };
+            string json = JsonUtility.ToJson(lockData);
+
+            string path = $"games/{_multiplayerManager.LobbyCode}/startingPositions/{positionNumber}";
+
+            try
+            {
+                await _firebaseManager.DatabaseReference.Child(path).SetValueAsync(json);
+                Debug.Log($"SyncManager: Starting position lock broadcast to {path} (player {playerId})");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast starting position lock: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Broadcast turn completion to all players in the lobby.
         /// </summary>
         /// <param name="turnNumber">Turn number that was completed</param>
@@ -1379,5 +1486,16 @@ namespace PocketPlanner.Multiplayer
         public bool flipped;
         public int turnPlaced; // optional
         public int starsAwarded; // number of stars awarded for this placement (0, 1, or 2)
+    }
+
+    /// <summary>
+    /// Data for broadcasting a starting position lock.
+    /// Each starting position (1-8) can be claimed by only one player.
+    /// </summary>
+    [Serializable]
+    public class StartingPositionLockData
+    {
+        public string playerId;
+        public int positionNumber;
     }
 }
