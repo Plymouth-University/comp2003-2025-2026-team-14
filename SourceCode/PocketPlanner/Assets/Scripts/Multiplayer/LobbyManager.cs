@@ -79,7 +79,8 @@ namespace PocketPlanner.Multiplayer
         /// <param name="onError">Callback when error occurs</param>
         /// <param name="maxPlayers">Maximum number of players allowed (default: 8)</param>
         /// <param name="turnTimeLimit">Turn time limit in seconds, -1 for unlimited (default: -1)</param>
-        public void CreateLobby(string hostPlayerId, Action<string> onLobbyCreated, Action<string> onError, int maxPlayers = 8, int turnTimeLimit = -1)
+        /// <param name="displayName">Custom display name for the player</param>
+        public void CreateLobby(string hostPlayerId, Action<string> onLobbyCreated, Action<string> onError, int maxPlayers = 8, int turnTimeLimit = -1, string displayName = null)
         {
             if (!_firebaseManager.IsReady())
             {
@@ -114,7 +115,8 @@ namespace PocketPlanner.Multiplayer
             };
 
             // Add host as first player
-            var hostPlayer = new PlayerData(hostPlayerId, "Host", true, _deviceId);
+            string hostDisplayName = !string.IsNullOrEmpty(displayName) ? displayName : "Host";
+            var hostPlayer = new PlayerData(hostPlayerId, hostDisplayName, true, _deviceId);
             var hostPlayerDict = PlayerDataToDictionary(hostPlayer);
 
             // Add host to players list
@@ -177,7 +179,7 @@ namespace PocketPlanner.Multiplayer
         /// <summary>
         /// Join an existing lobby.
         /// </summary>
-        public void JoinLobby(string lobbyCode, string playerId, Action<string, Dictionary<string, PlayerData>> onLobbyJoined, Action<string> onError)
+        public void JoinLobby(string lobbyCode, string playerId, Action<string, Dictionary<string, PlayerData>> onLobbyJoined, Action<string> onError, string displayName = null)
         {
             if (!_firebaseManager.IsReady())
             {
@@ -255,7 +257,8 @@ namespace PocketPlanner.Multiplayer
                     Debug.Log($"LobbyManager: Turn time limit read successfully: {turnTimeLimit}");
 
                     // Add player to lobby
-                    var playerData = new PlayerData(playerId, $"Player{playerCount + 1}", false, _deviceId);
+                    string playerDisplayName = !string.IsNullOrEmpty(displayName) ? displayName : $"Player {playerCount + 1}";
+                    var playerData = new PlayerData(playerId, playerDisplayName, false, _deviceId);
                     Debug.Log($"LobbyManager: PlayerData created - PlayerId: {playerId}, DisplayName: {playerData.DisplayName}, DeviceId: {playerData.DeviceId}");
 
                     playerDict = PlayerDataToDictionary(playerData);

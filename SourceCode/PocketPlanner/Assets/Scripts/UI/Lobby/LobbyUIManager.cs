@@ -18,7 +18,7 @@ public class LobbyUIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI roomCodeText; // Text component to display the room code in the lobby
     [SerializeField] private TextMeshProUGUI maxPlayersText; // Text component to display the maximum number of players in the lobby
     [SerializeField] private TextMeshProUGUI turnTimeText; // Text component to display the turn time limit in the lobby
-    [SerializeField] private TextMeshProUGUI hostNameText; // Text component to display the host's device id (temporarily) in the lobby
+    [SerializeField] private TextMeshProUGUI hostNameText; // Text component to display the host's display name in the lobby
 
     [SerializeField] private Button startGameButton; // Button to start the game, only interactable by the host
     [SerializeField] private Button readyButton; // Button for players to toggle their ready state (host does not have this button - they should be ready by default)
@@ -298,11 +298,11 @@ public class LobbyUIManager : MonoBehaviour
         {
             if (player.IsHost)
             {
-                hostName = player.PlayerId; // Using PlayerId as a placeholder for name
-                // Clip host name to 5 characters for UI
-                if (hostName.Length > 5)
+                hostName = player.DisplayName;
+                // Clip host name to 10 characters for UI
+                if (hostName.Length > 10)
                 {
-                    hostName = hostName.Substring(0, 5) + "...";
+                    hostName = hostName.Substring(0, 10) + "...";
                 }
                 break;
             }
@@ -370,14 +370,15 @@ public class LobbyUIManager : MonoBehaviour
         {
             if (playerIndex >= CurrentMaxPlayers) break;
 
-            // Update player name text
-            if (player.PlayerId.Length > 5) // Use PlayerID as a placeholder for player name, clip to 5 chars
+            // Update player name text using DisplayName
+            string playerDisplayName = player.DisplayName;
+            if (playerDisplayName.Length > 10) // Clip to 10 characters for UI space
             {
-                playerNameTexts[playerIndex].text = $"{player.PlayerId.Substring(0, 5)}...";
+                playerNameTexts[playerIndex].text = $"{playerDisplayName.Substring(0, 10)}...";
             }
             else
             {
-                playerNameTexts[playerIndex].text = $"{player.PlayerId}";
+                playerNameTexts[playerIndex].text = playerDisplayName;
             }
 
             // Update checkmark image for players 2-8 (playerIndex 1-7)

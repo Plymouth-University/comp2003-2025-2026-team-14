@@ -174,11 +174,11 @@ namespace PocketPlanner.UI
             }
             else
             {
-                //string displayName = spectatorManager.GetPlayerDisplayName(currentPlayerId);
-                // (TEMP) For now use player ID as display name, there are no display name input fields yet.
-                string displayName = currentPlayerId;
-                // Trim to 5 characters for UI space
-                if (displayName.Length > 5) displayName = displayName.Substring(0, 5) + "...";
+                string displayName = MultiplayerManager.Instance != null
+                    ? MultiplayerManager.Instance.GetPlayerDisplayName(currentPlayerId)
+                    : currentPlayerId;
+                // Trim to 10 characters for UI space
+                if (displayName.Length > 10) displayName = displayName.Substring(0, 10) + "...";
                 headerText.text = opponentHeaderPrefix + displayName;
             }
         }

@@ -79,10 +79,25 @@ public class GameManager : MonoBehaviour
     private bool isCheckingGameEnd = false;
 
     [Header("End Game UI")]
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private GameObject endGamePanel;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private TextMeshProUGUI scoreBreakdownText;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button restartButton;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button mainMenuButton;
+
+    [Header("Score Breakdown UI (Replacement for End Game UI)")]
+    [SerializeField] private ScoreBreakdownUIManager scoreBreakdownUIManager;
+
+    [Header("End Scoreboard UI (Replacement for End Game Panel)")]
+    [SerializeField] private EndScoreboardUIManager endScoreboardUIManager;
+
+    [Header("Top Panel Options UI")]
+    [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private Button scoreGuideButton;
+    [SerializeField] private TextMeshProUGUI feedbackText;
 
     // Inputs
     private InputAction touchPositionAction; 
@@ -241,9 +256,13 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Find and assign references to UI elements in the scene. Called in OnSceneLoaded to refresh references after scene changes.
+    /// Use for both end game UI and top panel options UI. Reinitializes button listeners after reassigning references.
+    /// </summary>
     void FindAndAssignUIReferences()
     {
-        // Find EndGamePanel by name
+        // Find EndGamePanel by name (for backward compatibility)
         GameObject panelObj = GameObject.Find("EndGamePanel");
         if (panelObj != null)
         {
@@ -267,6 +286,59 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogWarning("GameManager: Could not find EndGamePanel in scene.");
+        }
+
+        // Find ScoreBreakdownUIManager if not already assigned via inspector
+        if (scoreBreakdownUIManager == null)
+        {
+            scoreBreakdownUIManager = FindAnyObjectByType<ScoreBreakdownUIManager>();
+            if (scoreBreakdownUIManager != null)
+            {
+                Debug.Log("GameManager: Found ScoreBreakdownUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: ScoreBreakdownUIManager not found in scene.");
+            }
+        }
+
+        // Find EndScoreboardUIManager if not already assigned via inspector
+        if (endScoreboardUIManager == null)
+        {
+            endScoreboardUIManager = FindAnyObjectByType<EndScoreboardUIManager>();
+            if (endScoreboardUIManager != null)
+            {
+                Debug.Log("GameManager: Found EndScoreboardUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: EndScoreboardUIManager not found in scene.");
+            }
+        }
+
+        // Find top panel buttons and feedback text
+        panelObj = GameObject.Find("OptionsPanel");
+        if (panelObj != null)
+        {
+            // Find child objects for buttons and feedback text
+            Transform feedbackTextTransform = panelObj.transform.Find("FeedbackText");
+            if (feedbackTextTransform != null)
+                feedbackText = feedbackTextTransform.GetComponent<TextMeshProUGUI>();
+
+            Transform returnToMenuBtn = panelObj.transform.Find("MenuButton");
+            if (returnToMenuBtn != null)
+                returnToMenuButton = returnToMenuBtn.GetComponent<Button>();
+            
+            Transform scoreGuideBtn = panelObj.transform.Find("ScoreGuideButton");
+            if (scoreGuideBtn != null)
+                scoreGuideButton = scoreGuideBtn.GetComponent<Button>();
+            
+            // Reinitialize button listeners
+            InitializeOptionsUI();
+        }
+        else 
+        {
+            Debug.LogWarning("GameManager: Could not find OptionsPanel in scene.");
         }
     }
 
@@ -314,6 +386,8 @@ public class GameManager : MonoBehaviour
 
         // Initialize end game UI
         InitializeEndGameUI();
+        // Initialize top panel UI
+        InitializeOptionsUI();
         InitializeAutoEndDetector();
 
         // Roll dice for first turn (deterministic in multiplayer if seed available)
@@ -1305,8 +1379,22 @@ public class GameManager : MonoBehaviour
         ScoreComponents score = CalculateFinalScore();
         currentScore = score;
 
-        // Show end game UI
-        ShowEndGameScreen(score);
+        // Show end-game scoreboard (new flow: scoreboard → click breakdown button → detailed breakdown)
+        if (endScoreboardUIManager != null)
+        {
+            endScoreboardUIManager.DisplayScoreboard(score);
+        }
+        else if (scoreBreakdownUIManager != null)
+        {
+            // Fallback: show detailed breakdown directly (if scoreboard not available)
+            scoreBreakdownUIManager.DisplayScoreBreakdown(score);
+        }
+        else
+        {
+            // Final fallback to old EndGamePanel
+            Debug.LogWarning("GameManager: Neither EndScoreboardUIManager nor ScoreBreakdownUIManager available, falling back to old EndGamePanel.");
+            ShowEndGameScreen(score);
+        }
 
         // Disable further game interactions
         // (Optional) Disable dice UI, shape movement, etc.
@@ -1410,8 +1498,41 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show end game screen with score breakdown.
+    /// Initialize top panel options UI elements (button listeners).
+    /// Call this in Start() after UI references are set.
     /// </summary>
+    private void InitializeOptionsUI()
+    {
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+            returnToMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Return to menu button not assigned in top options panel.");
+        }
+        if (scoreGuideButton != null)
+        {
+            //scoreGuideButton.onClick.RemoveListener(ShowScoreGuide);
+            //scoreGuideButton.onClick.AddListener(ShowScoreGuide);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Score guide button not assigned in top options panel.");
+        }
+        if (feedbackText != null)
+        {
+            feedbackText.text = "";
+        }
+    }
+
+    /// <summary>
+    /// [Deprecated] Show end game screen with score breakdown.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
+    /// Retained as fallback if ScoreBreakdownUIManager is not available.
+    /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private void ShowEndGameScreen(ScoreComponents score)
     {
         if (endGamePanel == null)
@@ -1434,8 +1555,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Hide end game screen.
+    /// [Deprecated] Hide end game screen.
+    /// Replaced by ScoreBreakdownUIManager.Hide().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.Hide().")]
     private void HideEndGameScreen()
     {
         if (endGamePanel != null)
@@ -1446,8 +1569,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Format score breakdown for display.
+    /// [Deprecated] Format score breakdown for display.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private string FormatScoreBreakdown(ScoreComponents score)
     {
         return $"FINAL SCORE: {score.totalScore}\n\n" +

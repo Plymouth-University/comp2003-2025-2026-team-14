@@ -1176,6 +1176,75 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Broadcast the player's final score breakdown to Firebase for the end-game scoreboard.
+        /// </summary>
+        /// <param name="score">The complete ScoreComponents for this player</param>
+        public async Task BroadcastFinalScore(ScoreComponents score)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - no local player ID");
+                return;
+            }
+
+            string displayName = _multiplayerManager.Players.TryGetValue(playerId, out var playerData)
+                ? playerData.DisplayName
+                : playerId;
+
+            try
+            {
+                var finalScoreData = new FinalScoreData
+                {
+                    playerId = playerId,
+                    displayName = displayName,
+                    totalScore = score.totalScore,
+                    stars = score.starScore,
+                    wildcardsUsed = GetCurrentWildcardsUsed(),
+                    emptyCellPenalty = score.emptyCellPenalty,
+                    industrialZoneScore = score.industrialZoneScore,
+                    residentialZoneScore = score.residentialZoneScore,
+                    commercialZoneScore = score.commercialZoneScore,
+                    parkScore = score.parkScore,
+                    schoolScore = score.schoolScore,
+                    scoreComponentsJson = JsonUtility.ToJson(score)
+                };
+
+                string json = JsonUtility.ToJson(finalScoreData);
+
+                await _firebaseManager.DatabaseReference
+                    .Child($"games/{_multiplayerManager.LobbyCode}/finalScores/{playerId}")
+                    .SetValueAsync(json);
+
+                Debug.Log($"SyncManager: Final score broadcast to games/{_multiplayerManager.LobbyCode}/finalScores/{playerId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast final score: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get current wildcards used count from GameManager.
+        /// </summary>
+        private int GetCurrentWildcardsUsed()
+        {
+            return _gameManager?.WildcardsUsed ?? 0;
+        }
+
+        /// <summary>
         /// Broadcast a starting position lock to all players in the lobby.
         /// Each position (1-8) can only be claimed by one player.
         /// </summary>
@@ -1408,6 +1477,74 @@ namespace PocketPlanner.Multiplayer
             });
         }
 
+        /// <summary>
+        /// Fetch all players' final scores from Firebase for the end-game scoreboard.
+        /// </summary>
+        /// <param name="callback">Callback with list of FinalScoreData, sorted by nothing (caller should sort)</param>
+        public void FetchAllFinalScores(System.Action<List<FinalScoreData>> callback)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot fetch final scores - Firebase not ready");
+                callback?.Invoke(new List<FinalScoreData>());
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot fetch final scores - no lobby code");
+                callback?.Invoke(new List<FinalScoreData>());
+                return;
+            }
+
+            string lobbyCode = _multiplayerManager.LobbyCode;
+            DatabaseReference finalScoresRef = _firebaseManager.DatabaseReference
+                .Child($"games/{lobbyCode}/finalScores");
+
+            finalScoresRef.GetValueAsync().ContinueWith(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    Debug.LogError($"SyncManager: Failed to fetch final scores: {task.Exception}");
+                    InvokeOnMainThread(() => callback?.Invoke(new List<FinalScoreData>()));
+                    return;
+                }
+
+                var scores = new List<FinalScoreData>();
+                DataSnapshot snapshot = task.Result;
+
+                if (snapshot != null && snapshot.Exists)
+                {
+                    foreach (DataSnapshot child in snapshot.Children)
+                    {
+                        try
+                        {
+                            // Firebase stores the JSON string as a string value,
+                            // so we need to read it as a plain string (not raw JSON)
+                            string json = child.Value as string;
+                            if (string.IsNullOrEmpty(json))
+                            {
+                                Debug.LogWarning($"SyncManager: Empty final score data for {child.Key}");
+                                continue;
+                            }
+                            var finalScore = JsonUtility.FromJson<FinalScoreData>(json);
+                            if (finalScore != null)
+                            {
+                                scores.Add(finalScore);
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"SyncManager: Failed to deserialize final score for {child.Key}: {ex.Message}");
+                        }
+                    }
+                }
+
+                Debug.Log($"SyncManager: Fetched {scores.Count} final scores");
+                InvokeOnMainThread(() => callback?.Invoke(scores));
+            });
+        }
+
     }
 
     // Data structures for serialization
@@ -1497,5 +1634,27 @@ namespace PocketPlanner.Multiplayer
     {
         public string playerId;
         public int positionNumber;
+    }
+
+    /// <summary>
+    /// Data structure for broadcasting final scores at game end.
+    /// Contains the full score breakdown for display in the end-game scoreboard.
+    /// </summary>
+    [Serializable]
+    public class FinalScoreData
+    {
+        public string playerId;
+        public string displayName;
+        public int totalScore;
+        public int stars;
+        public int wildcardsUsed;
+        public int emptyCellPenalty;
+        public int industrialZoneScore;
+        public int residentialZoneScore;
+        public int commercialZoneScore;
+        public int parkScore;
+        public int schoolScore;
+        /// <summary>Full ScoreComponents serialized as JSON for detailed breakdown display.</summary>
+        public string scoreComponentsJson;
     }
 }

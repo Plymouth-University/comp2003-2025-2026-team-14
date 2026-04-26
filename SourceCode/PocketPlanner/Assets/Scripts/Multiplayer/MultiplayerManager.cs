@@ -37,6 +37,7 @@ namespace PocketPlanner.Multiplayer
         public bool IsLobbyHost { get; private set; }
         public string LobbyCode { get; private set; }
         public string LocalPlayerId { get; private set; }
+        public string LocalDisplayName { get; private set; }
         public Dictionary<string, PlayerData> Players { get; private set; }
 
         // Shared random seed for synchronized dice rolls
@@ -212,7 +213,7 @@ namespace PocketPlanner.Multiplayer
         /// <param name="lobbyCode">Existing lobby code to join, or empty to create new</param>
         /// <param name="maxPlayers">Maximum number of players allowed (default: 8, host only)</param>
         /// <param name="turnTimeLimit">Turn time limit in seconds, -1 for unlimited (default: -1, host only)</param>
-        public void EnableMultiplayerMode(bool isHost, string lobbyCode = "", int maxPlayers = 8, int turnTimeLimit = -1)
+        public void EnableMultiplayerMode(bool isHost, string lobbyCode = "", int maxPlayers = 8, int turnTimeLimit = -1, string displayName = null)
         {
             if (!_firebaseManager.IsReady())
             {
@@ -235,6 +236,9 @@ namespace PocketPlanner.Multiplayer
                 return;
             }
 
+            // Store display name
+            LocalDisplayName = !string.IsNullOrEmpty(displayName) ? displayName : $"Player {LocalPlayerId.Substring(0, Mathf.Min(LocalPlayerId.Length, 5))}";
+
             IsMultiplayerMode = true;
             IsLobbyHost = isHost;
 
@@ -252,7 +256,7 @@ namespace PocketPlanner.Multiplayer
                 JoinLobby(lobbyCode);
             }
 
-            Debug.Log($"MultiplayerManager: Multiplayer mode enabled (Host: {isHost}, Lobby: {lobbyCode}, PlayerId: {LocalPlayerId})");
+            Debug.Log($"MultiplayerManager: Multiplayer mode enabled (Host: {isHost}, Lobby: {lobbyCode}, PlayerId: {LocalPlayerId}, DisplayName: {LocalDisplayName})");
         }
 
         /// <summary>
@@ -265,6 +269,7 @@ namespace PocketPlanner.Multiplayer
             IsMultiplayerMode = false;
             IsLobbyHost = false;
             LobbyCode = string.Empty;
+            LocalDisplayName = string.Empty;
             Players.Clear();
 
             // Reset game state fields
@@ -323,7 +328,7 @@ namespace PocketPlanner.Multiplayer
             }
 
             Debug.Log($"MultiplayerManager: Creating lobby for player {LocalPlayerId} with maxPlayers={_hostMaxPlayers}, turnTimeLimit={_hostTurnTimeLimit}...");
-            _lobbyManager.CreateLobby(LocalPlayerId, OnLobbyCreated, OnLobbyError, _hostMaxPlayers, _hostTurnTimeLimit);
+            _lobbyManager.CreateLobby(LocalPlayerId, OnLobbyCreated, OnLobbyError, _hostMaxPlayers, _hostTurnTimeLimit, LocalDisplayName);
         }
 
         /// <summary>
@@ -338,7 +343,7 @@ namespace PocketPlanner.Multiplayer
             }
 
             Debug.Log($"MultiplayerManager: Joining lobby {lobbyCode} as player {LocalPlayerId}...");
-            _lobbyManager.JoinLobby(lobbyCode, LocalPlayerId, OnLobbyJoinedCallback, OnLobbyError);
+            _lobbyManager.JoinLobby(lobbyCode, LocalPlayerId, OnLobbyJoinedCallback, OnLobbyError, LocalDisplayName);
         }
 
         /// <summary>
@@ -361,7 +366,8 @@ namespace PocketPlanner.Multiplayer
             }
 
             // Add host as first player
-            var hostPlayer = new PlayerData(LocalPlayerId, "Host", true, _deviceId);
+            string hostDisplayName = !string.IsNullOrEmpty(LocalDisplayName) ? LocalDisplayName : "Host";
+            var hostPlayer = new PlayerData(LocalPlayerId, hostDisplayName, true, _deviceId);
             Players[LocalPlayerId] = hostPlayer;
 
             Debug.Log($"MultiplayerManager: Invoking OnLobbyJoined event (null: {OnLobbyJoined == null}), subscriber count: {GetOnLobbyJoinedSubscriberCount()}");
