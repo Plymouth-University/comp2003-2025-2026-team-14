@@ -79,10 +79,17 @@ public class GameManager : MonoBehaviour
     private bool isCheckingGameEnd = false;
 
     [Header("End Game UI")]
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private GameObject endGamePanel;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private TextMeshProUGUI scoreBreakdownText;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button restartButton;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button mainMenuButton;
+
+    [Header("Score Breakdown UI (Replacement for End Game UI)")]
+    [SerializeField] private ScoreBreakdownUIManager scoreBreakdownUIManager;
 
     [Header("Top Panel Options UI")]
     [SerializeField] private Button returnToMenuButton;
@@ -252,7 +259,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     void FindAndAssignUIReferences()
     {
-        // Find EndGamePanel by name
+        // Find EndGamePanel by name (for backward compatibility)
         GameObject panelObj = GameObject.Find("EndGamePanel");
         if (panelObj != null)
         {
@@ -276,6 +283,20 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogWarning("GameManager: Could not find EndGamePanel in scene.");
+        }
+
+        // Find ScoreBreakdownUIManager if not already assigned via inspector
+        if (scoreBreakdownUIManager == null)
+        {
+            scoreBreakdownUIManager = FindAnyObjectByType<ScoreBreakdownUIManager>();
+            if (scoreBreakdownUIManager != null)
+            {
+                Debug.Log("GameManager: Found ScoreBreakdownUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: ScoreBreakdownUIManager not found in scene.");
+            }
         }
 
         // Find top panel buttons and feedback text
@@ -1341,8 +1362,17 @@ public class GameManager : MonoBehaviour
         ScoreComponents score = CalculateFinalScore();
         currentScore = score;
 
-        // Show end game UI
-        ShowEndGameScreen(score);
+        // Show score breakdown using the new ScoreBreakdownUIManager (preferred)
+        if (scoreBreakdownUIManager != null)
+        {
+            scoreBreakdownUIManager.DisplayScoreBreakdown(score);
+        }
+        else
+        {
+            // Fallback to old EndGamePanel
+            Debug.LogWarning("GameManager: ScoreBreakdownUIManager not available, falling back to old EndGamePanel.");
+            ShowEndGameScreen(score);
+        }
 
         // Disable further game interactions
         // (Optional) Disable dice UI, shape movement, etc.
@@ -1476,8 +1506,11 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show end game screen with score breakdown.
+    /// [Deprecated] Show end game screen with score breakdown.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
+    /// Retained as fallback if ScoreBreakdownUIManager is not available.
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private void ShowEndGameScreen(ScoreComponents score)
     {
         if (endGamePanel == null)
@@ -1500,8 +1533,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Hide end game screen.
+    /// [Deprecated] Hide end game screen.
+    /// Replaced by ScoreBreakdownUIManager.Hide().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.Hide().")]
     private void HideEndGameScreen()
     {
         if (endGamePanel != null)
@@ -1512,8 +1547,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Format score breakdown for display.
+    /// [Deprecated] Format score breakdown for display.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private string FormatScoreBreakdown(ScoreComponents score)
     {
         return $"FINAL SCORE: {score.totalScore}\n\n" +

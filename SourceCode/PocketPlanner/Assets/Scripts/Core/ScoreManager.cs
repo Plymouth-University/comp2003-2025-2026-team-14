@@ -56,10 +56,13 @@ public class ScoreManager : MonoBehaviour
     {
         ScoreComponents components = new ScoreComponents();
 
-        // Zone scores (Industrial, Residential, Commercial)
-        components.industrialZoneScore = CalculateZoneScore(BuildingType.Industrial);
-        components.residentialZoneScore = CalculateZoneScore(BuildingType.Residential);
-        components.commercialZoneScore = CalculateZoneScore(BuildingType.Commercial);
+        // Initialize per-zone breakdown arrays
+        components.InitializeBreakdownArrays();
+
+        // Zone scores (Industrial, Residential, Commercial) with per-zone breakdown
+        components.industrialZoneScore = CalculateZoneScoreWithBreakdown(BuildingType.Industrial, components.industrialZoneBreakdown);
+        components.residentialZoneScore = CalculateZoneScoreWithBreakdown(BuildingType.Residential, components.residentialZoneBreakdown);
+        components.commercialZoneScore = CalculateZoneScoreWithBreakdown(BuildingType.Commercial, components.commercialZoneBreakdown);
 
         // Park scores
         components.parkScore = CalculateParkScore();
@@ -82,8 +85,39 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Calculate total score for all zones of a specific building type.
+    /// Calculate total zone score AND populate per-zone breakdown data.
+    /// Breakdown array must already be initialized with 6 entries (unique shape counts 1-6).
     /// </summary>
+    private int CalculateZoneScoreWithBreakdown(BuildingType buildingType, ZoneBreakdownEntry[] breakdown)
+    {
+        if (zoneManager == null) return 0;
+
+        List<Zone> zones = zoneManager.GetZonesOfType(buildingType);
+        int total = 0;
+
+        foreach (Zone zone in zones)
+        {
+            int uniqueShapes = zone.GetUniqueShapeCount();
+            int zoneScore = UniqueShapesToScore(uniqueShapes);
+            total += zoneScore;
+
+            // Populate breakdown entry (0-indexed, uniqueShapes 1-6 maps to indices 0-5)
+            if (uniqueShapes >= 1 && uniqueShapes <= 6 && breakdown != null)
+            {
+                int index = uniqueShapes - 1;
+                breakdown[index].zoneCount++;
+                breakdown[index].totalScore += zoneScore;
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// [Deprecated] Calculate total score for all zones of a specific building type.
+    /// Use CalculateZoneScoreWithBreakdown instead to also populate per-zone breakdown data.
+    /// </summary>
+    [System.Obsolete("Use CalculateZoneScoreWithBreakdown instead to populate per-zone breakdown data.")]
     private int CalculateZoneScore(BuildingType buildingType)
     {
         if (zoneManager == null) return 0;
@@ -113,8 +147,9 @@ public class ScoreManager : MonoBehaviour
 
     /// <summary>
     /// Convert unique shape count to points according to scoring table.
+    /// Scoring table: 1=1, 2=2, 3=4, 4=7, 5=11, 6=16
     /// </summary>
-    private int UniqueShapesToScore(int uniqueShapes)
+    public int UniqueShapesToScore(int uniqueShapes)
     {
         // Scoring table from ruleset.md
         switch (uniqueShapes)
