@@ -248,7 +248,7 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Find and assign references to UI elements in the scene. Called in OnSceneLoaded to refresh references after scene changes.
-    /// Use for both end game UI and top panel options UI. Make sure to reinitialize button listeners after reassigning references.
+    /// Use for both end game UI and top panel options UI. Reinitializes button listeners after reassigning references.
     /// </summary>
     void FindAndAssignUIReferences()
     {
