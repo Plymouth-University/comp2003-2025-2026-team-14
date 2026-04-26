@@ -9,6 +9,9 @@ namespace PocketPlanner.UI
 {
     public class DiceUIManager : MonoBehaviour
     {
+        [Header("Game Manager Reference")]
+        [SerializeField] private GameManager gameManager;
+
         [Header("Dice Manager Reference")]
         [SerializeField] private DiceManager diceManager;
 
@@ -58,10 +61,13 @@ namespace PocketPlanner.UI
         [Header("Wildcard UI")]
         [SerializeField] private Button shapeWildcardButton;
         [SerializeField] private Button buildingWildcardButton;
-        [SerializeField] private WildcardSelectionPanel shapeWildcardPanel;
-        [SerializeField] private WildcardSelectionPanel buildingWildcardPanel;
+        [SerializeField] public WildcardSelectionPanel shapeWildcardPanel;
+        [SerializeField] public WildcardSelectionPanel buildingWildcardPanel;
         [SerializeField] private TextMeshProUGUI wildcardCountText;
         [SerializeField] private TextMeshProUGUI wildcardCostText;
+        [SerializeField] private TextMeshProUGUI turnCountText;
+        [SerializeField] private TextMeshProUGUI wildcardCounterText; // New wildcard counter 
+        
 
         private bool waterDieClickedThisFrame = false;
         private int wildcardTargetShapeDieIndex = 0;
@@ -71,6 +77,15 @@ namespace PocketPlanner.UI
         {
             Debug.Log($"DiceUIManager.Start() on {gameObject.name}");
             // Find essential managers, but don't fail entirely if not found immediately
+            if (gameManager == null)
+            {
+                gameManager = FindAnyObjectByType<GameManager>();
+                if (gameManager == null)
+                {
+                    Debug.LogWarning("DiceUIManager: GameManager not found on Start. Will try again later.");
+                }
+            }
+
             if (diceManager == null)
             {
                 diceManager = FindAnyObjectByType<DiceManager>();
@@ -214,8 +229,32 @@ namespace PocketPlanner.UI
             UpdateWaterDieUI();
         }
 
+        /// <summary>
+        /// Enable or disable all dice buttons (shape and building) and wildcard buttons.
+        /// Called when entering/exiting spectator mode.
+        /// </summary>
+        public void SetDiceInteractable(bool interactable)
+        {
+            foreach (Button button in shapeDiceButtons)
+            {
+                if (button != null) button.interactable = interactable;
+            }
+            foreach (Button button in buildingDiceButtons)
+            {
+                if (button != null) button.interactable = interactable;
+            }
+            if (shapeWildcardButton != null) shapeWildcardButton.interactable = interactable;
+            if (buildingWildcardButton != null) buildingWildcardButton.interactable = interactable;
+
+            Debug.Log($"DiceUIManager: Dice buttons interactable set to {interactable}");
+        }
+
         private void OnShapeDieClicked(int index)
         {
+            // Disable dice selection while spectating
+            if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers) return;
+            // Disable dice selection while waiting for other players
+            if (GameManager.Instance != null && GameManager.Instance.IsWaitingForOtherPlayers) return;
             if (diceManager == null) return;
 
             diceManager.SelectShapeDie(index);
@@ -227,6 +266,10 @@ namespace PocketPlanner.UI
 
         private void OnBuildingDieClicked(int index)
         {
+            // Disable dice selection while spectating
+            if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers) return;
+            // Disable dice selection while waiting for other players
+            if (GameManager.Instance != null && GameManager.Instance.IsWaitingForOtherPlayers) return;
             if (diceManager == null) return;
 
             // Select the building die
@@ -361,6 +404,15 @@ namespace PocketPlanner.UI
         }
 
         /// <summary>
+        /// Called when spectator mode changes (from GameManager).
+        /// </summary>
+        private void OnSpectatorModeChanged(bool isSpectating)
+        {
+            SetDiceInteractable(!isSpectating);
+            Debug.Log($"DiceUIManager: Spectator mode changed to {isSpectating}, dice interactable set to {!isSpectating}");
+        }
+
+        /// <summary>
         /// Coroutine that ensures GameManager is ready and updates wildcard UI.
         /// This handles the case where GameManager.Instance may not be set during Start().
         /// </summary>
@@ -374,7 +426,13 @@ namespace PocketPlanner.UI
 
             // GameManager is now available, update wildcard UI
             UpdateWildcardUI();
-            Debug.Log("EnsureGameManagerReady: GameManager.Instance now available, wildcard UI updated.");
+
+            // Subscribe to spectator mode changes
+            GameManager.Instance.OnSpectatorModeChanged += OnSpectatorModeChanged;
+            // Initial update based on current spectator mode
+            SetDiceInteractable(!GameManager.Instance.IsSpectatingOtherPlayers);
+
+            Debug.Log("EnsureGameManagerReady: GameManager.Instance now available, wildcard UI updated and spectator mode subscribed.");
         }
 
         #region Wildcard Methods
@@ -383,9 +441,24 @@ namespace PocketPlanner.UI
         /// Called when shape wildcard button is clicked.
         /// Shows shape wildcard panel if wildcards available.
         /// </summary>
-        private void OnShapeWildcardButtonClicked()
+        public void OnShapeWildcardButtonClicked()
         {
             Debug.Log($"OnShapeWildcardButtonClicked called. GameManager.Instance={(GameManager.Instance != null ? "set" : "null")}");
+
+            // Disable wildcard usage while spectating other players
+            if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+            {
+                Debug.Log("DiceUIManager: Shape wildcard disabled while spectating other players.");
+                return;
+            }
+
+            // Disable wildcard usage while waiting for other players
+            if (GameManager.Instance != null && GameManager.Instance.IsWaitingForOtherPlayers)
+            {
+                Debug.Log("DiceUIManager: Shape wildcard disabled while waiting for other players.");
+                return;
+            }
+
             // Ensure GameManager reference is available
             if (GameManager.Instance == null)
             {
@@ -443,6 +516,21 @@ namespace PocketPlanner.UI
         private void OnBuildingWildcardButtonClicked()
         {
             Debug.Log($"OnBuildingWildcardButtonClicked called. GameManager.Instance={(GameManager.Instance != null ? "set" : "null")}");
+
+            // Disable wildcard usage while spectating other players
+            if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+            {
+                Debug.Log("DiceUIManager: Building wildcard disabled while spectating other players.");
+                return;
+            }
+
+            // Disable wildcard usage while waiting for other players
+            if (GameManager.Instance != null && GameManager.Instance.IsWaitingForOtherPlayers)
+            {
+                Debug.Log("DiceUIManager: Building wildcard disabled while waiting for other players.");
+                return;
+            }
+
             // Ensure GameManager reference is available
             if (GameManager.Instance == null)
             {
@@ -621,7 +709,8 @@ namespace PocketPlanner.UI
             // Update text
             if (wildcardCountText != null)
                 wildcardCountText.text = $"{remaining}/{GameManager.MAX_WILDCARDS}";
-
+            if (wildcardCounterText != null)
+                wildcardCounterText.text = $"Wildcards: {remaining}"; // New reference
             if (wildcardCostText != null)
                 wildcardCostText.text = $"Cost: {nextCost}";
 
@@ -634,5 +723,19 @@ namespace PocketPlanner.UI
         }
 
         #endregion
+
+        public void updateTurnText(int currentTurn)
+        {
+            if (turnCountText != null)
+                turnCountText.text = $"Turn: {currentTurn}";
+        }
+
+        private void OnDestroy()
+        {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnSpectatorModeChanged -= OnSpectatorModeChanged;
+            }
+        }
     }
 }

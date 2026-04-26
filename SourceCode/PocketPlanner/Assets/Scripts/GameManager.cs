@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
 
     // Game state
     private int currentTurn;
+    private ScoreComponents currentScore; // Only updated when needed to display score (like end of game), calculated from ScoreManager
     private int stars;
     private int wildcardsUsed;
     private DicePool dicePool;
@@ -26,6 +27,15 @@ public class GameManager : MonoBehaviour
     private int previouslySelectedStartingPosition = 0;
     private bool firstTurnCompleted;
     private bool gameEnded;
+    private bool _startingPositionConfirmed; // In multiplayer, prevents changing once broadcast
+
+    // Multiplayer turn tracking
+    private HashSet<string> playersCompletedCurrentTurn = new HashSet<string>();
+    private bool waitingForOtherPlayers = false;
+    private bool _multiplayerEventsSubscribed = false;
+    private bool _multiplayerManagerEventsSubscribed = false;
+    private bool _firstTurnDiceRolled = false;
+    private bool _isLeavingLobby = false;
 
     // Wildcard constants
     public const int MAX_WILDCARDS = 3;
@@ -33,12 +43,21 @@ public class GameManager : MonoBehaviour
 
     // Public properties for game state access
     public int CurrentTurn => currentTurn;
+    public bool IsWaitingForOtherPlayers => waitingForOtherPlayers;
+    public ScoreComponents CurrentScore => currentScore;
     public int Stars => stars;
     public int WildcardsUsed => wildcardsUsed;
     public bool WaterDieUsedThisTurn => waterDieUsedThisTurn;
     public int SelectedStartingPosition => selectedStartingPosition;
     public bool FirstTurnCompleted => firstTurnCompleted;
     public bool GameEnded => gameEnded;
+    public bool HasPlayerCompletedTurn(string playerId) => playersCompletedCurrentTurn != null && playersCompletedCurrentTurn.Contains(playerId);
+    // Spectator mode
+    public bool IsSpectatingOtherPlayers { get; private set; }
+    public string CurrentSpectatedPlayerId { get; private set; }
+    public event System.Action<bool> OnSpectatorModeChanged;
+    public event System.Action<string> OnSpectatedPlayerChanged;
+    public event System.Action<string, bool> OnPlayerTurnCompletionChanged;
     public DicePool DicePool => dicePool;
     public ZoneManager ZoneManager => zoneManager;
     public ScoreManager ScoreManager => scoreManager;
@@ -52,13 +71,33 @@ public class GameManager : MonoBehaviour
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private ScoreManager scoreManager;
     [SerializeField] private SyncManager syncManager;
+    [SerializeField] private WildcardPromptManager wildcardPromptManager;
     //private UIManager uiManager;
 
+    // Auto-end detection
+    private AutoEndDetector autoEndDetector;
+    private bool isCheckingGameEnd = false;
+
     [Header("End Game UI")]
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private GameObject endGamePanel;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private TextMeshProUGUI scoreBreakdownText;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button restartButton;
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
     [SerializeField] private Button mainMenuButton;
+
+    [Header("Score Breakdown UI (Replacement for End Game UI)")]
+    [SerializeField] private ScoreBreakdownUIManager scoreBreakdownUIManager;
+
+    [Header("End Scoreboard UI (Replacement for End Game Panel)")]
+    [SerializeField] private EndScoreboardUIManager endScoreboardUIManager;
+
+    [Header("Top Panel Options UI")]
+    [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private Button scoreGuideButton;
+    [SerializeField] private TextMeshProUGUI feedbackText;
 
     // Inputs
     private InputAction touchPositionAction; 
@@ -79,14 +118,17 @@ public class GameManager : MonoBehaviour
             if (playerInput == null)
             {
                 playerInput = gameObject.AddComponent<PlayerInput>();
-                Debug.LogWarning("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
+                Debug.LogError("GameManager: Added missing PlayerInput component. Please assign the PlayerInputs asset in the inspector.");
             }
             else
             {
                 Debug.Log("GameManager: PlayerInput component found.");
             }
-            mousePositionAction = playerInput.actions["MousePosition"];
-            touchPositionAction = playerInput.actions["TouchPosition"];
+            if (playerInput.actions != null)
+            {
+                mousePositionAction = playerInput.actions["MousePosition"];
+                touchPositionAction = playerInput.actions["TouchPosition"];
+            }
         }
         else
         {
@@ -104,6 +146,18 @@ public class GameManager : MonoBehaviour
             SyncManager.OnPlacementActionReceived -= OnOpponentPlacementAction;
             SyncManager.OnDiceRollReceived -= OnOpponentDiceRollReceived;
             SyncManager.OnPlayerGameStateReceived -= OnOpponentGameStateReceived;
+            SyncManager.OnTurnCompletionReceived -= OnOpponentTurnCompletionReceived;
+            SyncManager.OnStartingPositionLocked -= OnStartingPositionLocked;
+            _multiplayerEventsSubscribed = false;
+            Debug.Log("GameManager: Unsubscribed from SyncManager events");
+        }
+
+        // Unsubscribe from MultiplayerManager events
+        if (MultiplayerManager.Instance != null && _multiplayerManagerEventsSubscribed)
+        {
+            MultiplayerManager.Instance.OnGameStarted -= OnMultiplayerGameStarted;
+            _multiplayerManagerEventsSubscribed = false;
+            Debug.Log("GameManager: Unsubscribed from MultiplayerManager events");
         }
     }
 
@@ -117,26 +171,98 @@ public class GameManager : MonoBehaviour
         // If this is the game scene, roll dice for first turn
         if (scene.name == "MainGameScene")
         {
-            firstTurnCompleted = false; // Reset first turn flag
-            if (diceManager != null)
+            initializeFirstTurnGameState(); // Reset state
+
+            // Roll dice for first turn (deterministic in multiplayer if seed available)
+            // In multiplayer mode, delay rolling until shared seed is available (handled by OnMultiplayerGameStarted)
+            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+            if (isMultiplayer && sharedRandomSeed == -1)
             {
-                diceManager.RollAllDice();
-                diceManager.ClearSelection();
-                Debug.Log("GameManager: Dice rolled for new game.");
+                Debug.Log("GameManager: Multiplayer mode detected but shared seed not yet available. Delaying dice roll until game starts.");
+                // Dice will be rolled when OnMultiplayerGameStarted event fires
+            }
+            else
+            {
+                // Single player or multiplayer with seed already available
+                if (diceManager != null)
+                {
+                    if (!_firstTurnDiceRolled)
+                    {
+                        RollDiceForCurrentTurn();
+                        Debug.Log("GameManager: Dice rolled for new game.");
+                    }
+                    else
+                    {
+                        Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in OnSceneLoaded()");
+                    }
+                }
+                else
+                {
+                    // DiceManager not found - use fallback path
+                    if (!_firstTurnDiceRolled)
+                    {
+                        // Check if we're in multiplayer mode with shared seed available
+                        if (isMultiplayer && sharedRandomSeed != -1)
+                        {
+                            // Multiplayer deterministic rolling
+                            dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                            Debug.Log($"GameManager: First turn dice rolled deterministically via dicePool in OnSceneLoaded (no dice manager), seed: {sharedRandomSeed}, turn: {currentTurn}");
+                        }
+                        else
+                        {
+                            // Single player or multiplayer without seed yet
+                            dicePool.RollAll();
+                            Debug.Log($"GameManager: First turn dice rolled via dicePool in OnSceneLoaded (no dice manager)");
+                        }
+
+                        _firstTurnDiceRolled = true;
+                        Debug.Log($"GameManager: First turn dice rolled flag set to true in OnSceneLoaded");
+
+                        // Clear dice selection
+                        dicePool.ClearSelection();
+
+                        // Still need to update UI even without dice manager
+                        if (diceUIManager != null)
+                        {
+                            diceUIManager.OnDiceRolled();
+                            diceUIManager.HighlightDoubleFaces();
+                            diceUIManager.updateTurnText(currentTurn);
+                        }
+
+                        // Auto-end check after dice roll
+                        CheckForGameEndAfterRoll();
+
+                        // Broadcast dice roll to multiplayer if active
+                        // Note: Skip broadcasting in fallback path since diceManager is null
+                        // and we can't easily get dice faces from dicePool without manager
+                        if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+                        {
+                            Debug.LogWarning("GameManager: Cannot broadcast dice roll in fallback path in OnSceneLoaded (diceManager is null)");
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in OnSceneLoaded() fallback path");
+                    }
+                }
             }
 
-            // Update dice UI if available
-            if (diceUIManager != null)
-            {
-                diceUIManager.OnDiceRolled();
-                diceUIManager.HighlightDoubleFaces();
-            }
+            // Initialize spectator mode for multiplayer now that the game scene is loaded.
+            // OnMultiplayerGameStarted may have fired in the lobby scene before
+            // SpectatorManager/SpectatorUIManager existed (they are in MainGameScene).
+            TryInitializeSpectatorMode();
         }
     }
 
+    /// <summary>
+    /// Find and assign references to UI elements in the scene. Called in OnSceneLoaded to refresh references after scene changes.
+    /// Use for both end game UI and top panel options UI. Reinitializes button listeners after reassigning references.
+    /// </summary>
     void FindAndAssignUIReferences()
     {
-        // Find EndGamePanel by name
+        // Find EndGamePanel by name (for backward compatibility)
         GameObject panelObj = GameObject.Find("EndGamePanel");
         if (panelObj != null)
         {
@@ -161,18 +287,65 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("GameManager: Could not find EndGamePanel in scene.");
         }
+
+        // Find ScoreBreakdownUIManager if not already assigned via inspector
+        if (scoreBreakdownUIManager == null)
+        {
+            scoreBreakdownUIManager = FindAnyObjectByType<ScoreBreakdownUIManager>();
+            if (scoreBreakdownUIManager != null)
+            {
+                Debug.Log("GameManager: Found ScoreBreakdownUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: ScoreBreakdownUIManager not found in scene.");
+            }
+        }
+
+        // Find EndScoreboardUIManager if not already assigned via inspector
+        if (endScoreboardUIManager == null)
+        {
+            endScoreboardUIManager = FindAnyObjectByType<EndScoreboardUIManager>();
+            if (endScoreboardUIManager != null)
+            {
+                Debug.Log("GameManager: Found EndScoreboardUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: EndScoreboardUIManager not found in scene.");
+            }
+        }
+
+        // Find top panel buttons and feedback text
+        panelObj = GameObject.Find("OptionsPanel");
+        if (panelObj != null)
+        {
+            // Find child objects for buttons and feedback text
+            Transform feedbackTextTransform = panelObj.transform.Find("FeedbackText");
+            if (feedbackTextTransform != null)
+                feedbackText = feedbackTextTransform.GetComponent<TextMeshProUGUI>();
+
+            Transform returnToMenuBtn = panelObj.transform.Find("MenuButton");
+            if (returnToMenuBtn != null)
+                returnToMenuButton = returnToMenuBtn.GetComponent<Button>();
+            
+            Transform scoreGuideBtn = panelObj.transform.Find("ScoreGuideButton");
+            if (scoreGuideBtn != null)
+                scoreGuideButton = scoreGuideBtn.GetComponent<Button>();
+            
+            // Reinitialize button listeners
+            InitializeOptionsUI();
+        }
+        else 
+        {
+            Debug.LogWarning("GameManager: Could not find OptionsPanel in scene.");
+        }
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        // Initialize game state for first turn
-        selectedStartingPosition = 1; // Default starting position (player should select)
-        firstTurnCompleted = false;
-        waterDieUsedThisTurn = false;
-        currentTurn = 1;
-        wildcardsUsed = 0;
-        gameEnded = false;
+        initializeFirstTurnGameState();
 
         // Initialize dice pool
         if (diceManager != null)
@@ -181,7 +354,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("GameManager: DiceManager not assigned. Creating new DicePool.");
+            Debug.LogWarning("GameManager: DiceManager not assigned. Creating new DicePool.");
             dicePool = new DicePool();
         }
 
@@ -191,56 +364,113 @@ public class GameManager : MonoBehaviour
             diceUIManager = FindAnyObjectByType<DiceUIManager>();
         }
 
-        // Ensure ZoneManager exists
-        if (ZoneManager.Instance == null)
-        {
-            GameObject zoneManagerObj = new GameObject("ZoneManager");
-            zoneManager = zoneManagerObj.AddComponent<ZoneManager>();
-        }
-        else
+        // Try to find ZoneManager
+        if (ZoneManager.Instance != null)
         {
             zoneManager = ZoneManager.Instance;
         }
-
-        // Ensure ScoreManager exists
-        if (ScoreManager.Instance == null)
+        else
         {
-            GameObject scoreManagerObj = new GameObject("ScoreManager");
-            scoreManager = scoreManagerObj.AddComponent<ScoreManager>();
+            Debug.LogWarning("GameManager: ZoneManager instance not found.");
+        }
+
+        // Try to find ScoreManager
+        if (ScoreManager.Instance != null)
+        {
+            scoreManager = ScoreManager.Instance;
         }
         else
         {
-            scoreManager = ScoreManager.Instance;
+            Debug.LogWarning("GameManager: ScoreManager instance not found.");
         }
 
         // Initialize end game UI
         InitializeEndGameUI();
+        // Initialize top panel UI
+        InitializeOptionsUI();
+        InitializeAutoEndDetector();
 
-        // Roll dice for first turn
-        if (diceManager != null)
+        // Roll dice for first turn (deterministic in multiplayer if seed available)
+        // In multiplayer mode, delay rolling until shared seed is available (handled by OnMultiplayerGameStarted)
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
+        if (isMultiplayer && sharedRandomSeed == -1)
         {
-            diceManager.RollAllDice();
-            diceManager.ClearSelection();
+            Debug.Log("GameManager: Multiplayer mode detected but shared seed not yet available. Delaying dice roll until game starts.");
+            // Dice will be rolled when OnMultiplayerGameStarted event fires
         }
         else
         {
-            dicePool.RollAll();
-        }
+            // Single player or multiplayer with seed already available
+            if (diceManager != null)
+            {
+                if (!_firstTurnDiceRolled)
+                {
+                    RollDiceForCurrentTurn();
+                }
+                else
+                {
+                    Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in Start()");
+                }
+            }
+            else
+            {
+                if (!_firstTurnDiceRolled)
+                {
+                    // Check if we're in multiplayer mode with shared seed available
+                    if (isMultiplayer && sharedRandomSeed != -1)
+                    {
+                        // Multiplayer deterministic rolling
+                        dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                        Debug.Log($"GameManager: First turn dice rolled deterministically via dicePool (no dice manager), seed: {sharedRandomSeed}, turn: {currentTurn}");
+                    }
+                    else
+                    {
+                        // Single player or multiplayer without seed yet
+                        dicePool.RollAll();
+                        Debug.Log($"GameManager: First turn dice rolled via dicePool (no dice manager)");
+                    }
 
-        // Update dice UI
-        if (diceUIManager != null)
-        {
-            diceUIManager.OnDiceRolled();
-            diceUIManager.HighlightDoubleFaces();
+                    _firstTurnDiceRolled = true;
+                    Debug.Log($"GameManager: First turn dice rolled flag set to true");
+
+                    // Clear dice selection
+                    dicePool.ClearSelection();
+
+                    // Still need to update UI even without dice manager
+                    if (diceUIManager != null)
+                    {
+                        diceUIManager.OnDiceRolled();
+                        diceUIManager.HighlightDoubleFaces();
+                        diceUIManager.updateTurnText(currentTurn);
+                    }
+
+                    // Auto-end check after dice roll
+                    CheckForGameEndAfterRoll();
+
+                    // Broadcast dice roll to multiplayer if active
+                    // Note: Skip broadcasting in fallback path since diceManager is null
+                    // and we can't easily get dice faces from dicePool without manager
+                    if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+                    {
+                        Debug.LogWarning("GameManager: Cannot broadcast dice roll in fallback path (diceManager is null)");
+                    }
+                }
+                else
+                {
+                    Debug.Log($"GameManager: First turn dice already rolled (flag is true), skipping roll in Start() fallback path");
+                }
+            }
         }
 
         // Subscribe to multiplayer events
-        if (SyncManager != null)
-        {
-            SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
-            SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
-            SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
-        }
+        SubscribeToMultiplayerEvents();
+
+        // Initialize SpectatorManager for multiplayer mode now that the game scene is fully loaded.
+        // This handles the case where OnMultiplayerGameStarted fired in the lobby scene
+        // before SpectatorManager/SpectatorUIManager existed (they're in MainGameScene).
+        TryInitializeSpectatorMode();
     }
 
     // Update is called once per frame
@@ -249,28 +479,76 @@ public class GameManager : MonoBehaviour
         
     }
 
-
-    public void startNewTurn()
+    public void initializeFirstTurnGameState()
     {
-        currentTurn++;
+        // Initialize game state for first turn
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        if (isMultiplayer)
+        {
+            selectedStartingPosition = 0; // No default in multiplayer; player must explicitly select
+            _startingPositionConfirmed = false;
+        }
+        else
+        {
+            selectedStartingPosition = 1; // Default starting position (player should select)
+        }
+        firstTurnCompleted = false;
         waterDieUsedThisTurn = false;
+        currentTurn = 1;
+        wildcardsUsed = 0;
+        gameEnded = false;
+        _firstTurnDiceRolled = false;
 
-        // Roll dice for new turn
+        // Reset multiplayer turn tracking
+        playersCompletedCurrentTurn.Clear();
+        waitingForOtherPlayers = false;
+
+        // Delay initial highlight to guarantee board exists (Start() order is non-deterministic)
+        StartCoroutine(ApplyInitialStartingHighlight());
+    }
+
+    private IEnumerator ApplyInitialStartingHighlight()
+    {
+        yield return new WaitForEndOfFrame();
+        if (TilemapManager.Instance == null) yield break;
+
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        if (isMultiplayer)
+        {
+            // No default position in multiplayer; clear any stale highlights
+            TilemapManager.Instance.UnhighlightAllStartingTiles();
+        }
+        else
+        {
+            // Single-player: highlight the default position 1
+            TilemapManager.Instance.HighlightStartingTile(1);
+        }
+    }
+
+    /// <summary>
+    /// Roll dice for the current turn (does not increment turn counter).
+    /// Used for initial dice roll and when game starts in multiplayer mode.
+    /// </summary>
+    private void RollDiceForCurrentTurn()
+    {
+        // Check if we're in multiplayer mode with a valid shared random seed
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+        int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
+
         if (diceManager != null)
         {
-            // Check if we're in multiplayer mode with a valid shared random seed
-            bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
-            int sharedRandomSeed = isMultiplayer ? MultiplayerManager.Instance.SharedRandomSeed : -1;
-
+            // Use DiceManager if available
             if (isMultiplayer && sharedRandomSeed != -1)
             {
-                // Multiplayer deterministic dice rolling
+                // Multiplayer deterministic dice rolling for current turn
                 diceManager.RollDeterministicDice(sharedRandomSeed, currentTurn);
+                Debug.Log($"GameManager: Deterministic dice rolled for turn {currentTurn} (seed: {sharedRandomSeed})");
             }
             else
             {
                 // Single player or multiplayer without seed yet
                 diceManager.RollAllDice();
+                Debug.Log($"GameManager: Regular dice rolled for turn {currentTurn}");
             }
 
             diceManager.ClearSelection();
@@ -280,30 +558,268 @@ public class GameManager : MonoBehaviour
             {
                 diceUIManager.OnDiceRolled();
                 diceUIManager.HighlightDoubleFaces();
+                diceUIManager.updateTurnText(currentTurn);
             }
 
-            // Broadcast dice roll to multiplayer if active
-            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode))
+            // Auto-end check after dice roll
+            CheckForGameEndAfterRoll();
+
+            // Broadcast dice roll to multiplayer if active and seed is available
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode) && MultiplayerManager.Instance.SharedRandomSeed != -1)
             {
                 var shapeDice = diceManager.GetShapeDice();
                 var buildingDice = diceManager.GetBuildingDice();
                 int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
                 int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
-                int broadcastSeed = MultiplayerManager.Instance != null ? MultiplayerManager.Instance.SharedRandomSeed : 0;
-                if (broadcastSeed == -1)
-                {
-                    Debug.LogWarning("GameManager: Shared random seed not yet set, using 0");
-                    broadcastSeed = 0;
-                }
-                SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
+                int broadcastSeed = MultiplayerManager.Instance.SharedRandomSeed;
+                _ = SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
             }
         }
         else
         {
-            Debug.LogWarning("GameManager: DiceManager not available, cannot roll dice.");
+            // Fallback: use DicePool directly (DiceManager not available)
+            Debug.LogWarning("GameManager: DiceManager not available, using DicePool fallback.");
+
+            if (dicePool == null)
+            {
+                Debug.LogError("GameManager: DicePool is also null, cannot roll dice.");
+                return;
+            }
+
+            if (isMultiplayer && sharedRandomSeed != -1)
+            {
+                // Multiplayer deterministic dice rolling for current turn
+                dicePool.RollDeterministic(sharedRandomSeed, currentTurn);
+                Debug.Log($"GameManager: Deterministic dice rolled via DicePool for turn {currentTurn} (seed: {sharedRandomSeed})");
+            }
+            else
+            {
+                // Single player or multiplayer without seed yet
+                dicePool.RollAll();
+                Debug.Log($"GameManager: Regular dice rolled via DicePool for turn {currentTurn}");
+            }
+
+            dicePool.ClearSelection();
+
+            // Update dice UI
+            if (diceUIManager != null)
+            {
+                diceUIManager.OnDiceRolled();
+                diceUIManager.HighlightDoubleFaces();
+                diceUIManager.updateTurnText(currentTurn);
+            }
+
+            // Auto-end check after dice roll
+            CheckForGameEndAfterRoll();
+
+            // Broadcast dice roll to multiplayer if active and seed is available
+            // Note: We can still broadcast using dicePool faces
+            if (SyncManager != null && MultiplayerManager.Instance != null && !string.IsNullOrEmpty(MultiplayerManager.Instance.LobbyCode) && MultiplayerManager.Instance.SharedRandomSeed != -1)
+            {
+                var shapeDice = dicePool.GetShapeDice();
+                var buildingDice = dicePool.GetBuildingDice();
+                int[] shapeFaces = shapeDice.Select(d => d.CurrentFace).ToArray();
+                int[] buildingFaces = buildingDice.Select(d => d.CurrentFace).ToArray();
+                int broadcastSeed = MultiplayerManager.Instance.SharedRandomSeed;
+                _ = SyncManager.BroadcastDiceRoll(shapeFaces, buildingFaces, broadcastSeed, currentTurn);
+            }
         }
 
+        // Mark first turn dice as rolled
+        if (currentTurn == 1)
+        {
+            _firstTurnDiceRolled = true;
+            Debug.Log($"GameManager: First turn dice rolled flag set to true");
+        }
+    }
+
+
+    public void startNewTurn()
+    {
+        // Return to local player's board before starting a new turn
+        // so auto-end detection checks the correct (local) board
+        if (SpectatorManager.Instance != null && SpectatorManager.Instance.IsSpectating)
+        {
+            Debug.Log("GameManager: Returning to local board at start of new turn");
+            SpectatorManager.Instance.SwitchToPlayer(SpectatorManager.Instance.LocalPlayerId);
+        }
+
+        Debug.Log($"GameManager: Starting new turn. Current turn was {currentTurn}, incrementing to {currentTurn + 1}");
+        currentTurn++;
+        waterDieUsedThisTurn = false;
+
+        // Roll dice for new turn using helper method
+        RollDiceForCurrentTurn();
+
         // Additional turn start logic here
+    }
+
+    // NOT CURRENTLY IN USE
+    // Wrapper of CheckForGameEndAfterRoll that can be called by DiceUIManager when wildcard is used
+    // IMPORTANT: Potential issue with HandleWildcardChoice's current implementation. Needs modification before use.
+    public void CheckForGameEndAfterWildcardUse()
+    {
+        CheckForGameEndAfterRoll();
+    }
+
+    private void CheckForGameEndAfterRoll()
+    {
+        if (gameEnded) return;
+        if (isCheckingGameEnd) return; // Prevent re-entrancy
+        if (autoEndDetector == null) return; // Auto-end detector not ready
+        if (!firstTurnCompleted) return; // For now don't check for game end before first turn is completed
+
+        isCheckingGameEnd = true;
+
+        bool hasValidPlacement = autoEndDetector != null && autoEndDetector.CheckAnyValidPlacementExists();
+
+        if (!hasValidPlacement)
+        {
+            if (CanUseWildcard())
+            {
+                // Show wildcard prompt
+                ShowWildcardPrompt();
+            }
+            else
+            {
+                // No wildcards left, end game
+                TriggerGameEnd();
+            }
+        }
+
+        isCheckingGameEnd = false;
+    }
+
+    /// <summary>
+    ///  Show wildcard prompt when AutoEndDetector determines no valid placements exist and player has wildcards available.
+    /// </summary>
+    private void ShowWildcardPrompt()
+    {
+        // Find WildcardPromptManager in scene
+        if (wildcardPromptManager == null)
+        {
+            Debug.LogWarning("GameManager: WildcardPromptManager reference not set, attempting to find in scene...");
+            wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
+        }
+        WildcardPromptManager promptManager = wildcardPromptManager;
+        if (promptManager == null)
+        {
+            Debug.LogError("GameManager: No WildcardPromptManager found in scene!");
+            // Fallback: end game immediately
+            TriggerGameEnd();
+            BroadcastGameEndToMultiplayer();
+            return;
+        }
+
+        promptManager.ShowPrompt(
+            wildcardsUsed,
+            GetNextWildcardCost(),
+            HandleWildcardChoice
+        );
+    }
+
+    /// <summary>
+    ///  Hide the end game wildcard prompt (Used in TriggerGameEnd to ensure prompt is closed if game is ending in multiplayer)
+    /// </summary>
+    private void HideWildcardPrompt()
+    {
+        // Find WildcardPromptManager in scene
+        if (wildcardPromptManager == null)
+        {
+            Debug.LogWarning("GameManager: WildcardPromptManager reference not set, attempting to find in scene...");
+            wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
+        }
+        WildcardPromptManager promptManager = wildcardPromptManager;
+
+        if (promptManager != null)
+        {
+            promptManager.Hide();
+        }
+    }
+
+    public void HandleWildcardChoice(bool useWildcard)
+    {
+        if (useWildcard)
+        {
+            // Player chose to use wildcard - need to open wildcard selection UI
+            // We'll use the existing shape wildcard panel (since shape dice affect placement validity)
+            DiceUIManager diceUI = FindAnyObjectByType<DiceUIManager>();
+            if (diceUI == null)
+            {
+                Debug.LogError("GameManager: No DiceUIManager found for wildcard selection");
+                TriggerGameEnd(); // Fallback: end game
+                BroadcastGameEndToMultiplayer();
+                return;
+            }
+
+            // Get reference to shape wildcard panel
+            WildcardSelectionPanel shapePanel = diceUI.shapeWildcardPanel;
+            // Get reference to building wildcard panel (in the case water die is chosen)
+            WildcardSelectionPanel buildingPanel = diceUI.buildingWildcardPanel;
+
+            if (shapePanel == null)
+            {
+                Debug.LogError("GameManager: Shape wildcard panel not found");
+                TriggerGameEnd(); // Fallback: end game
+                BroadcastGameEndToMultiplayer();
+                return;
+            }
+
+            if (buildingPanel == null)
+            {
+                Debug.LogError("GameManager: Building wildcard panel not found");
+            }
+
+            // Temporarily subscribe to selection event
+            UnityEngine.Events.UnityAction<int> onWildcardSelected = null;
+            onWildcardSelected = (faceIndex) =>
+            {
+                // Unsubscribe to avoid multiple calls
+                shapePanel.onSelectionMade.RemoveListener(onWildcardSelected);
+                buildingPanel.onSelectionMade.RemoveListener(onWildcardSelected);
+
+
+                // Wildcard has been applied (handled by DiceUIManager.OnShapeWildcardSelected)
+                // Wait a frame for dice update, then re-check for valid placements
+                StartCoroutine(RecheckAfterWildcard());
+            };
+
+            shapePanel.onSelectionMade.AddListener(onWildcardSelected);
+            if (buildingPanel != null)
+            {
+                buildingPanel.onSelectionMade.AddListener(onWildcardSelected);
+            }
+
+            // Show the shape wildcard panel
+            // We need to simulate a click on the shape wildcard button to ensure proper setup
+            // DiceUIManager.OnShapeWildcardButtonClicked handles permission checks and panel showing
+            diceUI.OnShapeWildcardButtonClicked();
+
+            Debug.Log("GameManager: Shape wildcard panel opened for auto-end scenario");
+        }
+        else
+        {
+            // Player chose to end game
+            TriggerGameEnd();
+        }
+    }
+
+    private System.Collections.IEnumerator RecheckAfterWildcard()
+    {
+        // Wait one frame for dice update and UI to refresh
+        yield return null;
+
+        // Re-check for valid placements
+        CheckForGameEndAfterRoll();
+    }
+
+    private void BroadcastGameEndToMultiplayer()
+    {
+        if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            MultiplayerManager.Instance.OnLocalGameEnded();
+            SyncManager.Instance?.BroadcastGameEnd();
+        }
     }
 
     /// <summary>
@@ -366,8 +882,37 @@ public class GameManager : MonoBehaviour
             );
         }
 
+        // Broadcast turn completion in multiplayer mode
+        if (SyncManager != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+            if (!string.IsNullOrEmpty(localPlayerId))
+            {
+                // Add local player to completed tracking
+                bool localAdded = playersCompletedCurrentTurn.Add(localPlayerId);
+                Debug.Log($"GameManager: Added local player {localPlayerId} to completed set: {localAdded} (already in set: {!localAdded})");
+                OnPlayerTurnCompletionChanged?.Invoke(localPlayerId, true);
+                waitingForOtherPlayers = true;
+
+                // Broadcast turn completion (game not ended)
+                _ = SyncManager.BroadcastTurnCompletion(currentTurn, false);
+                Debug.Log($"GameManager: Turn completion broadcast for turn {currentTurn}");
+
+                // Check if all players have already completed (e.g., single player in lobby)
+                CheckAllPlayersCompletedTurn();
+            }
+        }
+
         // Start new turn (will roll dice and clear selection)
-        startNewTurn();
+        // In multiplayer mode, wait for all players to complete before starting new turn
+        if (MultiplayerManager.Instance == null || !MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            startNewTurn();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Waiting for other players to complete turn {currentTurn}");
+        }
     }
 
     /// <summary>
@@ -461,6 +1006,240 @@ public class GameManager : MonoBehaviour
 
         // For now, just log the action
         // TODO: Update UI with opponent progress
+    }
+
+    /// <summary>
+    /// Handle turn completion received from other players in multiplayer mode.
+    /// Tracks when all players have completed the current turn.
+    /// </summary>
+    private void OnOpponentTurnCompletionReceived(TurnCompletionData turnCompletionData)
+    {
+        Debug.Log($"GameManager: OnOpponentTurnCompletionReceived method called (turnCompletionData is {(turnCompletionData != null ? "not null" : "null")})");
+        if (turnCompletionData == null) return;
+
+        Debug.Log($"GameManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber} (gameEnded: {turnCompletionData.gameEnded})");
+        Debug.Log($"GameManager: Current turn is {currentTurn}, waitingForOtherPlayers: {waitingForOtherPlayers}, playersCompletedCurrentTurn count: {playersCompletedCurrentTurn.Count}");
+
+        // Only track completions for the current turn
+        if (turnCompletionData.turnNumber == currentTurn)
+        {
+            bool added = playersCompletedCurrentTurn.Add(turnCompletionData.playerId);
+            Debug.Log($"GameManager: Added player {turnCompletionData.playerId} to completed set: {added} (already in set: {!added})");
+            OnPlayerTurnCompletionChanged?.Invoke(turnCompletionData.playerId, true);
+            CheckAllPlayersCompletedTurn();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Turn completion for turn {turnCompletionData.turnNumber} ignored (current turn is {currentTurn})");
+        }
+    }
+
+    /// <summary>
+    /// Handle starting position lock received from another player.
+    /// Locks the tile visually (red) and resets local selection if the position was ours.
+    /// </summary>
+    private void OnStartingPositionLocked(int positionNumber, string playerId)
+    {
+        string localId = MultiplayerManager.Instance?.LocalPlayerId;
+        if (playerId == localId) return; // Ignore own locks
+
+        Debug.Log($"GameManager: Starting position {positionNumber} locked by player {playerId}");
+
+        // Lock the position visually (red tile)
+        if (TilemapManager.Instance != null)
+        {
+            TilemapManager.Instance.LockStartingTile(positionNumber);
+        }
+
+        // If the local player had selected this position, reset it (race condition resolved)
+        if (selectedStartingPosition == positionNumber)
+        {
+            Debug.LogWarning($"GameManager: Your starting position {positionNumber} was taken by another player. Select a different position.");
+            selectedStartingPosition = 0;
+            previouslySelectedStartingPosition = 0;
+            _startingPositionConfirmed = false;
+            // Re-unhighlight to clear any yellow highlighting
+            TilemapManager.Instance?.UnhighlightAllStartingTiles();
+        }
+    }
+
+    /// <summary>
+    /// Subscribe to SyncManager multiplayer events if not already subscribed.
+    /// </summary>
+    private void SubscribeToMultiplayerEvents()
+    {
+        // Subscribe to SyncManager events
+        if (!_multiplayerEventsSubscribed)
+        {
+            if (SyncManager != null)
+            {
+                Debug.Log($"GameManager: Subscribing to SyncManager events...");
+                Debug.Log($"GameManager: SyncManager instance ID: {SyncManager.GetInstanceID()}, type: {SyncManager.GetType().FullName}");
+                SyncManager.OnPlacementActionReceived += OnOpponentPlacementAction;
+                SyncManager.OnDiceRollReceived += OnOpponentDiceRollReceived;
+                SyncManager.OnPlayerGameStateReceived += OnOpponentGameStateReceived;
+                SyncManager.OnTurnCompletionReceived += OnOpponentTurnCompletionReceived;
+                SyncManager.OnStartingPositionLocked += OnStartingPositionLocked;
+                _multiplayerEventsSubscribed = true;
+                Debug.Log($"GameManager: Successfully subscribed to SyncManager events");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: SyncManager is null, cannot subscribe to multiplayer events");
+            }
+        }
+
+        // Subscribe to MultiplayerManager events
+        if (!_multiplayerManagerEventsSubscribed)
+        {
+            if (MultiplayerManager.Instance != null)
+            {
+                Debug.Log($"GameManager: Subscribing to MultiplayerManager events...");
+                MultiplayerManager.Instance.OnGameStarted += OnMultiplayerGameStarted;
+                _multiplayerManagerEventsSubscribed = true;
+                Debug.Log($"GameManager: Successfully subscribed to MultiplayerManager events");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: MultiplayerManager instance is null, cannot subscribe to events");
+            }
+        }
+
+        // If game already started (seed already available) and we haven't rolled first-turn dice, roll now
+        // This handles the case where the seed was received before event subscription
+        if (MultiplayerManager.Instance != null &&
+            MultiplayerManager.Instance.SharedRandomSeed != -1 &&
+            currentTurn == 1 && !_firstTurnDiceRolled)
+        {
+            Debug.Log("GameManager: Seed already available, initializing game after subscription.");
+            OnMultiplayerGameStarted();
+        }
+    }
+
+    /// <summary>
+    /// Called when multiplayer game starts (shared seed is available).
+    /// Rolls deterministic dice for first turn if not already rolled.
+    /// </summary>
+    private void OnMultiplayerGameStarted()
+    {
+        Debug.Log($"GameManager: Multiplayer game started event received. Current turn: {currentTurn}, seed: {MultiplayerManager.Instance?.SharedRandomSeed ?? -1}");
+
+        // Initialize spectator mode with all player IDs
+        if (MultiplayerManager.Instance != null)
+        {
+            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
+            if (SpectatorManager.Instance != null && playerIds.Count > 0)
+            {
+                string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+                SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
+                Debug.Log($"GameManager: SpectatorManager initialized from OnMultiplayerGameStarted with {playerIds.Count} players");
+
+                // Notify SpectatorUIManager that data is ready (show panel)
+                SpectatorUIManager spectatorUI = FindObjectOfType<SpectatorUIManager>();
+                if (spectatorUI != null)
+                {
+                    spectatorUI.OnSpectatorDataReady();
+                    Debug.Log("GameManager: SpectatorUIManager notified of data ready");
+                }
+            }
+        }
+
+        // Only roll dice for first turn if we're still on turn 1 and haven't rolled dice yet
+        if (currentTurn == 1 && !_firstTurnDiceRolled)
+        {
+            Debug.Log("GameManager: Rolling deterministic dice for first turn (game started event)");
+            RollDiceForCurrentTurn();
+        }
+        else
+        {
+            if (currentTurn != 1)
+            {
+                Debug.Log($"GameManager: Game started event received but current turn is {currentTurn}, not rolling dice");
+            }
+            else if (_firstTurnDiceRolled)
+            {
+                Debug.Log($"GameManager: Game started event received but first turn dice already rolled (flag is true), not rolling again");
+            }
+            else
+            {
+                Debug.Log($"GameManager: Game started event received but not rolling dice for unknown reason");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Check if all players have completed the current turn.
+    /// Called when a player's turn completion is received.
+    /// </summary>
+    private void CheckAllPlayersCompletedTurn()
+    {
+        if (!waitingForOtherPlayers)
+        {
+            Debug.Log($"GameManager: CheckAllPlayersCompletedTurn called but waitingForOtherPlayers is false (turn {currentTurn})");
+            return;
+        }
+
+        // Get the multiplayer manager to access player list
+        MultiplayerManager multiplayerManager = MultiplayerManager.Instance;
+        if (multiplayerManager == null || !multiplayerManager.IsMultiplayerMode)
+        {
+            Debug.LogWarning("GameManager: Cannot check all players completed - multiplayer manager not available");
+            return;
+        }
+
+        // Get all player IDs in the lobby
+        var allPlayerIds = multiplayerManager.Players.Keys;
+        int totalPlayers = allPlayerIds.Count;
+        int completedPlayers = playersCompletedCurrentTurn.Count;
+
+        // Debug logging for player IDs
+        Debug.Log($"GameManager: Turn completion progress - {completedPlayers}/{totalPlayers} players completed turn {currentTurn}");
+        Debug.Log($"GameManager: All player IDs in lobby: {string.Join(", ", allPlayerIds)}");
+        Debug.Log($"GameManager: Completed player IDs: {string.Join(", ", playersCompletedCurrentTurn)}");
+
+        // Check which players are missing from the completed set
+        var missingPlayers = allPlayerIds.Where(id => !playersCompletedCurrentTurn.Contains(id)).ToList();
+        if (missingPlayers.Count > 0)
+        {
+            Debug.Log($"GameManager: Missing completions from players: {string.Join(", ", missingPlayers)}");
+        }
+
+        // Check if all players have completed this turn
+        if (playersCompletedCurrentTurn.Count >= totalPlayers)
+        {
+            Debug.Log($"GameManager: All {totalPlayers} players have completed turn {currentTurn}");
+
+            // If this was the first turn, clear all starting position highlights/locks now that
+            // every player has placed their first shape. UnhighlightAllStartingTiles clears any
+            // remaining yellow highlights (red locks survive it via re-application). Unlock
+            // afterwards to restore everything permanently.
+            if (currentTurn == 1 && TilemapManager.Instance != null)
+            {
+                TilemapManager.Instance.UnhighlightAllStartingTiles();
+                TilemapManager.Instance.UnlockAllStartingTiles();
+            }
+
+            // Clear the tracking for this turn
+            playersCompletedCurrentTurn.Clear();
+            waitingForOtherPlayers = false;
+
+            // Notify UI that the local player is no longer 'completed' for the new turn
+            string localPlayerId = multiplayerManager.LocalPlayerId;
+            if (!string.IsNullOrEmpty(localPlayerId))
+            {
+                OnPlayerTurnCompletionChanged?.Invoke(localPlayerId, false);
+            }
+
+            // Start the next turn now that all players have completed
+            startNewTurn();
+
+            // Optional: Trigger UI update or other actions
+            // OnAllPlayersCompletedTurn?.Invoke();
+        }
+        else
+        {
+            Debug.Log($"GameManager: Not all players completed yet. Still waiting for {totalPlayers - completedPlayers} more players.");
+        }
     }
 
 
@@ -573,9 +1352,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public bool CheckGameEndCondition()
     {
-        // TODO: Implement actual check for valid placements
-        // For now, return false (game continues)
-        return false;
+        if (autoEndDetector == null) return false;
+        return !autoEndDetector.CheckAnyValidPlacementExists() && !CanUseWildcard();
     }
 
     /// <summary>
@@ -585,17 +1363,42 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
 
+        // Return to local player's board before ending the game so
+        // scoring uses the correct (local) board
+        if (SpectatorManager.Instance != null && SpectatorManager.Instance.IsSpectating)
+        {
+            Debug.Log("GameManager: Returning to local board before game end");
+            SpectatorManager.Instance.SwitchToPlayer(SpectatorManager.Instance.LocalPlayerId);
+        }
+
         gameEnded = true;
+        BroadcastGameEndToMultiplayer();
         Debug.Log("Game ended! Calculating final score...");
 
         // Calculate final score
         ScoreComponents score = CalculateFinalScore();
+        currentScore = score;
 
-        // Show end game UI
-        ShowEndGameScreen(score);
+        // Show end-game scoreboard (new flow: scoreboard → click breakdown button → detailed breakdown)
+        if (endScoreboardUIManager != null)
+        {
+            endScoreboardUIManager.DisplayScoreboard(score);
+        }
+        else if (scoreBreakdownUIManager != null)
+        {
+            // Fallback: show detailed breakdown directly (if scoreboard not available)
+            scoreBreakdownUIManager.DisplayScoreBreakdown(score);
+        }
+        else
+        {
+            // Final fallback to old EndGamePanel
+            Debug.LogWarning("GameManager: Neither EndScoreboardUIManager nor ScoreBreakdownUIManager available, falling back to old EndGamePanel.");
+            ShowEndGameScreen(score);
+        }
 
         // Disable further game interactions
         // (Optional) Disable dice UI, shape movement, etc.
+        HideWildcardPrompt(); // Ensure wildcard prompt is closed if game is ending
     }
 
     /// <summary>
@@ -611,6 +1414,7 @@ public class GameManager : MonoBehaviour
     // Input system callback for mouse click (starting position selection).
     public void OnMouseClickTEST()
     {
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
         if (firstTurnCompleted) return; // Only allow selection before first turn
         Vector2 screenPos = Mouse.current.position.ReadValue();
         GridPosition gridPos = ScreenToGridPosition(screenPos);
@@ -620,12 +1424,38 @@ public class GameManager : MonoBehaviour
     // Input system callback for touch press (starting position selecting)
     public void OnTouchPress()
     {
-        if (SceneManager.GetActiveScene().name != "MainGameScene") return; // Suppress errors in other scenes for now
-        if (firstTurnCompleted) return; // Only allow selection before first turn
-        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged) return; // Do not allow selection during shape drag
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
+        Debug.Log("OnTouchPress called");
+        // Starting position selection only happens before a shape is created.
+        // Once a shape exists, the starting position has already been selected,
+        // so skip to prevent overlapping UI touches from changing it mid-placement.
+        if (shapeManager != null && shapeManager.activeShape != null) return;
+        if (SceneManager.GetActiveScene().name != "MainGameScene")
+        {
+            Debug.Log("OnTouchPress: Scene is not MainGameScene");
+            return;
+        }  // Suppress errors in other scenes for now
+        if (firstTurnCompleted)
+        {
+            Debug.Log("OnTouchPress: First turn completed");
+            return;
+        }  // Only allow selection during first turn
+        if (shapeManager.activeShape != null && shapeManager.activeShape.isBeingDragged)
+        {
+            Debug.Log("OnTouchPress: Shape is being dragged");
+            return;
+        }  // Do not allow selection during shape drag
         Vector2 screenPos = touchPositionAction.ReadValue<Vector2>();
         GridPosition gridPos = ScreenToGridPosition(screenPos);
         HandleStartingPositionSelection(gridPos);
+    }
+
+    // Temp
+    public void OnPlaceShapeInput()
+    {
+        if (IsSpectatingOtherPlayers) return; // Disable input while spectating
+        if (shapeManager != null)
+            shapeManager.OnPlaceShapeInput();
     }
 
     // Input system callback for mouse position (required for input system).
@@ -668,8 +1498,41 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show end game screen with score breakdown.
+    /// Initialize top panel options UI elements (button listeners).
+    /// Call this in Start() after UI references are set.
     /// </summary>
+    private void InitializeOptionsUI()
+    {
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+            returnToMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Return to menu button not assigned in top options panel.");
+        }
+        if (scoreGuideButton != null)
+        {
+            //scoreGuideButton.onClick.RemoveListener(ShowScoreGuide);
+            //scoreGuideButton.onClick.AddListener(ShowScoreGuide);
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: Score guide button not assigned in top options panel.");
+        }
+        if (feedbackText != null)
+        {
+            feedbackText.text = "";
+        }
+    }
+
+    /// <summary>
+    /// [Deprecated] Show end game screen with score breakdown.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
+    /// Retained as fallback if ScoreBreakdownUIManager is not available.
+    /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private void ShowEndGameScreen(ScoreComponents score)
     {
         if (endGamePanel == null)
@@ -692,8 +1555,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Hide end game screen.
+    /// [Deprecated] Hide end game screen.
+    /// Replaced by ScoreBreakdownUIManager.Hide().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.Hide().")]
     private void HideEndGameScreen()
     {
         if (endGamePanel != null)
@@ -704,8 +1569,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Format score breakdown for display.
+    /// [Deprecated] Format score breakdown for display.
+    /// Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().
     /// </summary>
+    [System.Obsolete("Replaced by ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
     private string FormatScoreBreakdown(ScoreComponents score)
     {
         return $"FINAL SCORE: {score.totalScore}\n\n" +
@@ -738,14 +1605,78 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Return to main menu (placeholder).
+    /// Return to main menu.
     /// </summary>
     public void ReturnToMainMenu()
     {
-        Debug.Log("Returning to main menu (not implemented)");
-        // TODO: Load main menu scene when available
-        // For now, just restart
-        RestartGame();
+        Debug.Log("Returning to main menu");
+        LeaveMultiplayerAndReturnToMainMenu();
+    }
+
+    /// <summary>
+    /// Leave multiplayer lobby and return to main menu.
+    /// If not in multiplayer mode, simply returns to main menu.
+    /// </summary>
+    public void LeaveMultiplayerAndReturnToMainMenu()
+    {
+        if (_isLeavingLobby)
+        {
+            Debug.LogWarning("GameManager: Already leaving lobby, ignoring duplicate call.");
+            return;
+        }
+        StartCoroutine(LeaveMultiplayerAndReturnToMainMenuCoroutine());
+    }
+
+    private IEnumerator LeaveMultiplayerAndReturnToMainMenuCoroutine()
+    {
+        if (_isLeavingLobby)
+        {
+            Debug.LogWarning("GameManager: Already leaving lobby, ignoring duplicate call.");
+            yield break;
+        }
+
+        _isLeavingLobby = true;
+        try
+        {
+            // Check if in multiplayer mode
+            if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+            {
+                Debug.Log("GameManager: Leaving multiplayer lobby...");
+                bool cleanupComplete = false;
+
+                MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+                {
+                    cleanupComplete = true;
+                });
+
+                // Wait for cleanup to complete (with timeout)
+                float timeout = 3.0f; // 3 second timeout
+                float elapsed = 0f;
+                while (!cleanupComplete && elapsed < timeout)
+                {
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (!cleanupComplete)
+                {
+                    Debug.LogWarning($"GameManager: Timeout waiting for DisableMultiplayerMode callback after {elapsed} seconds");
+                }
+
+                Debug.Log("GameManager: Multiplayer cleanup complete, loading main menu.");
+            }
+            else
+            {
+                Debug.Log("GameManager: Not in multiplayer mode, proceeding to main menu.");
+            }
+
+            // Load main menu scene
+            PPSceneManager.LoadMainMenu();
+        }
+        finally
+        {
+            _isLeavingLobby = false;
+        }
     }
 
     void ResetGameState()
@@ -759,11 +1690,13 @@ public class GameManager : MonoBehaviour
         wildcardsUsed = 0;
         gameEnded = false;
         stars = 0;
+        _startingPositionConfirmed = false;
 
-        // Unhighlight any highlighted starting tiles
+        // Unhighlight any highlighted starting tiles and unlock locked ones
         if (TilemapManager.Instance != null)
         {
             TilemapManager.Instance.UnhighlightAllStartingTiles();
+            TilemapManager.Instance.UnlockAllStartingTiles();
         }
 
         Debug.Log("GameManager: Game state reset for new game.");
@@ -819,6 +1752,22 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        bool isMultiplayer = MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode;
+
+        // In multiplayer, do not allow changing once a position has been confirmed (broadcasted)
+        if (isMultiplayer && _startingPositionConfirmed)
+        {
+            Debug.Log($"Starting position already confirmed ({selectedStartingPosition}). Cannot change.");
+            return;
+        }
+
+        // Check if this starting position is already locked by another player
+        if (isMultiplayer && TilemapManager.Instance.IsStartingTileLocked(startingNumber))
+        {
+            Debug.Log($"Starting position {startingNumber} is locked by another player.");
+            return;
+        }
+
         // If same starting position already selected, do nothing
         if (selectedStartingPosition == startingNumber)
         {
@@ -838,6 +1787,14 @@ public class GameManager : MonoBehaviour
         // Highlight the newly selected starting tile
         TilemapManager.Instance.HighlightStartingTile(selectedStartingPosition);
         previouslySelectedStartingPosition = selectedStartingPosition;
+
+        // In multiplayer, broadcast the lock and confirm the selection
+        if (isMultiplayer)
+        {
+            _startingPositionConfirmed = true;
+            SyncManager.Instance?.BroadcastStartingPositionLock(startingNumber);
+            Debug.Log($"Broadcasted starting position lock for position {startingNumber}");
+        }
     }
 
     void RefreshManagerReferences()
@@ -847,20 +1804,107 @@ public class GameManager : MonoBehaviour
         shapeManager = FindAnyObjectByType<ShapeManager>();
         diceManager = FindAnyObjectByType<DiceManager>();
         diceUIManager = FindAnyObjectByType<DiceUIManager>();
+        zoneManager = FindAnyObjectByType<ZoneManager>();
+        scoreManager = FindAnyObjectByType<ScoreManager>();
+        syncManager = FindAnyObjectByType<SyncManager>();
+        wildcardPromptManager = FindAnyObjectByType<WildcardPromptManager>();
 
-        // Use singleton instances for ZoneManager and ScoreManager
-        if (ZoneManager.Instance != null)
-            zoneManager = ZoneManager.Instance;
-        if (ScoreManager.Instance != null)
-            scoreManager = ScoreManager.Instance;
+
+        // Subscribe to multiplayer events if SyncManager found
+        SubscribeToMultiplayerEvents();
+
+        // Refresh references in other managers
+        if (zoneManager != null)
+            zoneManager.RefreshTilemapManagerReference(boardManager); // Ensure ZoneManager has updated reference to TilemapManager
+        if (scoreManager != null)
+            scoreManager.RefreshReferences(zoneManager, boardManager, this); // Ensure ScoreManager has updated references
+        if (syncManager != null)
+            syncManager.RefreshReferences(); // Ensure SyncManager has updated references
 
         // Update dice pool reference
         if (diceManager != null)
             dicePool = diceManager.DicePool;
+
         else
             Debug.LogWarning("GameManager: DiceManager not found after scene load.");
 
         Debug.Log("GameManager: Manager references refreshed after scene load.");
+        InitializeAutoEndDetector();
+    }
+
+    private void InitializeAutoEndDetector()
+    {
+        if (TilemapManager.Instance == null || diceManager == null || shapeManager == null)
+        {
+            Debug.LogWarning("GameManager: Cannot initialize AutoEndDetector - missing manager references");
+            return;
+        }
+
+        autoEndDetector = new AutoEndDetector(
+            TilemapManager.Instance,
+            diceManager,
+            this,
+            shapeManager
+        );
+        Debug.Log("GameManager: AutoEndDetector initialized");
+    }
+
+    /// <summary>
+    /// Set spectator mode on/off and notify listeners.
+    /// </summary>
+    public void SetSpectatorMode(bool isSpectating)
+    {
+        if (IsSpectatingOtherPlayers == isSpectating)
+            return;
+
+        IsSpectatingOtherPlayers = isSpectating;
+        OnSpectatorModeChanged?.Invoke(isSpectating);
+
+        // Disable/enable input based on spectator mode
+        // Input disabling is handled by UI managers listening to OnSpectatorModeChanged
+        Debug.Log($"GameManager: Spectator mode set to {isSpectating}");
+    }
+
+    /// <summary>
+    /// Set the currently spectated player ID and notify listeners.
+    /// </summary>
+    public void SetSpectatedPlayer(string playerId)
+    {
+        if (CurrentSpectatedPlayerId == playerId)
+            return;
+
+        CurrentSpectatedPlayerId = playerId;
+        OnSpectatedPlayerChanged?.Invoke(playerId);
+        Debug.Log($"GameManager: Spectated player set to {playerId}");
+    }
+
+    /// <summary>
+    /// Initialize SpectatorManager and notify SpectatorUIManager for multiplayer mode.
+    /// This is safe to call even if not in multiplayer mode or if managers aren't ready.
+    /// </summary>
+    private void TryInitializeSpectatorMode()
+    {
+        if (SpectatorManager.Instance != null &&
+            MultiplayerManager.Instance != null &&
+            MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            string localPlayerId = MultiplayerManager.Instance.LocalPlayerId;
+            var playerIds = MultiplayerManager.Instance.Players.Keys.ToList();
+
+            // Only initialize if not already initialized (avoid duplicate init)
+            if (SpectatorManager.Instance.GetOpponentPlayerIds().Count == 0 && playerIds.Count > 0)
+            {
+                SpectatorManager.Instance.Initialize(localPlayerId, playerIds);
+                Debug.Log($"GameManager: SpectatorManager initialized with {playerIds.Count} players");
+            }
+
+            SpectatorUIManager spectatorUI = FindAnyObjectByType<SpectatorUIManager>();
+            if (spectatorUI != null)
+            {
+                spectatorUI.OnSpectatorDataReady();
+                Debug.Log("GameManager: SpectatorUIManager notified of data ready");
+            }
+        }
     }
 
 }

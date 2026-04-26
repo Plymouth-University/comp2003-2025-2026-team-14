@@ -1,12 +1,17 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System;
+using System.Linq;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
 using PocketPlanner.Core;
+using PocketPlanner.Multiplayer;
 
 public class ShapeManager : MonoBehaviour
 {
+    // Singleton instance
+    public static ShapeManager Instance { get; private set; }
+
     [Header("Shape Type Prefabs")]
     [SerializeField] private GameObject TShapePrefab;
     [SerializeField] private GameObject LShapePrefab;
@@ -14,6 +19,15 @@ public class ShapeManager : MonoBehaviour
     [SerializeField] private GameObject LineShapePrefab;
     [SerializeField] private GameObject ZShapePrefab;
     [SerializeField] private GameObject SingleShapePrefab;
+
+    [Header("Shape Data Assets")]
+    [SerializeField] private ShapeData TShapeData;
+    [SerializeField] private ShapeData LShapeData;
+    [SerializeField] private ShapeData SquareShapeData;
+    [SerializeField] private ShapeData LineShapeData;
+    [SerializeField] private ShapeData ZShapeData;
+    [SerializeField] private ShapeData SingleShapeData;
+
     public ShapeController activeShape;
 
     [Header("References")]
@@ -29,10 +43,26 @@ public class ShapeManager : MonoBehaviour
 
     void Awake()
     {
-        PlayerInput playerInput = GetComponent<PlayerInput>();
-        mouseClickAction = playerInput.actions["PlaceShapeInput"];
-        mousePositionAction = playerInput.actions["MousePosition"];
-        touchPositionAction = playerInput.actions["TouchPosition"];
+        // Singleton pattern
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
+      // Instead of: PlayerInput playerInput = GetComponent<PlayerInput>();
+      // Use:
+      PlayerInput playerInput = GameManager.Instance.GetComponent<PlayerInput>();
+      if (playerInput != null)
+      {
+          mouseClickAction = playerInput.actions["PlaceShapeInput"];
+          mousePositionAction = playerInput.actions["MousePosition"];
+          touchPositionAction = playerInput.actions["TouchPosition"];
+      }
+
+        // Load ShapeData assets if not assigned
+        LoadShapeDataFromResources();
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -60,6 +90,60 @@ public class ShapeManager : MonoBehaviour
                 Debug.LogError("ShapeManager: DiceManager not found in scene!");
             }
         }
+
+    }
+
+    private void LoadShapeDataFromResources()
+    {
+        // If all ShapeData fields are already assigned, skip loading
+        if (TShapeData != null && LShapeData != null && SquareShapeData != null &&
+            LineShapeData != null && ZShapeData != null && SingleShapeData != null)
+            return;
+
+        // Load all ShapeData assets from Resources
+        ShapeData[] allShapeData = Resources.LoadAll<ShapeData>("ScriptableObjects");
+        if (allShapeData == null || allShapeData.Length == 0)
+        {
+            Debug.LogError("ShapeManager: No ShapeData assets found in Resources/ScriptableObjects!");
+            return;
+        }
+
+        // Assign to appropriate fields based on shapeName
+        foreach (ShapeData data in allShapeData)
+        {
+            switch (data.shapeName)
+            {
+                case ShapeType.TShape:
+                    if (TShapeData == null) TShapeData = data;
+                    break;
+                case ShapeType.LShape:
+                    if (LShapeData == null) LShapeData = data;
+                    break;
+                case ShapeType.SquareShape:
+                    if (SquareShapeData == null) SquareShapeData = data;
+                    break;
+                case ShapeType.LineShape:
+                    if (LineShapeData == null) LineShapeData = data;
+                    break;
+                case ShapeType.ZShape:
+                    if (ZShapeData == null) ZShapeData = data;
+                    break;
+                case ShapeType.SingleShape:
+                    if (SingleShapeData == null) SingleShapeData = data;
+                    break;
+                default:
+                    Debug.LogWarning($"ShapeManager: Unknown shape name {data.shapeName} in loaded ShapeData");
+                    break;
+            }
+        }
+
+        // Log any missing ShapeData after loading
+        if (TShapeData == null) Debug.LogError("ShapeManager: TShapeData still missing after loading from Resources!");
+        if (LShapeData == null) Debug.LogError("ShapeManager: LShapeData still missing after loading from Resources!");
+        if (SquareShapeData == null) Debug.LogError("ShapeManager: SquareShapeData still missing after loading from Resources!");
+        if (LineShapeData == null) Debug.LogError("ShapeManager: LineShapeData still missing after loading from Resources!");
+        if (ZShapeData == null) Debug.LogError("ShapeManager: ZShapeData still missing after loading from Resources!");
+        if (SingleShapeData == null) Debug.LogError("ShapeManager: SingleShapeData still missing after loading from Resources!");
     }
 
     // Update is called once per frame
@@ -274,6 +358,33 @@ public class ShapeManager : MonoBehaviour
 
     public void OnPlaceShapeInput()
     {
+        // Disable shape placement when no starting position is selected on first turn
+        if (GameManager.Instance != null && !GameManager.Instance.FirstTurnCompleted)
+        {
+            if (GameManager.Instance.SelectedStartingPosition == 0)
+            {
+                Debug.Log("ShapeManager: Shape placement disabled until starting position is selected on first turn.");
+                return;
+            }
+        }
+
+        // Disable shape placement while spectating other players
+        if (GameManager.Instance != null && GameManager.Instance.IsSpectatingOtherPlayers)
+        {
+            Debug.Log("ShapeManager: Shape placement disabled while spectating other players.");
+            return;
+        }
+
+        // Prevent shape placement in multiplayer mode if player has already completed this turn
+        if (GameManager.Instance != null && MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
+        {
+            if (GameManager.Instance.IsWaitingForOtherPlayers)
+            {
+                Debug.LogWarning($"ShapeManager: Attempted to place shape on turn {GameManager.Instance.CurrentTurn} after already completing this turn. Placement ignored.");
+                return;
+            }
+        }
+
         Vector2 screenPosition = Vector2.zero;
         bool positionFound = false;
 
@@ -335,6 +446,31 @@ public class ShapeManager : MonoBehaviour
             case ShapeType.SingleShape:
                 return SingleShapePrefab;
             default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Get ShapeData for a given shape type.
+    /// </summary>
+    public ShapeData GetShapeData(ShapeType shapeType)
+    {
+        switch (shapeType)
+        {
+            case ShapeType.TShape:
+                return TShapeData;
+            case ShapeType.LShape:
+                return LShapeData;
+            case ShapeType.SquareShape:
+                return SquareShapeData;
+            case ShapeType.LineShape:
+                return LineShapeData;
+            case ShapeType.ZShape:
+                return ZShapeData;
+            case ShapeType.SingleShape:
+                return SingleShapeData;
+            default:
+                Debug.LogError($"GetShapeData: No ShapeData found for shape type {shapeType}");
                 return null;
         }
     }
@@ -405,5 +541,169 @@ public class ShapeManager : MonoBehaviour
         }
 
         Debug.Log($"Added {starCount} star visual(s) to shape {shape.shapeData.shapeName}");
+    }
+
+    /// <summary>
+    /// Get all currently placed shapes on the board as BoardShapeData list.
+    /// Used for backing up local player's board before switching to spectator mode.
+    /// </summary>
+    public System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> GetCurrentBoardState()
+    {
+        System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> boardState =
+            new System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData>();
+
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("ShapeManager: TilemapManager.Instance is null, cannot get board state");
+            return boardState;
+        }
+
+        // Get unique shapes from grid (same logic as SyncManager.SerializeBoardState)
+        System.Collections.Generic.HashSet<ShapeController> uniqueShapes = new System.Collections.Generic.HashSet<ShapeController>();
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null && tile.occupyingShape != null && !uniqueShapes.Contains(tile.occupyingShape))
+                {
+                    uniqueShapes.Add(tile.occupyingShape);
+                }
+            }
+        }
+
+        // Convert each shape to BoardShapeData
+        foreach (ShapeController shape in uniqueShapes)
+        {
+            if (shape == null || shape.shapeData == null) continue;
+
+            // Detect stars from the shape's child GameObjects (created by AddStarVisualToShape)
+            int starCount = GetStarCountForShape(shape);
+            var boardShapeData = PocketPlanner.Core.ShapeSerializationHelper.ShapeControllerToBoardShapeData(shape, starCount);
+            if (boardShapeData != null)
+            {
+                boardState.Add(boardShapeData);
+            }
+        }
+
+        Debug.Log($"ShapeManager: GetCurrentBoardState found {boardState.Count} shapes");
+        return boardState;
+    }
+
+    /// <summary>
+    /// Count how many stars are displayed on a shape by inspecting its child GameObjects.
+    /// Star visuals are added as children named "Star" (1 star) and/or "Star2" (2 stars)
+    /// by AddStarVisualToShape.
+    /// For multi-tile shapes, stars are attached to a random child tile (not the shape root),
+    /// so we search all descendants recursively.
+    /// </summary>
+    private int GetStarCountForShape(ShapeController shape)
+    {
+        if (shape == null) return 0;
+
+        int starCount = 0;
+        // Use GetComponentsInChildren to search all descendants recursively,
+        // since stars are attached to random child tiles for multi-tile shapes.
+        foreach (Transform child in shape.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == shape.transform) continue; // Skip the root shape itself
+            if (child.name == "Star2")
+                return 2; // Star2 only created for 2-star shapes
+            if (child.name == "Star")
+                starCount = 1;
+        }
+        Debug.Log($"GetStarCountForShape: Detected {starCount} star(s) on shape {shape.name}");
+        return starCount;
+    }
+
+    /// <summary>
+    /// Remove all shapes from the board (destroy GameObjects) and clear all
+    /// tile occupancy references. Used when switching to spectator mode or when
+    /// restoring the local player's board after spectating.
+    ///
+    /// Explicitly nulls tile.occupyingShape and tile.zone on every grid tile
+    /// after destruction to prevent Unity destroyed-object edge cases in
+    /// TilemapManager.IsOccupied() checks performed by the auto-end detector.
+    /// </summary>
+    public void ClearAllShapes()
+    {
+        if (TilemapManager.Instance == null)
+        {
+            Debug.LogError("ShapeManager: TilemapManager.Instance is null, cannot clear shapes");
+            return;
+        }
+
+        int shapeCount = 0;
+        System.Collections.Generic.HashSet<ShapeController> uniqueShapes = new System.Collections.Generic.HashSet<ShapeController>();
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null && tile.occupyingShape != null && !uniqueShapes.Contains(tile.occupyingShape))
+                {
+                    uniqueShapes.Add(tile.occupyingShape);
+                }
+            }
+        }
+
+        foreach (ShapeController shape in uniqueShapes)
+        {
+            if (shape != null && shape.gameObject != null)
+            {
+                Destroy(shape.gameObject);
+                shapeCount++;
+            }
+        }
+
+        // Explicitly null tile.occupyingShape and tile.zone on every grid tile.
+        // Destroy() leaves references to destroyed MonoBehaviours on tiles,
+        // and Unity's overloaded != null for destroyed objects can behave
+        // inconsistently in certain code paths (e.g. IsOccupied used by the
+        // auto-end detector), causing tiles to be incorrectly reported as
+        // occupied after a spectate cycle.
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = TilemapManager.Instance.gridTiles[x, y];
+                if (tile != null)
+                {
+                    tile.occupyingShape = null;
+                    tile.zone = null;
+                }
+            }
+        }
+
+        // Also clear active shape reference
+        activeShape = null;
+
+        Debug.Log($"ShapeManager: ClearAllShapes destroyed {shapeCount} shapes and cleared all tile references");
+    }
+
+    /// <summary>
+    /// Create shapes from BoardShapeData list and place them on the board.
+    /// Used for displaying opponent's board in spectator mode.
+    /// </summary>
+    /// <param name="boardState">List of BoardShapeData representing shapes to place</param>
+    /// <returns>List of created ShapeController instances</returns>
+    public System.Collections.Generic.List<ShapeController> PlaceShapesFromBoardState(
+        System.Collections.Generic.List<PocketPlanner.Multiplayer.BoardShapeData> boardState)
+    {
+        System.Collections.Generic.List<ShapeController> createdShapes =
+            new System.Collections.Generic.List<ShapeController>();
+
+        if (boardState == null || boardState.Count == 0)
+        {
+            Debug.Log("ShapeManager: PlaceShapesFromBoardState - empty board state");
+            return createdShapes;
+        }
+
+        // Use ShapeSerializationHelper to create shapes
+        createdShapes = PocketPlanner.Core.ShapeSerializationHelper.CreateShapesFromBoardShapeDataList(
+            boardState, this, this.transform);
+
+        Debug.Log($"ShapeManager: PlaceShapesFromBoardState created {createdShapes.Count} shapes");
+        return createdShapes;
     }
 }

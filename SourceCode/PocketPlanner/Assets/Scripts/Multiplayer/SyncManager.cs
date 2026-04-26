@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
 using Firebase.Database;
@@ -26,15 +27,24 @@ namespace PocketPlanner.Multiplayer
         private DatabaseReference _gameStateRef;
         private DatabaseReference _diceRollRef;
         private DatabaseReference _placementsRef;
+        private DatabaseReference _gameEndsRef;
+
+        // Track known starting position locks to avoid duplicate event firing
+        private Dictionary<int, string> _lockedStartingPositions = new Dictionary<int, string>();
 
         // Events
         public event Action<PlacementActionData> OnPlacementActionReceived;
         public event Action<DiceRollData> OnDiceRollReceived;
         public event Action<PlayerGameData> OnPlayerGameStateReceived;
+        public event Action<TurnCompletionData> OnTurnCompletionReceived;
+        public event Action<int, string> OnStartingPositionLocked; // (positionNumber, playerId)
 
         // Serialization settings
         private const int GRID_SIZE = 10;
         private const int MAX_PLAYERS = 8;
+
+        // Main thread dispatch
+        private ConcurrentQueue<Action> _mainThreadActions = new ConcurrentQueue<Action>();
 
         private void Awake()
         {
@@ -45,6 +55,7 @@ namespace PocketPlanner.Multiplayer
                 return;
             }
             Instance = this;
+            Debug.Log($"SyncManager: Singleton instance set (ID: {GetInstanceID()})");
             DontDestroyOnLoad(gameObject);
         }
 
@@ -58,6 +69,65 @@ namespace PocketPlanner.Multiplayer
             {
                 Debug.LogWarning("SyncManager: GameManager not found. Some features may not work.");
             }
+        }
+
+        private void Update()
+        {
+            while (_mainThreadActions.TryDequeue(out var action))
+            {
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Exception in main thread action: {ex.Message}");
+                }
+            }
+        }
+
+        private void InvokeOnMainThread(Action action)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning("SyncManager.InvokeOnMainThread: action is null");
+                return;
+            }
+            _mainThreadActions.Enqueue(action);
+        }
+
+        private void InvokeOnMainThread<T>(Action<T> action, T arg)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T>: action is null, skipping. Type: {typeof(T).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg));
+        }
+
+        private void InvokeOnMainThread<T1, T2>(Action<T1, T2> action, T1 arg1, T2 arg2)
+        {
+            if (action == null)
+            {
+                Debug.LogWarning($"SyncManager.InvokeOnMainThread<T1,T2>: action is null, skipping. Types: {typeof(T1).Name}, {typeof(T2).Name}");
+                return;
+            }
+            _mainThreadActions.Enqueue(() => action(arg1, arg2));
+        }
+
+        public void RefreshReferences()
+        {
+            _firebaseManager = FirebaseManager.Instance;
+            _gameManager = GameManager.Instance;
+            _multiplayerManager = MultiplayerManager.Instance;
+
+            if (_firebaseManager == null)
+                Debug.LogWarning("SyncManager: FirebaseManager not found!");
+            if (_gameManager == null)
+                Debug.LogWarning("SyncManager: GameManager not found!");
+            if (_multiplayerManager == null)
+                Debug.LogWarning("SyncManager: MultiplayerManager not found!");
         }
 
         /// <summary>
@@ -78,6 +148,9 @@ namespace PocketPlanner.Multiplayer
             _lobbyRootRef = _firebaseManager.DatabaseReference.Child($"games/{lobbyCode}");
             _lobbyRootRef.ValueChanged += OnLobbyValueChanged;
 
+            // Listen for game end events
+            ListenForGameEnds();
+
             Debug.Log("SyncManager: Firebase listeners started");
         }
 
@@ -96,8 +169,14 @@ namespace PocketPlanner.Multiplayer
             _diceRollRef = null;
             _placementsRef = null;
             _gameStateRef = null;
+            if (_gameEndsRef != null)
+            {
+                _gameEndsRef.ValueChanged -= OnGameEndValueChanged;
+                _gameEndsRef = null;
+            }
 
             Debug.Log("SyncManager: Firebase listeners stopped");
+            _lockedStartingPositions.Clear();
         }
 
         // Firebase event handlers
@@ -107,26 +186,158 @@ namespace PocketPlanner.Multiplayer
 
             string path = GetRelativePath(args.Snapshot.Reference);
             Debug.Log($"SyncManager: Value changed at path: {path}");
+            // Debug: log snapshot children for diagnosis
+            if (args.Snapshot.HasChildren)
+            {
+                Debug.Log($"SyncManager: Snapshot has {args.Snapshot.ChildrenCount} children");
+                foreach (DataSnapshot child in args.Snapshot.Children)
+                {
+                    Debug.Log($"SyncManager:   Child: {child.Key} = {child.Value}");
+                }
+            }
 
-            // Check if this is a dice roll node
-            if (path.Contains("/diceRoll"))
+            bool handled = false;
+
+            // First, check for child nodes in the snapshot (when root lobby node changes)
+            // Check for sharedSeed child
+            if (args.Snapshot.HasChild("sharedSeed"))
             {
-                ProcessDiceRoll(args.Snapshot);
+                Debug.Log($"SyncManager: Found sharedSeed child in root snapshot");
+                DataSnapshot seedSnapshot = args.Snapshot.Child("sharedSeed");
+                InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, seedSnapshot);
+                handled = true;
             }
-            // Check if this is a placement node
-            else if (path.Contains("/placements/"))
+
+            // Check for turn/{turnNumber}/diceRoll children
+            if (args.Snapshot.HasChild("turn"))
             {
-                ProcessPlacement(args.Snapshot);
+                DataSnapshot turnSnapshot = args.Snapshot.Child("turn");
+                foreach (DataSnapshot turnChild in turnSnapshot.Children)
+                {
+                    if (turnChild.HasChild("diceRoll"))
+                    {
+                        Debug.Log($"SyncManager: Found diceRoll child in turn {turnChild.Key}");
+                        DataSnapshot diceRollSnapshot = turnChild.Child("diceRoll");
+                        InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, diceRollSnapshot);
+                        handled = true;
+                    }
+
+                    // Check for turn/{turnNumber}/placements/{playerId} children
+                    if (turnChild.HasChild("placements"))
+                    {
+                        DataSnapshot placementsSnapshot = turnChild.Child("placements");
+                        foreach (DataSnapshot placementChild in placementsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found placement child for player {placementChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessPlacement, placementChild);
+                            handled = true;
+                        }
+                    }
+
+                    // Check for turn/{turnNumber}/completions/{playerId} children
+                    if (turnChild.HasChild("completions"))
+                    {
+                        DataSnapshot completionsSnapshot = turnChild.Child("completions");
+                        foreach (DataSnapshot completionChild in completionsSnapshot.Children)
+                        {
+                            Debug.Log($"SyncManager: Found completion child for player {completionChild.Key} in turn {turnChild.Key}");
+                            InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, completionChild);
+                            handled = true;
+                        }
+                    }
+                }
             }
-            // Check if this is a player game state node
-            else if (path.Contains("/players/") && path.EndsWith("/state"))
+
+            // Check for players/{playerId}/state children
+            if (args.Snapshot.HasChild("players"))
             {
-                ProcessPlayerGameState(args.Snapshot);
+                DataSnapshot playersSnapshot = args.Snapshot.Child("players");
+                foreach (DataSnapshot playerChild in playersSnapshot.Children)
+                {
+                    if (playerChild.HasChild("state"))
+                    {
+                        Debug.Log($"SyncManager: Found state child for player {playerChild.Key}");
+                        DataSnapshot stateSnapshot = playerChild.Child("state");
+                        InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, stateSnapshot);
+                        handled = true;
+                    }
+                }
             }
-            // Check if this is a shared seed node
-            else if (path.Contains("/sharedSeed"))
+
+            // Check for gameEnds/{playerId} children (though this should be handled by separate listener)
+            if (args.Snapshot.HasChild("gameEnds"))
             {
-                ProcessSharedSeed(args.Snapshot);
+                DataSnapshot gameEndsSnapshot = args.Snapshot.Child("gameEnds");
+                foreach (DataSnapshot gameEndChild in gameEndsSnapshot.Children)
+                {
+                    Debug.Log($"SyncManager: Found gameEnd child for player {gameEndChild.Key}");
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, gameEndChild);
+                    handled = true;
+                }
+            }
+
+            // Check for startingPositions/{positionNumber} children (starting position locking)
+            if (args.Snapshot.HasChild("startingPositions"))
+            {
+                DataSnapshot spSnapshot = args.Snapshot.Child("startingPositions");
+                foreach (DataSnapshot child in spSnapshot.Children)
+                {
+                    Debug.Log($"SyncManager: Found startingPositions child for position {child.Key}");
+                    InvokeOnMainThread<DataSnapshot>(ProcessStartingPositionLock, child);
+                }
+                handled = true;
+            }
+
+            // Fallback: keep original path.Contains() checks for cases where listener might be attached to deeper node
+            if (!handled)
+            {
+                // Check if this is a dice roll node
+                if (path.Contains("/diceRoll"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessDiceRoll, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a placement node
+                else if (path.Contains("/placements/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlacement, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a turn completion node
+                else if (path.Contains("/completions/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessTurnCompletion, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a player game state node
+                else if (path.Contains("/players/") && path.EndsWith("/state"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessPlayerGameState, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a shared seed node
+                else if (path.Contains("/sharedSeed"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessSharedSeed, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a game end node
+                else if (path.Contains("/gameEnds/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessGameEnd, args.Snapshot);
+                    handled = true;
+                }
+                // Check if this is a starting position lock node
+                else if (path.Contains("/startingPositions/"))
+                {
+                    InvokeOnMainThread<DataSnapshot>(ProcessStartingPositionLock, args.Snapshot);
+                    handled = true;
+                }
+            }
+
+            if (!handled)
+            {
+                Debug.Log($"SyncManager: No matching handler for path: {path}");
             }
         }
 
@@ -191,13 +402,71 @@ namespace PocketPlanner.Multiplayer
             }
         }
 
+        private void ProcessTurnCompletion(DataSnapshot snapshot)
+        {
+            string json = snapshot.Value as string;
+            if (string.IsNullOrEmpty(json)) return;
+
+            try
+            {
+                var turnCompletionData = DeserializeTurnCompletion(json);
+                Debug.Log($"SyncManager: Turn completion received for player {turnCompletionData.playerId} on turn {turnCompletionData.turnNumber}");
+                Debug.Log($"SyncManager: OnTurnCompletionReceived has {OnTurnCompletionReceived?.GetInvocationList()?.Length ?? 0} subscribers");
+                OnTurnCompletionReceived?.Invoke(turnCompletionData);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to process turn completion data: {ex.Message}");
+            }
+        }
+
         private void ProcessSharedSeed(DataSnapshot snapshot)
         {
-            long? seedValue = snapshot.Value as long?;
-            if (seedValue == null) return;
+            object value = snapshot.Value;
+            if (value == null)
+            {
+                Debug.LogWarning("SyncManager: ProcessSharedSeed - snapshot value is null");
+                return;
+            }
+
+            long? seedValue = null;
+
+            // Try multiple conversion methods since Firebase might store numbers as different types
+            if (value is long)
+            {
+                seedValue = (long)value;
+            }
+            else if (value is int)
+            {
+                seedValue = (long)(int)value;
+            }
+            else if (value is double)
+            {
+                // Firebase often stores numbers as doubles
+                seedValue = Convert.ToInt64((double)value);
+            }
+            else
+            {
+                // Try generic conversion
+                try
+                {
+                    seedValue = Convert.ToInt64(value);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"SyncManager: Failed to convert shared seed value: {value} (type: {value.GetType().Name}). Error: {ex.Message}");
+                    return;
+                }
+            }
+
+            if (seedValue == null)
+            {
+                Debug.LogError($"SyncManager: ProcessSharedSeed - could not convert value: {value} (type: {value.GetType().Name}) to long");
+                return;
+            }
 
             int seed = (int)seedValue.Value;
-            Debug.Log($"SyncManager: Shared seed received: {seed}");
+            Debug.Log($"SyncManager: Shared seed received: {seed} (original value: {value}, type: {value.GetType().Name})");
 
             // Update MultiplayerManager's shared seed
             if (_multiplayerManager != null)
@@ -207,6 +476,53 @@ namespace PocketPlanner.Multiplayer
             else
             {
                 Debug.LogWarning("SyncManager: MultiplayerManager not available to set shared seed");
+            }
+        }
+
+        private void ProcessGameEnd(DataSnapshot snapshot)
+        {
+            // This method is called when a game end node changes
+            // The actual processing is done in OnGameEndValueChanged which listens to the parent node
+            // This ensures we get all game end events, not just individual player changes
+            Debug.Log($"SyncManager: Game end node changed at path: {GetRelativePath(snapshot.Reference)}");
+        }
+
+        /// <summary>
+        /// Process a remote starting position lock notification.
+        /// Fires the OnStartingPositionLocked event if the lock is new.
+        /// </summary>
+        private void ProcessStartingPositionLock(DataSnapshot snapshot)
+        {
+            string json = snapshot.Value as string;
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogWarning("SyncManager: ProcessStartingPositionLock - empty snapshot value");
+                return;
+            }
+
+            try
+            {
+                var data = JsonUtility.FromJson<StartingPositionLockData>(json);
+                if (data == null)
+                {
+                    Debug.LogError("SyncManager: Failed to deserialize starting position lock data");
+                    return;
+                }
+
+                int posNum = data.positionNumber;
+                string playerId = data.playerId;
+
+                // Skip if we already know about this lock (avoids duplicate event firings)
+                if (_lockedStartingPositions.TryGetValue(posNum, out string existingId) && existingId == playerId)
+                    return;
+
+                _lockedStartingPositions[posNum] = playerId;
+                Debug.Log($"SyncManager: Starting position {posNum} locked by player {playerId}");
+                OnStartingPositionLocked?.Invoke(posNum, playerId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to process starting position lock: {ex.Message}");
             }
         }
 
@@ -347,6 +663,42 @@ namespace PocketPlanner.Multiplayer
         }
 
         /// <summary>
+        /// Serialize turn completion data for broadcasting.
+        /// </summary>
+        /// <param name="playerId">ID of the player who completed the turn</param>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        /// <returns>JSON string representing turn completion data</returns>
+        public string SerializeTurnCompletion(string playerId, int turnNumber, bool gameEnded)
+        {
+            var turnCompletionData = new TurnCompletionData
+            {
+                playerId = playerId,
+                turnNumber = turnNumber,
+                timestamp = GetCurrentTimestamp(),
+                gameEnded = gameEnded
+            };
+
+            return JsonUtility.ToJson(turnCompletionData);
+        }
+
+        /// <summary>
+        /// Deserialize turn completion data from JSON.
+        /// </summary>
+        public TurnCompletionData DeserializeTurnCompletion(string json)
+        {
+            try
+            {
+                return JsonUtility.FromJson<TurnCompletionData>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to deserialize turn completion: {ex.Message}");
+                return new TurnCompletionData();
+            }
+        }
+
+        /// <summary>
         /// Compress board state for efficient transmission.
         /// </summary>
         private string SerializeBoardState()
@@ -395,7 +747,8 @@ namespace PocketPlanner.Multiplayer
                     positionY = shape.position.y,
                     rotation = shape.RotationState,
                     flipped = shape.IsFlipped,
-                    turnPlaced = 0 // TODO: Track turn placed if needed
+                    turnPlaced = 0, // TODO: Track turn placed if needed
+                    starsAwarded = 0 // TODO: Track stars per shape if needed
                 };
                 boardState.shapes.Add(shapeData);
             }
@@ -777,6 +1130,421 @@ namespace PocketPlanner.Multiplayer
             }
         }
 
+        /// <summary>
+        /// Broadcast game end to all players in the lobby.
+        /// </summary>
+        public async Task BroadcastGameEnd()
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - not in multiplayer lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast game end - no local player ID");
+                return;
+            }
+
+            try
+            {
+                var gameEndData = new Dictionary<string, object>
+                {
+                    { "playerId", playerId },
+                    { "timestamp", DateTime.UtcNow.Ticks },
+                    { "turn", _gameManager?.CurrentTurn ?? 0 }
+                };
+
+                await _firebaseManager.DatabaseReference
+                    .Child($"games/{_multiplayerManager.LobbyCode}/gameEnds/{playerId}")
+                    .SetValueAsync(gameEndData);
+
+                Debug.Log("SyncManager: Game end broadcasted");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast game end: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Broadcast the player's final score breakdown to Firebase for the end-game scoreboard.
+        /// </summary>
+        /// <param name="score">The complete ScoreComponents for this player</param>
+        public async Task BroadcastFinalScore(ScoreComponents score)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast final score - no local player ID");
+                return;
+            }
+
+            string displayName = _multiplayerManager.Players.TryGetValue(playerId, out var playerData)
+                ? playerData.DisplayName
+                : playerId;
+
+            try
+            {
+                var finalScoreData = new FinalScoreData
+                {
+                    playerId = playerId,
+                    displayName = displayName,
+                    totalScore = score.totalScore,
+                    stars = score.starScore,
+                    wildcardsUsed = GetCurrentWildcardsUsed(),
+                    emptyCellPenalty = score.emptyCellPenalty,
+                    industrialZoneScore = score.industrialZoneScore,
+                    residentialZoneScore = score.residentialZoneScore,
+                    commercialZoneScore = score.commercialZoneScore,
+                    parkScore = score.parkScore,
+                    schoolScore = score.schoolScore,
+                    scoreComponentsJson = JsonUtility.ToJson(score)
+                };
+
+                string json = JsonUtility.ToJson(finalScoreData);
+
+                await _firebaseManager.DatabaseReference
+                    .Child($"games/{_multiplayerManager.LobbyCode}/finalScores/{playerId}")
+                    .SetValueAsync(json);
+
+                Debug.Log($"SyncManager: Final score broadcast to games/{_multiplayerManager.LobbyCode}/finalScores/{playerId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast final score: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get current wildcards used count from GameManager.
+        /// </summary>
+        private int GetCurrentWildcardsUsed()
+        {
+            return _gameManager?.WildcardsUsed ?? 0;
+        }
+
+        /// <summary>
+        /// Broadcast a starting position lock to all players in the lobby.
+        /// Each position (1-8) can only be claimed by one player.
+        /// </summary>
+        public async Task BroadcastStartingPositionLock(int positionNumber)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast starting position lock - no local player ID");
+                return;
+            }
+
+            var lockData = new StartingPositionLockData
+            {
+                playerId = playerId,
+                positionNumber = positionNumber
+            };
+            string json = JsonUtility.ToJson(lockData);
+
+            string path = $"games/{_multiplayerManager.LobbyCode}/startingPositions/{positionNumber}";
+
+            try
+            {
+                await _firebaseManager.DatabaseReference.Child(path).SetValueAsync(json);
+                Debug.Log($"SyncManager: Starting position lock broadcast to {path} (player {playerId})");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast starting position lock: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Broadcast turn completion to all players in the lobby.
+        /// </summary>
+        /// <param name="turnNumber">Turn number that was completed</param>
+        /// <param name="gameEnded">Whether the player ended their game this turn (cannot continue)</param>
+        public async Task BroadcastTurnCompletion(int turnNumber, bool gameEnded)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - Firebase not ready");
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no active lobby");
+                return;
+            }
+
+            string playerId = _multiplayerManager.LocalPlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogError("SyncManager: Cannot broadcast turn completion - no local player ID");
+                return;
+            }
+
+            // Serialize the turn completion data
+            string json = SerializeTurnCompletion(playerId, turnNumber, gameEnded);
+            LogSerializationStats(json, "TurnCompletion");
+
+            // Determine Firebase path
+            string path = $"games/{_multiplayerManager.LobbyCode}/turn/{turnNumber}/completions/{playerId}";
+
+            try
+            {
+                await _firebaseManager.DatabaseReference.Child(path).SetValueAsync(json);
+                Debug.Log($"SyncManager: Turn completion broadcast to {path}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"SyncManager: Failed to broadcast turn completion: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Start listening for game end events from other players.
+        /// </summary>
+        public void ListenForGameEnds()
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady()) return;
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode)) return;
+
+            // Remove existing listener if any
+            if (_gameEndsRef != null)
+            {
+                _gameEndsRef.ValueChanged -= OnGameEndValueChanged;
+                _gameEndsRef = null;
+            }
+
+            // Listen for game end events from all players
+            _gameEndsRef = _firebaseManager.DatabaseReference
+                .Child($"games/{_multiplayerManager.LobbyCode}/gameEnds");
+            _gameEndsRef.ValueChanged += OnGameEndValueChanged;
+
+            Debug.Log("SyncManager: Listening for game end events");
+        }
+
+        private void OnGameEndValueChanged(object sender, ValueChangedEventArgs args)
+        {
+            if (args.DatabaseError != null)
+            {
+                Debug.LogError($"SyncManager: Error listening for game ends: {args.DatabaseError.Message}");
+                return;
+            }
+
+            if (args.Snapshot == null || !args.Snapshot.Exists) return;
+
+            // For each player who ended game - dispatch to main thread
+            InvokeOnMainThread(() =>
+            {
+                foreach (DataSnapshot playerSnapshot in args.Snapshot.Children)
+                {
+                    string playerId = playerSnapshot.Key;
+                    var data = playerSnapshot.Value as Dictionary<string, object>;
+                    if (data != null && data.ContainsKey("playerId"))
+                    {
+                        // Notify MultiplayerManager
+                        _multiplayerManager?.OnRemoteGameEnded(playerId);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Fetch all placements for a specific player across all turns and convert to BoardShapeData list.
+        /// Used for spectator mode to display another player's board.
+        /// </summary>
+        /// <param name="playerId">The player ID to fetch placements for</param>
+        /// <param name="callback">Callback with list of BoardShapeData (empty list if no placements)</param>
+        public void FetchPlayerBoardState(string playerId, System.Action<System.Collections.Generic.List<BoardShapeData>> callback)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot fetch player board state - Firebase not ready");
+                callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>());
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot fetch player board state - no lobby code");
+                callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>());
+                return;
+            }
+
+            string lobbyCode = _multiplayerManager.LobbyCode;
+            DatabaseReference placementsRef = _firebaseManager.DatabaseReference
+                .Child($"games/{lobbyCode}/turn");
+
+            // Fetch all turns
+            placementsRef.GetValueAsync().ContinueWith(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    Debug.LogError($"SyncManager: Failed to fetch placements for player {playerId}: {task.Exception}");
+                    InvokeOnMainThread(() => callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>()));
+                    return;
+                }
+
+                DataSnapshot turnsSnapshot = task.Result;
+                if (!turnsSnapshot.Exists)
+                {
+                    Debug.Log($"SyncManager: No turns found for player {playerId}");
+                    InvokeOnMainThread(() => callback?.Invoke(new System.Collections.Generic.List<BoardShapeData>()));
+                    return;
+                }
+
+                System.Collections.Generic.List<BoardShapeData> boardShapes = new System.Collections.Generic.List<BoardShapeData>();
+
+                // Iterate through each turn
+                foreach (DataSnapshot turnSnapshot in turnsSnapshot.Children)
+                {
+                    // Check if this turn has placements for the target player
+                    DataSnapshot placementsSnapshot = turnSnapshot.Child("placements");
+                    if (!placementsSnapshot.Exists) continue;
+
+                    DataSnapshot playerPlacementSnapshot = placementsSnapshot.Child(playerId);
+                    if (!playerPlacementSnapshot.Exists) continue;
+
+                    // Deserialize PlacementActionData
+                    string json = playerPlacementSnapshot.Value as string;
+                    if (string.IsNullOrEmpty(json))
+                    {
+                        Debug.LogWarning($"SyncManager: Empty placement JSON for player {playerId} in turn {turnSnapshot.Key}");
+                        continue;
+                    }
+
+                    try
+                    {
+                        PlacementActionData placementData = UnityEngine.JsonUtility.FromJson<PlacementActionData>(json);
+                        if (placementData != null)
+                        {
+                            // Convert to BoardShapeData
+                            BoardShapeData boardShapeData = new BoardShapeData
+                            {
+                                shapeType = placementData.shapeType,
+                                buildingType = placementData.buildingType,
+                                positionX = placementData.positionX,
+                                positionY = placementData.positionY,
+                                rotation = placementData.rotation,
+                                flipped = placementData.flipped,
+                                turnPlaced = int.TryParse(turnSnapshot.Key, out int turnNumber) ? turnNumber : 0,
+                                starsAwarded = placementData.starsAwarded
+                            };
+                            boardShapes.Add(boardShapeData);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"SyncManager: Failed to deserialize placement for player {playerId}: {ex.Message}");
+                    }
+                }
+
+                Debug.Log($"SyncManager: Fetched {boardShapes.Count} placements for player {playerId}");
+                InvokeOnMainThread(() => callback?.Invoke(boardShapes));
+            });
+        }
+
+        /// <summary>
+        /// Fetch all players' final scores from Firebase for the end-game scoreboard.
+        /// </summary>
+        /// <param name="callback">Callback with list of FinalScoreData, sorted by nothing (caller should sort)</param>
+        public void FetchAllFinalScores(System.Action<List<FinalScoreData>> callback)
+        {
+            if (_firebaseManager == null || !_firebaseManager.IsReady())
+            {
+                Debug.LogError("SyncManager: Cannot fetch final scores - Firebase not ready");
+                callback?.Invoke(new List<FinalScoreData>());
+                return;
+            }
+
+            if (_multiplayerManager == null || string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+            {
+                Debug.LogError("SyncManager: Cannot fetch final scores - no lobby code");
+                callback?.Invoke(new List<FinalScoreData>());
+                return;
+            }
+
+            string lobbyCode = _multiplayerManager.LobbyCode;
+            DatabaseReference finalScoresRef = _firebaseManager.DatabaseReference
+                .Child($"games/{lobbyCode}/finalScores");
+
+            finalScoresRef.GetValueAsync().ContinueWith(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    Debug.LogError($"SyncManager: Failed to fetch final scores: {task.Exception}");
+                    InvokeOnMainThread(() => callback?.Invoke(new List<FinalScoreData>()));
+                    return;
+                }
+
+                var scores = new List<FinalScoreData>();
+                DataSnapshot snapshot = task.Result;
+
+                if (snapshot != null && snapshot.Exists)
+                {
+                    foreach (DataSnapshot child in snapshot.Children)
+                    {
+                        try
+                        {
+                            // Firebase stores the JSON string as a string value,
+                            // so we need to read it as a plain string (not raw JSON)
+                            string json = child.Value as string;
+                            if (string.IsNullOrEmpty(json))
+                            {
+                                Debug.LogWarning($"SyncManager: Empty final score data for {child.Key}");
+                                continue;
+                            }
+                            var finalScore = JsonUtility.FromJson<FinalScoreData>(json);
+                            if (finalScore != null)
+                            {
+                                scores.Add(finalScore);
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"SyncManager: Failed to deserialize final score for {child.Key}: {ex.Message}");
+                        }
+                    }
+                }
+
+                Debug.Log($"SyncManager: Fetched {scores.Count} final scores");
+                InvokeOnMainThread(() => callback?.Invoke(scores));
+            });
+        }
+
     }
 
     // Data structures for serialization
@@ -792,6 +1560,15 @@ namespace PocketPlanner.Multiplayer
         public bool flipped;
         public int starsAwarded;
         public long timestamp;
+    }
+
+    [Serializable]
+    public class TurnCompletionData
+    {
+        public string playerId;
+        public int turnNumber;
+        public long timestamp;
+        public bool gameEnded; // true if player ended game this turn (cannot continue)
     }
 
     [Serializable]
@@ -845,5 +1622,39 @@ namespace PocketPlanner.Multiplayer
         public int rotation; // 0-3
         public bool flipped;
         public int turnPlaced; // optional
+        public int starsAwarded; // number of stars awarded for this placement (0, 1, or 2)
+    }
+
+    /// <summary>
+    /// Data for broadcasting a starting position lock.
+    /// Each starting position (1-8) can be claimed by only one player.
+    /// </summary>
+    [Serializable]
+    public class StartingPositionLockData
+    {
+        public string playerId;
+        public int positionNumber;
+    }
+
+    /// <summary>
+    /// Data structure for broadcasting final scores at game end.
+    /// Contains the full score breakdown for display in the end-game scoreboard.
+    /// </summary>
+    [Serializable]
+    public class FinalScoreData
+    {
+        public string playerId;
+        public string displayName;
+        public int totalScore;
+        public int stars;
+        public int wildcardsUsed;
+        public int emptyCellPenalty;
+        public int industrialZoneScore;
+        public int residentialZoneScore;
+        public int commercialZoneScore;
+        public int parkScore;
+        public int schoolScore;
+        /// <summary>Full ScoreComponents serialized as JSON for detailed breakdown display.</summary>
+        public string scoreComponentsJson;
     }
 }

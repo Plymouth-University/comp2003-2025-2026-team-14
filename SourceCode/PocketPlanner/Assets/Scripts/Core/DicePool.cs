@@ -174,7 +174,9 @@ namespace PocketPlanner.Core
 
         /// <summary>
         /// Get dice that appear exactly twice in the given pool based on original roll faces.
-        /// Used for star awarding (wildcards should not affect star eligibility).
+        /// Used for star awarding. Excludes dice that have been overridden by wildcards,
+        /// so using a wildcard on a die prevents stars from being awarded for any double
+        /// that die was part of.
         /// </summary>
         public List<int> GetOriginalDoubleFaces(DiceType type)
         {
@@ -182,6 +184,10 @@ namespace PocketPlanner.Core
             var faceCounts = new Dictionary<int, int>();
             foreach (var dice in diceList)
             {
+                // Skip dice that have been overridden by a wildcard
+                if (dice.IsOverridden)
+                    continue;
+
                 int originalFace = dice.GetOriginalFace();
                 if (!faceCounts.ContainsKey(originalFace))
                     faceCounts[originalFace] = 0;

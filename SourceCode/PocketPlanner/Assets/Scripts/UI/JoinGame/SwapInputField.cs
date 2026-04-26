@@ -1,5 +1,6 @@
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TextMeshProUGUI = TMPro.TextMeshProUGUI;
 
@@ -9,6 +10,7 @@ public class SwapInputField : MonoBehaviour
     public TMPro.TMP_InputField previousInputField;
     public bool isStartingInputField = false;
     public bool isLastInputField = false;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -34,4 +36,5 @@ public class SwapInputField : MonoBehaviour
             GetComponent<TMPro.TMP_InputField>().DeactivateInputField();
         }
     }
+
 }
