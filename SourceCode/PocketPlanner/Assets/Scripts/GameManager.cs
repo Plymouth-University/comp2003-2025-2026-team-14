@@ -91,6 +91,9 @@ public class GameManager : MonoBehaviour
     [Header("Score Breakdown UI (Replacement for End Game UI)")]
     [SerializeField] private ScoreBreakdownUIManager scoreBreakdownUIManager;
 
+    [Header("End Scoreboard UI (Replacement for End Game Panel)")]
+    [SerializeField] private EndScoreboardUIManager endScoreboardUIManager;
+
     [Header("Top Panel Options UI")]
     [SerializeField] private Button returnToMenuButton;
     [SerializeField] private Button scoreGuideButton;
@@ -296,6 +299,20 @@ public class GameManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("GameManager: ScoreBreakdownUIManager not found in scene.");
+            }
+        }
+
+        // Find EndScoreboardUIManager if not already assigned via inspector
+        if (endScoreboardUIManager == null)
+        {
+            endScoreboardUIManager = FindAnyObjectByType<EndScoreboardUIManager>();
+            if (endScoreboardUIManager != null)
+            {
+                Debug.Log("GameManager: Found EndScoreboardUIManager in scene.");
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: EndScoreboardUIManager not found in scene.");
             }
         }
 
@@ -1362,15 +1379,20 @@ public class GameManager : MonoBehaviour
         ScoreComponents score = CalculateFinalScore();
         currentScore = score;
 
-        // Show score breakdown using the new ScoreBreakdownUIManager (preferred)
-        if (scoreBreakdownUIManager != null)
+        // Show end-game scoreboard (new flow: scoreboard → click breakdown button → detailed breakdown)
+        if (endScoreboardUIManager != null)
         {
+            endScoreboardUIManager.DisplayScoreboard(score);
+        }
+        else if (scoreBreakdownUIManager != null)
+        {
+            // Fallback: show detailed breakdown directly (if scoreboard not available)
             scoreBreakdownUIManager.DisplayScoreBreakdown(score);
         }
         else
         {
-            // Fallback to old EndGamePanel
-            Debug.LogWarning("GameManager: ScoreBreakdownUIManager not available, falling back to old EndGamePanel.");
+            // Final fallback to old EndGamePanel
+            Debug.LogWarning("GameManager: Neither EndScoreboardUIManager nor ScoreBreakdownUIManager available, falling back to old EndGamePanel.");
             ShowEndGameScreen(score);
         }
 
