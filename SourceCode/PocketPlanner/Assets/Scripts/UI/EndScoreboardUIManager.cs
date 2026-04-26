@@ -176,7 +176,7 @@ public class EndScoreboardUIManager : MonoBehaviour
         string playerName = "Player 1";
         if (MultiplayerManager.Instance != null && MultiplayerManager.Instance.IsMultiplayerMode)
         {
-            playerName = MultiplayerManager.Instance.LocalPlayerId ?? "You";
+            playerName = MultiplayerManager.Instance.LocalDisplayName ?? "You";
         }
 
         var entry = new PlayerScoreEntry
@@ -317,14 +317,12 @@ public class EndScoreboardUIManager : MonoBehaviour
                 // Set player name (with rank prefix)
                 if (playerNameTexts[i] != null)
                 {
-                    string displayName = player.playerId; // TEMP use playerIDs for now 
-                    if (displayName.Length > 5)
+                    string displayName = player.displayName;
+                    if (displayName.Length > 10)
                     {
-                        displayName = displayName.Substring(0, 5) + "...";
+                        displayName = displayName.Substring(0, 10) + "...";
                     }
-                    // TEMP No rank prefix for now 
                     playerNameTexts[i].text = displayName;
-                    // playerNameTexts[i].text = GetRankPrefix(player.rank) + " " + displayName;
                 }
 
                 // Set player score

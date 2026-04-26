@@ -9,7 +9,7 @@ public class HostSettingsPanel : MonoBehaviour
     private int maxPlayers = 2; // Default to 2 players, can be adjusted by slider in settings panel
 
     // These settings are placeholders and currently not implemented in the game
-    private int turnTimeLimit = 60; // Default to 60 seconds per turn, can be adjusted by slider in settings panel
+    private int turnTimeLimit = -1; // Default to unlimited time per turn, can be adjusted by slider in settings panel
 
     [SerializeField] private GameObject hostSettingsPanel;
 
@@ -21,6 +21,8 @@ public class HostSettingsPanel : MonoBehaviour
     [SerializeField] private Slider turnTimeSlider;
     [SerializeField] private TextMeshProUGUI turnTimeText;
     public int sliderTurnTimeIncrement = 30; // Assuming each slider step represents 30 seconds
+
+    [SerializeField] private TMP_InputField displayNameInputField; // Field for host to set their display name
 
     [Header("Multiplayer Managers")]
     [SerializeField] private LobbyManager lobbyManager;
@@ -236,14 +238,17 @@ public class HostSettingsPanel : MonoBehaviour
 
         Debug.Log($"HostSettingsPanel.ConfirmHostSettings: Creating lobby with maxPlayers={maxPlayers}, turnTimeLimit={turnTimeLimit}");
 
+        // Get display name from input field
+        string displayName = displayNameInputField != null ? displayNameInputField.text.Trim() : null;
+
         // Subscribe to events before enabling multiplayer mode
         Debug.Log("HostSettingsPanel.ConfirmHostSettings: Subscribing to MultiplayerManager events...");
         multiplayerManager.OnLobbyJoined += OnLobbyJoined;
         multiplayerManager.OnError += OnMultiplayerError;
 
         // Enable multiplayer mode as host with selected settings
-        Debug.Log($"HostSettingsPanel.ConfirmHostSettings: Calling EnableMultiplayerMode(isHost: true, lobbyCode: \"\", maxPlayers: {maxPlayers}, turnTimeLimit: {turnTimeLimit})");
-        multiplayerManager.EnableMultiplayerMode(true, "", maxPlayers, turnTimeLimit);
+        Debug.Log($"HostSettingsPanel.ConfirmHostSettings: Calling EnableMultiplayerMode(isHost: true, lobbyCode: \"\", maxPlayers: {maxPlayers}, turnTimeLimit: {turnTimeLimit}, displayName: \"{displayName}\")");
+        multiplayerManager.EnableMultiplayerMode(true, "", maxPlayers, turnTimeLimit, displayName);
         Debug.Log("HostSettingsPanel.ConfirmHostSettings: EnableMultiplayerMode called successfully.");
     }
 

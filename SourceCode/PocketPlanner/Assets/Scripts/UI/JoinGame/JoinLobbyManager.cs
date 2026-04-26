@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using PocketPlanner.Multiplayer;
+using Unity.VisualScripting;
 
 public class JoinLobbyManager : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class JoinLobbyManager : MonoBehaviour
     [SerializeField] private TMP_InputField hiddenLobbyCodeInputField; // Hidden input field that is activated for actual input (enforce 6 char limit, auto-uppercase, and character validation)
 
     [SerializeField] private TextMeshProUGUI errorText; // Text element to display messages to the user (for example if lobby code is invalid, lobby is full or lobby code too short)
+    [SerializeField] private TMP_InputField displayNameInputField; // Field for player to set their display name
 
     private bool isJoining = false;
     private const string VALID_LOBBY_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No ambiguous characters (0, O, 1, I, etc.)
@@ -134,8 +136,11 @@ public class JoinLobbyManager : MonoBehaviour
         CancelJoinTimeout();
         joinTimeoutCoroutine = StartCoroutine(JoinTimeoutCoroutine(lobbyCode));
 
+        // Get display name from input field
+        string displayName = displayNameInputField != null ? displayNameInputField.text.Trim() : null;
+
         // Enable multiplayer mode as client (non-host) with the provided lobby code
-        multiplayerManager.EnableMultiplayerMode(false, lobbyCode);
+        multiplayerManager.EnableMultiplayerMode(false, lobbyCode, displayName: displayName);
     }
 
     /// <summary>
