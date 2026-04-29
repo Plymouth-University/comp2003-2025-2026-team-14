@@ -26,11 +26,5 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/MainGameScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
-  - enabled: 1
-    path: Assets/Scenes/ResultsScene.unity
-    guid: fb476cc9f2ed565a9a7dd081289d8563
-  - enabled: 1
-    path: Assets/Scenes/ScoreSheetScene.unity
-    guid: f03d590398d6882188cdc25a68d5ce26
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
