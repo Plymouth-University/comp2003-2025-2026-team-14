@@ -10,6 +10,9 @@ public class MainMenuUIManager : MonoBehaviour
         // Set up dropdown listener to update GameManager with selected color
         if (boardColorDropdown != null)
             boardColorDropdown.onValueChanged.AddListener(OnBoardColorChanged);
+
+        if (GameManager.Instance != null)
+            GameManager.Instance.PlayerBoardColor = Color.gray; // Set default color to gray
     }
 
     private void OnBoardColorChanged(int index)
