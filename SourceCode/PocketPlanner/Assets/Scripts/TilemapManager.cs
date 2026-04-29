@@ -147,6 +147,10 @@ public class TilemapManager : MonoBehaviour
         
         // Compress bounds to ensure the Tilemap knows its exact size
         boardTilemap.CompressBounds();
+
+        // Change color of tilemap to player-selected color from GameManager
+        if (GameManager.Instance != null)
+            boardTilemap.color = GameManager.Instance.PlayerBoardColor;
     }
 
     private void AdjustCamera()

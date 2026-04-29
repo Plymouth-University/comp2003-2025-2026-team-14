@@ -99,6 +99,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Button scoreGuideButton;
     [SerializeField] private TextMeshProUGUI feedbackText;
 
+    // Board color set by player in main menu, applied to tilemap at game start
+    public Color PlayerBoardColor { get; set; } = new Color(0.5f, 0.5f, 0.5f, 1f); // Default color if not set
+
     // Inputs
     private InputAction touchPositionAction; 
     private InputAction mousePositionAction;
