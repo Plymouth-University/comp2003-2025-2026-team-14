@@ -217,6 +217,70 @@ public class ZoneManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Rebuilds all zones from scratch by scanning the entire board grid.
+    /// Clears the current zones list, then iterates every tile and adds each
+    /// placed shape (of zone types: I/R/C) via AddShape(), which handles zone
+    /// creation, adjacency merging, and tile.zone references correctly.
+    ///
+    /// Must be called after restoring the local player's board from a spectate
+    /// cycle, since ClearAllShapes() nulls tile.zone and PlaceShapesFromBoardState()
+    /// only restores tile.occupyingShape (not zone references).
+    /// </summary>
+    public void RebuildAllZones()
+    {
+        if (tilemapManager == null)
+        {
+            Debug.LogError("ZoneManager: Cannot rebuild zones - TilemapManager is null");
+            return;
+        }
+
+        // Clear the current (stale) zone references
+        ClearZones();
+
+        // Null all tile.zone references to start fresh
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = tilemapManager.GetTile(new GridPosition(x, y));
+                if (tile != null)
+                {
+                    tile.zone = null;
+                }
+            }
+        }
+
+        // Track shapes we've already processed (multi-tile shapes appear on multiple tiles)
+        HashSet<ShapeController> processedShapes = new HashSet<ShapeController>();
+
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                GridTile tile = tilemapManager.GetTile(new GridPosition(x, y));
+                if (tile == null || tile.occupyingShape == null)
+                    continue;
+
+                ShapeController shape = tile.occupyingShape;
+
+                // Skip non-zone building types and already-processed shapes
+                if (shape.buildingType != BuildingType.Industrial &&
+                    shape.buildingType != BuildingType.Residential &&
+                    shape.buildingType != BuildingType.Commercial)
+                    continue;
+
+                if (processedShapes.Contains(shape))
+                    continue;
+
+                processedShapes.Add(shape);
+                AddShape(shape);
+            }
+        }
+
+        Debug.Log($"ZoneManager: Rebuilt {zones.Count} zones from {processedShapes.Count} shapes");
+    }
+
+    /// <summary>
     /// Returns all zones orthogonally adjacent to a shape.
     /// </summary>
     public List<Zone> GetAdjacentZones(ShapeController shape)
