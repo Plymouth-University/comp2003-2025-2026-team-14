@@ -77,6 +77,7 @@ public class GameManager : MonoBehaviour
     // Auto-end detection
     private AutoEndDetector autoEndDetector;
     private bool isCheckingGameEnd = false;
+    private bool _checkGameEndAfterWildcardPending = false;
 
     [Header("End Game UI")]
     [System.Obsolete("Replaced by ScoreBreakdownUIManager. Retained for backward compatibility.")]
@@ -657,12 +658,16 @@ public class GameManager : MonoBehaviour
         // Additional turn start logic here
     }
 
-    // NOT CURRENTLY IN USE
-    // Wrapper of CheckForGameEndAfterRoll that can be called by DiceUIManager when wildcard is used
-    // IMPORTANT: Potential issue with HandleWildcardChoice's current implementation. Needs modification before use.
+    /// <summary>
+    /// Called after a wildcard is used (voluntarily via DiceUIManager or from the auto-end prompt).
+    /// Guards against double-scheduling when both the DiceUIManager permanent listener and
+    /// HandleWildcardChoice's temporary listener fire in the same frame.
+    /// </summary>
     public void CheckForGameEndAfterWildcardUse()
     {
-        CheckForGameEndAfterRoll();
+        if (_checkGameEndAfterWildcardPending) return;
+        _checkGameEndAfterWildcardPending = true;
+        StartCoroutine(RecheckAfterWildcard());
     }
 
     private void CheckForGameEndAfterRoll()
@@ -781,10 +786,9 @@ public class GameManager : MonoBehaviour
                 shapePanel.onSelectionMade.RemoveListener(onWildcardSelected);
                 buildingPanel.onSelectionMade.RemoveListener(onWildcardSelected);
 
-
                 // Wildcard has been applied (handled by DiceUIManager.OnShapeWildcardSelected)
-                // Wait a frame for dice update, then re-check for valid placements
-                StartCoroutine(RecheckAfterWildcard());
+                // Run end-game check via shared method to avoid double-coroutine
+                CheckForGameEndAfterWildcardUse();
             };
 
             shapePanel.onSelectionMade.AddListener(onWildcardSelected);
@@ -811,6 +815,8 @@ public class GameManager : MonoBehaviour
     {
         // Wait one frame for dice update and UI to refresh
         yield return null;
+
+        _checkGameEndAfterWildcardPending = false;
 
         // Re-check for valid placements
         CheckForGameEndAfterRoll();
