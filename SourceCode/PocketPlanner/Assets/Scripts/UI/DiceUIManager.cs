@@ -609,6 +609,9 @@ namespace PocketPlanner.UI
             // Update shape if one is active
             if (shapeManager != null)
                 shapeManager.UpdateActiveShapeFromSelectedDice();
+
+            // Check for game end after wildcard use
+            GameManager.Instance.CheckForGameEndAfterWildcardUse();
         }
 
         /// <summary>
@@ -642,6 +645,9 @@ namespace PocketPlanner.UI
             // Update shape if one is active
             if (shapeManager != null)
                 shapeManager.UpdateActiveShapeFromSelectedDice();
+
+            // Check for game end after wildcard use
+            GameManager.Instance.CheckForGameEndAfterWildcardUse();
         }
 
         /// <summary>
