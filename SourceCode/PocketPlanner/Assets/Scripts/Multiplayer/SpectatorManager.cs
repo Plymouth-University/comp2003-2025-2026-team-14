@@ -253,8 +253,23 @@ namespace PocketPlanner.Multiplayer
 
             if (localPlayerShapesBackup.Count > 0)
             {
-                ShapeManager.Instance.PlaceShapesFromBoardState(localPlayerShapesBackup);
-                Debug.Log($"SpectatorManager: Restored local player board ({localPlayerShapesBackup.Count} shapes)");
+                var restoredShapes = ShapeManager.Instance.PlaceShapesFromBoardState(localPlayerShapesBackup);
+                Debug.Log($"SpectatorManager: Restored local player board ({restoredShapes.Count} shapes)");
+
+                // Rebuild zones from the restored shapes.
+                // ClearAllShapes() nulls tile.zone references, and PlaceShapesFromBoardState()
+                // only restores tile.occupyingShape via FinalizePlacement() — zone references
+                // are never set. Without this call, zones won't reform until a new shape is
+                // placed manually, which would break contiguous zone detection and scoring.
+                if (ZoneManager.Instance != null)
+                {
+                    ZoneManager.Instance.RebuildAllZones();
+                    Debug.Log("SpectatorManager: Zones rebuilt after local board restore");
+                }
+                else
+                {
+                    Debug.LogWarning("SpectatorManager: ZoneManager.Instance is null, cannot rebuild zones");
+                }
             }
             else
             {

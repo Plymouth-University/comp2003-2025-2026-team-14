@@ -678,6 +678,14 @@ public class ShapeManager : MonoBehaviour
         // Also clear active shape reference
         activeShape = null;
 
+        // Clear ZoneManager zones list to prevent stale references to destroyed
+        // ShapeControllers; zones will be rebuilt by ZoneManager.RebuildAllZones()
+        // when the board is restored after spectating.
+        if (ZoneManager.Instance != null)
+        {
+            ZoneManager.Instance.ClearZones();
+        }
+
         Debug.Log($"ShapeManager: ClearAllShapes destroyed {shapeCount} shapes and cleared all tile references");
     }
 
