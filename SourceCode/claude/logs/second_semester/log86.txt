@@ -1,0 +1,2529 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> I've created the skeleton for a much more comprehensive score breakdown 
+display at game end that I want to implement in ScoreBreakdownUIManager.cs, 
+it is intended to replace the current endgamepanel in gamemanager used for 
+displaying the final scores. Please examine the previous end game panel 
+scoring implementation and ScoreManager, it will likely need to be extended 
+somewhat (including ScoreComponents) to get the extra values required, 
+especially regarding zones. Each row in the zone breakdown table 
+(zoneRowTextReferences represents a single row of one zone type) corresponds
+ to a unique shape count - so for row 1 it displays the quantity of zones 
+that have 1 unique shape and then the total score of those zones consisting 
+of 1 unique shape.  Please view UniqueShapesToScore() in ScoreManager to see
+ the scores corresponding to the amount of unique shapes in a zone. Do not 
+remove any existing functions if they're no longer needed, instead just 
+deprecate them. 
+
+● Let me examine all the relevant files in parallel to understand the
+  current implementation.
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 1852 lines
+
+● 2 Explore agents finished (ctrl+o to expand)
+   ├─ Find ScoreBreakdownUIManager.cs · 0 tool uses
+   │  ⎿  Done
+   └─ Find end game UI and ZoneManager · 0 tool uses
+      ⎿  Done
+
+● Now I have a thorough understanding of all the relevant code. Let me
+  update my todo list and plan the implementation.
+
+● Let me re-read the exact current state of ScoreComponents.cs before
+  editing:
+
+● Read(Assets/Scripts/ScoreComponents.cs)
+  ⎿  Read 56 lines
+
+● Read(Assets/Scripts/Core/ScoreManager.cs)
+  ⎿  Read 346 lines
+
+● Read(Assets/Scripts/UI/ScoreBreakdownUIManager.cs)
+  ⎿  Read 71 lines
+
+● Now I have the exact current state. Let me implement all the changes.
+  Starting with extending ScoreComponents:
+
+● Update(Assets/Scripts/ScoreComponents.cs)
+  ⎿  Updated Assets/Scripts/ScoreComponents.cs with 48 additions         
+        1    using System;
+        2    
+        3    /// <summary>
+        4 +  /// Represents a single row in the zone breakdown table.
+        5 +  /// Stores the count of zones having a specific number of 
+          + unique shapes
+        6 +  /// and the cumulative score for those zones.
+        7 +  /// </summary>
+        8 +  [Serializable]
+        9 +  public struct ZoneBreakdownEntry
+       10 +  {
+       11 +      /// <summary>The number of unique shapes this row 
+          + represents (1-6).</summary>
+       12 +      public int uniqueShapeCount;
+       13 +      /// <summary>Number of zones that have exactly this many
+          +  unique shapes.</summary>
+       14 +      public int zoneCount;
+       15 +      /// <summary>Cumulative score for all zones with this 
+          + unique shape count.</summary>
+       16 +      public int totalScore;
+       17 +  
+       18 +      public ZoneBreakdownEntry(int uniqueShapeCount, int 
+          + zoneCount, int totalScore)
+       19 +      {
+       20 +          this.uniqueShapeCount = uniqueShapeCount;
+       21 +          this.zoneCount = zoneCount;
+       22 +          this.totalScore = totalScore;
+       23 +      }
+       24 +  }
+       25 +  
+       26 +  /// <summary>
+       27    /// Represents the breakdown of a player's score into its 
+            component parts.
+       28    /// Used for displaying detailed score breakdown at game 
+            end.
+       29    /// </summary>
+     ...
+       12        public int residentialZoneScore;
+       13        public int commercialZoneScore;
+       14    
+       15 +      // Per-zone breakdown data (index 0 = 1 unique shape, 
+          + index 5 = 6 unique shapes)
+       16 +      // Each entry stores: how many zones have N unique 
+          + shapes, and the total score of those zones
+       17 +      public ZoneBreakdownEntry[] industrialZoneBreakdown;
+       18 +      public ZoneBreakdownEntry[] residentialZoneBreakdown;
+       19 +      public ZoneBreakdownEntry[] commercialZoneBreakdown;
+       20 +  
+       21        // Special building scores
+       22        public int parkScore;
+       23        public int schoolScore;
+     ...
+       27        public int totalScore;
+       28    
+       29        /// <summary>
+       30 +      /// Initialize the per-zone breakdown arrays with 6 
+          + entries (unique shape counts 1-6).
+       31 +      /// Must be called before populating breakdown data.
+       32 +      /// </summary>
+       33 +      public void InitializeBreakdownArrays()
+       34 +      {
+       35 +          industrialZoneBreakdown = new ZoneBreakdownEntry[6];
+       36 +          residentialZoneBreakdown = new 
+          + ZoneBreakdownEntry[6];
+       37 +          commercialZoneBreakdown = new ZoneBreakdownEntry[6];
+       38 +  
+       39 +          for (int i = 0; i < 6; i++)
+       40 +          {
+       41 +              int uniqueShapes = i + 1;
+       42 +              industrialZoneBreakdown[i] = new 
+          + ZoneBreakdownEntry(uniqueShapes, 0, 0);
+       43 +              residentialZoneBreakdown[i] = new 
+          + ZoneBreakdownEntry(uniqueShapes, 0, 0);
+       44 +              commercialZoneBreakdown[i] = new 
+          + ZoneBreakdownEntry(uniqueShapes, 0, 0);
+       45 +          }
+       46 +      }
+       47 +  
+       48 +      /// <summary>
+       49        /// Calculate total score by summing all components.
+       50        /// Note: emptyCellPenalty and wildcardCostTotal are 
+            negative values.
+       51        /// </summary>
+
+● Now extending ScoreManager.cs with zone breakdown calculation:
+
+● Update(Assets/Scripts/Core/ScoreManager.cs)
+  ⎿  Updated Assets/Scripts/Core/ScoreManager.cs with 2 additions and 1    
+     removal
+       113    
+       114        /// <summary>
+       115        /// Convert unique shape count to points according to 
+             scoring table.
+       116 +      /// Scoring table: 1=1, 2=2, 3=4, 4=7, 5=11, 6=16
+       117        /// </summary>
+       118 -      private int UniqueShapesToScore(int uniqueShapes)
+       118 +      public int UniqueShapesToScore(int uniqueShapes)
+       119        {
+       120            // Scoring table from ruleset.md
+       121            switch (uniqueShapes)
+
+● Now modify CalculateScore to initialize and populate the breakdown arrays:
+
+● Update(Assets/Scripts/Core/ScoreManager.cs)
+  ⎿  Updated Assets/Scripts/Core/ScoreManager.cs with 36 additions and 4 
+     removals
+       56        {
+       57            ScoreComponents components = new ScoreComponents();
+       58    
+       59 -          // Zone scores (Industrial, Residential, Commercial)
+       60 -          components.industrialZoneScore = 
+          - CalculateZoneScore(BuildingType.Industrial);
+       61 -          components.residentialZoneScore = 
+          - CalculateZoneScore(BuildingType.Residential);
+       62 -          components.commercialZoneScore = 
+          - CalculateZoneScore(BuildingType.Commercial);
+       59 +          // Initialize per-zone breakdown arrays
+       60 +          components.InitializeBreakdownArrays();
+       61    
+       62 +          // Zone scores (Industrial, Residential, Commercial)
+          +  with per-zone breakdown
+       63 +          components.industrialZoneScore = 
+          + CalculateZoneScoreWithBreakdown(BuildingType.Industrial, 
+          + components.industrialZoneBreakdown);
+       64 +          components.residentialZoneScore = 
+          + CalculateZoneScoreWithBreakdown(BuildingType.Residential, 
+          + components.residentialZoneBreakdown);
+       65 +          components.commercialZoneScore = 
+          + CalculateZoneScoreWithBreakdown(BuildingType.Commercial, 
+          + components.commercialZoneBreakdown);
+       66 +  
+       67            // Park scores
+       68            components.parkScore = CalculateParkScore();
+       69    
+     ...
+        82        }
+        83    
+        84        /// <summary>
+        85 +      /// Calculate total zone score AND populate per-zone 
+           + breakdown data.
+        86 +      /// Breakdown array must already be initialized with 6 
+           + entries (unique shape counts 1-6).
+        87 +      /// </summary>
+        88 +      private int 
+           + CalculateZoneScoreWithBreakdown(BuildingType buildingType, 
+           + ZoneBreakdownEntry[] breakdown)
+        89 +      {
+        90 +          if (zoneManager == null) return 0;
+        91 +  
+        92 +          List<Zone> zones = 
+           + zoneManager.GetZonesOfType(buildingType);
+        93 +          int total = 0;
+        94 +  
+        95 +          foreach (Zone zone in zones)
+        96 +          {
+        97 +              int uniqueShapes = zone.GetUniqueShapeCount();
+        98 +              int zoneScore = 
+           + UniqueShapesToScore(uniqueShapes);
+        99 +              total += zoneScore;
+       100 +  
+       101 +              // Populate breakdown entry (0-indexed, 
+           + uniqueShapes 1-6 maps to indices 0-5)
+       102 +              if (uniqueShapes >= 1 && uniqueShapes <= 6 && 
+           + breakdown != null)
+       103 +              {
+       104 +                  int index = uniqueShapes - 1;
+       105 +                  breakdown[index].zoneCount++;
+       106 +                  breakdown[index].totalScore += zoneScore;
+       107 +              }
+       108 +          }
+       109 +  
+       110 +          return total;
+       111 +      }
+       112 +  
+       113 +      /// <summary>
+       114        /// Calculate total score for all zones of a specific 
+             building type.
+       115        /// </summary>
+       116        private int CalculateZoneScore(BuildingType 
+             buildingType)
+
+● Now deprecate the old CalculateZoneScore(BuildingType) method:
+
+● Update(Assets/Scripts/Core/ScoreManager.cs)
+  ⎿  Updated Assets/Scripts/Core/ScoreManager.cs with 3 additions and 1    
+     removal
+       114        }
+       115    
+       116        /// <summary>
+       117 -      /// 
+           -  Calculate total score for all zones of a specific building 
+           -  type.
+       117 +      /// [Deprecated] 
+           +  Calculate total score for all zones of a specific building 
+           +  type.
+       118 +      /// Use CalculateZoneScoreWithBreakdown instead to also
+           +  populate per-zone breakdown data.
+       119        /// </summary>
+       120 +      [System.Obsolete("Use CalculateZoneScoreWithBreakdown 
+           + instead to populate per-zone breakdown data.")]
+       121        private int CalculateZoneScore(BuildingType 
+             buildingType)
+       122        {
+       123            if (zoneManager == null) return 0;
+
+● ScoreManager is done. Now let me implement the full
+  ScoreBreakdownUIManager.cs:
+
+● Write(Assets/Scripts/UI/ScoreBreakdownUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/ScoreBreakdownUIManager.cs with 154 addition
+      and 8 removals
+       1 -  using Unity.VisualScripting;
+       1    using UnityEngine;
+       2    using UnityEngine.UI;
+       3    using TMPro;
+     ...
+       23        // Each list has 6 rows corresponding to the amount of 
+            unique shapes within a zone
+       24        // index 0 = row 1 = zones with 1 unique shape
+       25        // index 1 = row 2 = zones with 2 unique shapes, etc.
+       26 -      [SerializeField] private List<zoneRowTextReferences> 
+          -  ResidentialZoneBreakdownTexts;
+          -   // index 0 = row 1, index 1 = row 2 
+       26 +      [SerializeField] private List<zoneRowTextReferences> 
+          +  ResidentialZoneBreakdownTexts;
+       27        [SerializeField] private List<zoneRowTextReferences> 
+            CommercialZoneBreakdownTexts;
+       28        [SerializeField] private List<zoneRowTextReferences> 
+            IndustrialZoneBreakdownTexts;
+       29    
+     ...
+        48        [SerializeField] private TextMeshProUGUI 
+             FinalScoreText;
+        49    
+        50        [Header("Return Button Reference")]
+        51 -      [SerializeField] private GameObject
+           -   returnButton; // Should hide the score breakdown panel on 
+           -  click
+        51 +      [SerializeField] private Button
+           +   returnButton; // Should hide the score breakdown panel on 
+           +  click
+        52    
+        53 +      [Header("Restart & Main Menu Buttons")]
+        54 +      [SerializeField] private Button restartButton;
+        55 +      [SerializeField] private Button mainMenuButton;
+        56    
+        57 -  
+        57        // Start is called once before the first execution of 
+             Update after the MonoBehaviour is created
+        58        void Start()
+        59        {
+        60 -          
+        60 +          // Wire up return button to hide the panel
+        61 +          if (returnButton != null)
+        62 +          {
+        63 +              returnButton.onClick.AddListener(Hide);
+        64 +          }
+        65 +  
+        66 +          // Wire up view score guide button
+        67 +          if (viewScoreGuideButton != null)
+        68 +          {
+        69 +              viewScoreGuideButton.onClick.AddListener(OnView
+           + ScoreGuideButtonClicked);
+        70 +          }
+        71 +  
+        72 +          // Wire up restart and main menu buttons via 
+           + GameManager
+        73 +          if (restartButton != null && GameManager.Instance 
+           + != null)
+        74 +          {
+        75 +              restartButton.onClick.AddListener(GameManager.I
+           + nstance.RestartGame);
+        76 +          }
+        77 +  
+        78 +          if (mainMenuButton != null && GameManager.Instance 
+           + != null)
+        79 +          {
+        80 +              mainMenuButton.onClick.AddListener(GameManager.
+           + Instance.ReturnToMainMenu);
+        81 +          }
+        82 +  
+        83 +          // Hide panel initially
+        84 +          if (scoreBreakdownPanel != null)
+        85 +          {
+        86 +              scoreBreakdownPanel.SetActive(false);
+        87 +          }
+        88        }
+        89    
+        90        /// <summary>
+        91 -      /// Displays the panel without updating text references
+           -   with scores, allows the user
+           -   to view the layout to understand how scoring works.
+        92 -      /// Handler for when View Score Guide button is 
+           - clicked.  
+        91 +      /// Displays the panel without updating text references
+           +   with scores, allows the user
+        92 +      /// to view the layout to understand how scoring works.
+        93 +      /// Handler for when View Score Guide button is 
+           + clicked.
+        94        /// </summary>
+        95 -      private void OnViewScoreGuideButtonClicked()
+        95 +      public void OnViewScoreGuideButtonClicked()
+        96        {
+        97 +          if (scoreBreakdownPanel != null)
+        98 +          {
+        99 +              scoreBreakdownPanel.SetActive(true);
+       100 +          }
+       101 +      }
+       102 +  
+       103 +      /// <summary>
+       104 +      /// Display the full score breakdown panel populated 
+           + with the given score data.
+       105 +      /// Called by GameManager when the game ends.
+       106 +      /// </summary>
+       107 +      public void DisplayScoreBreakdown(ScoreComponents 
+           + score)
+       108 +      {
+       109 +          if (scoreBreakdownPanel == null)
+       110 +          {
+       111 +              Debug.LogError("ScoreBreakdownUIManager: Score 
+           + breakdown panel not assigned!");
+       112 +              return;
+       113 +          }
+       114 +  
+       115 +          // Populate zone breakdown tables
+       116 +          
+           + PopulateZoneBreakdownTable(score.industrialZoneBreakdown, 
+           + IndustrialZoneBreakdownTexts);
+       117 +          
+           + PopulateZoneBreakdownTable(score.residentialZoneBreakdown, 
+           + ResidentialZoneBreakdownTexts);
+       118 +          
+           + PopulateZoneBreakdownTable(score.commercialZoneBreakdown, 
+           + CommercialZoneBreakdownTexts);
+       119 +  
+       120 +          // Populate zone total scores
+       121 +          if (IndustrialZoneScoreText != null)
+       122 +              IndustrialZoneScoreText.text = 
+           + FormatScore(score.industrialZoneScore);
+       123 +          if (ResidentialZoneScoreText != null)
+       124 +              ResidentialZoneScoreText.text = 
+           + FormatScore(score.residentialZoneScore);
+       125 +          if (CommercialZoneScoreText != null)
+       126 +              CommercialZoneScoreText.text = 
+           + FormatScore(score.commercialZoneScore);
+       127 +  
+       128 +          // Total zone score
+       129 +          int totalZoneScore = score.industrialZoneScore + 
+           + score.residentialZoneScore + score.commercialZoneScore;
+       130 +          if (TotalZoneScoreText != null)
+       131 +              TotalZoneScoreText.text = 
+           + FormatScore(totalZoneScore);
+       132 +  
+       133 +          // Special building scores
+       134 +          if (SchoolScoreText != null)
+       135 +              SchoolScoreText.text = 
+           + FormatScore(score.schoolScore);
+       136 +          if (ParkScoreText != null)
+       137 +              ParkScoreText.text = 
+           + FormatScore(score.parkScore);
+       138 +  
+       139 +          // Stars
+       140 +          if (StarScoreText != null)
+       141 +              StarScoreText.text = 
+           + FormatScore(score.starScore);
+       142 +  
+       143 +          // Penalties
+       144 +          if (EmptyCellPenaltyText != null)
+       145 +              EmptyCellPenaltyText.text = 
+           + FormatScore(score.emptyCellPenalty);
+       146 +          if (WildcardCostTotalText != null)
+       147 +              WildcardCostTotalText.text = 
+           + FormatScore(score.wildcardCostTotal);
+       148 +  
+       149 +          // Final score
+       150 +          if (FinalScoreText != null)
+       151 +              FinalScoreText.text = 
+           + FormatScore(score.totalScore);
+       152 +  
+       153 +          // Show the panel
+       154            scoreBreakdownPanel.SetActive(true);
+       155        }
+       156    
+       157 +      /// <summary>
+       158 +      /// Populate a zone breakdown table for a specific 
+           + building type.
+       159 +      /// Each row shows the quantity of zones with N unique 
+           + shapes and their cumulative score.
+       160 +      /// </summary>
+       161 +      private void 
+           + PopulateZoneBreakdownTable(ZoneBreakdownEntry[] breakdown, 
+           + List<zoneRowTextReferences> rowTexts)
+       162 +      {
+       163 +          if (breakdown == null || rowTexts == null) return;
+       164 +  
+       165 +          int rowCount = Mathf.Min(breakdown.Length, 
+           + rowTexts.Count);
+       166 +          for (int i = 0; i < rowCount; i++)
+       167 +          {
+       168 +              zoneRowTextReferences row = rowTexts[i];
+       169 +              if (row == null) continue;
+       170 +  
+       171 +              if (row.quantityOfUniqueShapeCountText != null)
+       172 +              {
+       173 +                  row.quantityOfUniqueShapeCountText.text = 
+           + breakdown[i].zoneCount.ToString();
+       174 +              }
+       175 +  
+       176 +              if (row.scoreOfUniqueShapeCountText != null)
+       177 +              {
+       178 +                  row.scoreOfUniqueShapeCountText.text = 
+           + FormatScore(breakdown[i].totalScore);
+       179 +              }
+       180 +          }
+       181 +      }
+       182 +  
+       183 +      /// <summary>
+       184 +      /// Format a score value for display. Shows positive 
+           + values with a "+" prefix
+       185 +      /// and negative values with a "-" prefix (already 
+           + included in penalty values).
+       186 +      /// </summary>
+       187 +      private string FormatScore(int value)
+       188 +      {
+       189 +          if (value >= 0)
+       190 +              return "+" + value.ToString();
+       191 +          else
+       192 +              return value.ToString(); // Negative sign is 
+           + already included
+       193 +      }
+       194 +  
+       195 +      /// <summary>
+       196 +      /// Hide the score breakdown panel.
+       197 +      /// </summary>
+       198 +      public void Hide()
+       199 +      {
+       200 +          if (scoreBreakdownPanel != null)
+       201 +          {
+       202 +              scoreBreakdownPanel.SetActive(false);
+       203 +          }
+       204 +      }
+       205 +  
+       206 +      /// <summary>
+       207 +      /// Show the score breakdown panel (without populating 
+           + score data).
+       208 +      /// Used for the score guide view.
+       209 +      /// </summary>
+       210 +      public void Show()
+       211 +      {
+       212 +          if (scoreBreakdownPanel != null)
+       213 +          {
+       214 +              scoreBreakdownPanel.SetActive(true);
+       215 +          }
+       216 +      }
+       217    }
+
+● Now updating GameManager.cs to integrate with ScoreBreakdownUIManager:
+
+● First, add the ScoreBreakdownUIManager reference field alongside the
+  existing end game UI fields:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 7 additions             
+       79        private bool isCheckingGameEnd = false;
+       80    
+       81        [Header("End Game UI")]
+       82 +      [System.Obsolete("Replaced by ScoreBreakdownUIManager. 
+          + Retained for backward compatibility.")]
+       83        [SerializeField] private GameObject endGamePanel;
+       84 +      [System.Obsolete("Replaced by ScoreBreakdownUIManager. 
+          + Retained for backward compatibility.")]
+       85        [SerializeField] private TextMeshProUGUI 
+            scoreBreakdownText;
+       86 +      [System.Obsolete("Replaced by ScoreBreakdownUIManager. 
+          + Retained for backward compatibility.")]
+       87        [SerializeField] private Button restartButton;
+       88 +      [System.Obsolete("Replaced by ScoreBreakdownUIManager. 
+          + Retained for backward compatibility.")]
+       89        [SerializeField] private Button mainMenuButton;
+       90    
+       91 +      [Header("Score Breakdown UI (Replacement for End Game 
+          + UI)")]
+       92 +      [SerializeField] private ScoreBreakdownUIManager 
+          + scoreBreakdownUIManager;
+       93 +  
+       94        [Header("Top Panel Options UI")]
+       95        [SerializeField] private Button returnToMenuButton;
+       96        [SerializeField] private Button scoreGuideButton;
+
+● Now update FindAndAssignUIReferences() to find ScoreBreakdownUIManager at
+  runtime:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 15 additions and 1 removal
+       259        /// </summary>
+       260        void FindAndAssignUIReferences()
+       261        {
+       262 -          // Find EndGamePanel by name
+       262 +          // Find EndGamePanel by name
+           +   (for backward compatibility)
+       263            GameObject panelObj = 
+             GameObject.Find("EndGamePanel");
+       264            if (panelObj != null)
+       265            {
+     ...
+       285                Debug.LogWarning("GameManager: Could not find 
+             EndGamePanel in scene.");
+       286            }
+       287    
+       288 +          // Find ScoreBreakdownUIManager if not already 
+           + assigned via inspector
+       289 +          if (scoreBreakdownUIManager == null)
+       290 +          {
+       291 +              scoreBreakdownUIManager = 
+           + FindAnyObjectByType<ScoreBreakdownUIManager>();
+       292 +              if (scoreBreakdownUIManager != null)
+       293 +              {
+       294 +                  Debug.Log("GameManager: Found 
+           + ScoreBreakdownUIManager in scene.");
+       295 +              }
+       296 +              else
+       297 +              {
+       298 +                  Debug.LogWarning("GameManager: 
+           + ScoreBreakdownUIManager not found in scene.");
+       299 +              }
+       300 +          }
+       301 +  
+       302            // Find top panel buttons and feedback text
+       303            panelObj = GameObject.Find("OptionsPanel");
+       304            if (panelObj != null)
+
+● Now update TriggerGameEnd() to use the new ScoreBreakdownUIManager:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 11 additions and 2 removals
+       1362            ScoreComponents score = CalculateFinalScore();
+       1363            currentScore = score;
+       1364    
+       1365 -          // Show end game UI
+       1366 -          ShowEndGameScreen(score);
+       1365 +          // Show score breakdown using the new 
+            + ScoreBreakdownUIManager (preferred)
+       1366 +          if (scoreBreakdownUIManager != null)
+       1367 +          {
+       1368 +              
+            + scoreBreakdownUIManager.DisplayScoreBreakdown(score);
+       1369 +          }
+       1370 +          else
+       1371 +          {
+       1372 +              // Fallback to old EndGamePanel
+       1373 +              Debug.LogWarning("GameManager: 
+            + ScoreBreakdownUIManager not available, falling back to old 
+            + EndGamePanel.");
+       1374 +              ShowEndGameScreen(score);
+       1375 +          }
+       1376    
+       1377            // Disable further game interactions
+       1378            // (Optional) Disable dice UI, shape movement, 
+              etc.
+
+● Now deprecate the old end game display methods:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 4 additions and 1 removal
+       1506        }
+       1507    
+       1508        /// <summary>
+       1509 -      /// Show end game screen with score breakdown.
+       1509 +      /// [Deprecated] 
+            +  Show end game screen with score breakdown.
+       1510 +      /// Replaced by 
+            + ScoreBreakdownUIManager.DisplayScoreBreakdown().
+       1511 +      /// Retained as fallback if ScoreBreakdownUIManager is
+            +  not available.
+       1512        /// </summary>
+       1513 +      [System.Obsolete("Replaced by 
+            + ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
+       1514        private void ShowEndGameScreen(ScoreComponents score)
+       1515        {
+       1516            if (endGamePanel == null)
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 3 additions and 1 removal
+       1533        }
+       1534    
+       1535        /// <summary>
+       1536 -      /// Hide end game screen.
+       1536 +      /// [Deprecated] Hide end game screen.
+       1537 +      /// Replaced by ScoreBreakdownUIManager.Hide().
+       1538        /// </summary>
+       1539 +      [System.Obsolete("Replaced by 
+            + ScoreBreakdownUIManager.Hide().")]
+       1540        private void HideEndGameScreen()
+       1541        {
+       1542            if (endGamePanel != null)
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 3 additions and 1 removal
+       1547        }
+       1548    
+       1549        /// <summary>
+       1550 -      /// Format score breakdown for display.
+       1550 +      /// [Deprecated] Format score breakdown for display.
+       1551 +      /// Replaced by 
+            + ScoreBreakdownUIManager.DisplayScoreBreakdown().
+       1552        /// </summary>
+       1553 +      [System.Obsolete("Replaced by 
+            + ScoreBreakdownUIManager.DisplayScoreBreakdown().")]
+       1554        private string FormatScoreBreakdown(ScoreComponents 
+              score)
+       1555        {
+       1556            return $"FINAL SCORE: {score.totalScore}\n\n" +
+
+● Let me do a final review of all three modified files to make sure
+  everything is correct:
+
+● Read(Assets/Scripts/ScoreComponents.cs)
+  ⎿  Read 104 lines
+
+● Read(Assets/Scripts/Core/ScoreManager.cs)
+  ⎿  Read 381 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 90 lines
+
+● The implementation looks correct. Let me also check if there are any other
+   uses of the deprecated methods that might need attention:
+
+● Search(pattern: "ShowEndGameScreen|HideEndGameScreen|FormatScoreBreakdown",
+        output_mode: "content")
+  ⎿  Found 7 lines (ctrl+o to expand)
+
+● All internal references are properly contained - the old methods are only
+  called as fallback paths within GameManager itself. The implementation is
+  complete and correct.
+
+● Here's a summary of all the changes made across the 4 files:
+
+  ---
+  1. Assets/Scripts/ScoreComponents.cs — Extended with zone breakdown data
+
+  - Added ZoneBreakdownEntry struct (lines 8-24): A serializable struct with
+   uniqueShapeCount, zoneCount, and totalScore — represents a single row in
+  the zone breakdown table.
+  - Added breakdown arrays to ScoreComponents (lines 39-42):
+  industrialZoneBreakdown[], residentialZoneBreakdown[],
+  commercialZoneBreakdown[] — each is a 6-entry array (index 0 = 1 unique
+  shape, ..., index 5 = 6 unique shapes).
+  - Added InitializeBreakdownArrays() (lines 62-75): Initializes all three
+  breakdown arrays with zeroed entries covering unique shape counts 1-6.
+
+  2. Assets/Scripts/Core/ScoreManager.cs — Extended with per-zone breakdown 
+  calculation
+
+  - UniqueShapesToScore() made public (line 118): So it can be referenced
+  externally by score display code (the scoring table: 1=1, 2=2, 3=4, 4=7,
+  5=11, 6=16).
+  - CalculateScore() now populates breakdowns (lines 55-85): Calls
+  InitializeBreakdownArrays() and uses new CalculateZoneScoreWithBreakdown
+  for all three zone types instead of the old method.
+  - Added CalculateZoneScoreWithBreakdown() (lines 91-114): New private
+  method that calculates total zone score AND populates the breakdown array
+  — counts how many zones have each unique shape count and their cumulative
+  scores.
+  - Deprecated CalculateZoneScore(BuildingType) (line 120): Kept for
+  backward compatibility with [System.Obsolete] attribute.
+
+  3. Assets/Scripts/UI/ScoreBreakdownUIManager.cs — Full implementation
+
+  - Start() (lines 57-87): Wires up return button, view score guide button,
+  restart/main menu buttons via GameManager, and hides the panel initially.
+  - DisplayScoreBreakdown(ScoreComponents) (lines 106-154): Public method
+  called by GameManager at game end. Populates all 6 rows of each zone
+  breakdown table (quantity + score), total zone scores, parks, schools,
+  stars, penalties, and final score.
+  - PopulateZoneBreakdownTable() (lines 160-179): Private helper that
+  iterates over the 6 rows for a given building type.
+  - FormatScore() (lines 186-192): Helper that prefixes positive values with
+   "+" and leaves negative values as-is.
+  - Hide() and Show() (lines 197-215): Public methods for panel visibility
+  control.
+  - Added restartButton and mainMenuButton serialized fields for the new
+  panel's buttons.
+
+  4. Assets/Scripts/GameManager.cs — Integration with new UI
+
+  - Added scoreBreakdownUIManager field (line 92): Serialized reference to
+  the new ScoreBreakdownUIManager.
+  - FindAndAssignUIReferences() now finds ScoreBreakdownUIManager at runtime
+   if not assigned in inspector (lines 288-300).
+  - TriggerGameEnd() now prefers
+  scoreBreakdownUIManager.DisplayScoreBreakdown() over the old
+  ShowEndGameScreen() (lines 1365-1375), with fallback if
+  ScoreBreakdownUIManager is null.
+  - Deprecated old end game fields/methods with [System.Obsolete]:
+    - Fields: endGamePanel, scoreBreakdownText, restartButton,
+  mainMenuButton (lines 82-89)
+    - Methods: ShowEndGameScreen(), HideEndGameScreen(),
+  FormatScoreBreakdown()
+
+> Great, I can verify it works! I've created another skeleton class in 
+EndScoreboardUIManager.cs, please examine it. My intention is to replace the
+ end game panel to create a scoreboard for multiplayer and singleplayer. The
+ flow would look like this: game ended -> new scoreboard showing player 
+rankings 1st, 2nd, 3rd etc.. (new end game panel) ->  Click on a 
+scorebreakdown button next to player -> Shows the detailed scorebreakdown 
+for their scores via ScoreBreakdownUIManager. To implement this players will
+ need to broadcast their scorecomponents at game end to firebase and then 
+fetch a player's scores whenever clicking on their scorebreakdown button. 
+Additionally players need to be ranked based on their score, so for each 
+list index 0 represents rank 1. Can you help me implement this? 
+
+● Let me examine the skeleton and the multiplayer infrastructure in
+  parallel:
+
+● Search(pattern: "**/EndScoreboardUIManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Explore(Find multiplayer sync infrastructure)
+  ⎿  Done (27 tool uses · 85.3k tokens · 2m 32s)                           
+
+● Read(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Read 31 lines
+
+● Let me read the key sections of SyncManager and PlayerData for the
+  broadcast/receive infrastructure:
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 120 lines
+
+● Read(Assets/Scripts/Multiplayer/PlayerData.cs)
+  ⎿  Read 265 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 100 lines
+
+● Let me read the key serialization and processing methods in SyncManager:
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 80 lines
+
+● Search(pattern: "SerializePlayerGameState|DeserializePlayerGameState|ProcessPl
+        ayerGameState|ProcessGameEnd", path:
+        "Assets/Scripts/Multiplayer/SyncManager.cs", output_mode: "content")
+  ⎿  Found 10 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 90 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 80 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 80 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 50 lines
+
+● Search(pattern: "GetCurrentScore|private int GetCurrentScore", path:
+        "Assets/Scripts/Multiplayer/SyncManager.cs", output_mode: "content")
+  ⎿  Found 23 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 60 lines
+
+● Search(pattern: "OnLocalGameEnded|OnRemoteGameEnded|TriggerGameEnd|GameEnded",
+         path: "Assets/Scripts/Multiplayer/MultiplayerManager.cs", output_mode:
+        "content")
+  ⎿  Found 57 lines (ctrl+o to expand)
+
+● Now I have a complete picture of the entire system. Let me update my plan
+  and start implementing.
+
+● Let me read the exact end of SyncManager to know where to add the new data
+   structures:
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 12 lines
+
+● Now let me implement all the changes. Starting with SyncManager - adding
+  the FinalScoreData class:
+
+● Update(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SyncManager.cs with 22 additions
+       1498            public string playerId;
+       1499            public int positionNumber;
+       1500        }
+       1501 +  
+       1502 +      /// <summary>
+       1503 +      /// Data structure for broadcasting final scores at 
+            + game end.
+       1504 +      /// Contains the full score breakdown for display in 
+            + the end-game scoreboard.
+       1505 +      /// </summary>
+       1506 +      [Serializable]
+       1507 +      public class FinalScoreData
+       1508 +      {
+       1509 +          public string playerId;
+       1510 +          public string displayName;
+       1511 +          public int totalScore;
+       1512 +          public int stars;
+       1513 +          public int wildcardsUsed;
+       1514 +          public int emptyCellPenalty;
+       1515 +          public int industrialZoneScore;
+       1516 +          public int residentialZoneScore;
+       1517 +          public int commercialZoneScore;
+       1518 +          public int parkScore;
+       1519 +          public int schoolScore;
+       1520 +          /// <summary>Full ScoreComponents serialized as 
+            + JSON for detailed breakdown display.</summary>
+       1521 +          public string scoreComponentsJson;
+       1522 +      }
+       1523    }
+       1524   \ No newline at end of file
+
+● Now add BroadcastFinalScore method after BroadcastGameEnd:
+
+● Update(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SyncManager.cs with 69 additions 
+       1176            }
+       1177    
+       1178            /// <summary>
+       1179 +          /// Broadcast the player's final score breakdown 
+            + to Firebase for the end-game scoreboard.
+       1180 +          /// </summary>
+       1181 +          /// <param name="score">The complete 
+            + ScoreComponents for this player</param>
+       1182 +          public async Task 
+            + BroadcastFinalScore(ScoreComponents score)
+       1183 +          {
+       1184 +              if (_firebaseManager == null || 
+            + !_firebaseManager.IsReady())
+       1185 +              {
+       1186 +                  Debug.LogError("SyncManager: Cannot 
+            + broadcast final score - Firebase not ready");
+       1187 +                  return;
+       1188 +              }
+       1189 +  
+       1190 +              if (_multiplayerManager == null || 
+            + string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+       1191 +              {
+       1192 +                  Debug.LogError("SyncManager: Cannot 
+            + broadcast final score - no active lobby");
+       1193 +                  return;
+       1194 +              }
+       1195 +  
+       1196 +              string playerId = 
+            + _multiplayerManager.LocalPlayerId;
+       1197 +              if (string.IsNullOrEmpty(playerId))
+       1198 +              {
+       1199 +                  Debug.LogError("SyncManager: Cannot 
+            + broadcast final score - no local player ID");
+       1200 +                  return;
+       1201 +              }
+       1202 +  
+       1203 +              string displayName = 
+            + _multiplayerManager.Players.TryGetValue(playerId, out var 
+            + playerData)
+       1204 +                  ? playerData.DisplayName
+       1205 +                  : playerId;
+       1206 +  
+       1207 +              try
+       1208 +              {
+       1209 +                  var finalScoreData = new FinalScoreData
+       1210 +                  {
+       1211 +                      playerId = playerId,
+       1212 +                      displayName = displayName,
+       1213 +                      totalScore = score.totalScore,
+       1214 +                      stars = score.starScore,
+       1215 +                      wildcardsUsed = 
+            + GetCurrentWildcardsUsed(),
+       1216 +                      emptyCellPenalty = 
+            + score.emptyCellPenalty,
+       1217 +                      industrialZoneScore = 
+            + score.industrialZoneScore,
+       1218 +                      residentialZoneScore = 
+            + score.residentialZoneScore,
+       1219 +                      commercialZoneScore = 
+            + score.commercialZoneScore,
+       1220 +                      parkScore = score.parkScore,
+       1221 +                      schoolScore = score.schoolScore,
+       1222 +                      scoreComponentsJson = 
+            + JsonUtility.ToJson(score)
+       1223 +                  };
+       1224 +  
+       1225 +                  string json = 
+            + JsonUtility.ToJson(finalScoreData);
+       1226 +  
+       1227 +                  await _firebaseManager.DatabaseReference
+       1228 +                      .Child($"games/{_multiplayerManager.Lo
+            + bbyCode}/finalScores/{playerId}")
+       1229 +                      .SetValueAsync(json);
+       1230 +  
+       1231 +                  Debug.Log($"SyncManager: Final score 
+            + broadcast to games/{_multiplayerManager.LobbyCode}/finalSco
+            + res/{playerId}");
+       1232 +              }
+       1233 +              catch (Exception ex)
+       1234 +              {
+       1235 +                  Debug.LogError($"SyncManager: Failed to 
+            + broadcast final score: {ex.Message}");
+       1236 +              }
+       1237 +          }
+       1238 +  
+       1239 +          /// <summary>
+       1240 +          /// Get current wildcards used count from 
+            + GameManager.
+       1241 +          /// </summary>
+       1242 +          private int GetCurrentWildcardsUsed()
+       1243 +          {
+       1244 +              return _gameManager?.WildcardsUsed ?? 0;
+       1245 +          }
+       1246 +  
+       1247 +          /// <summary>
+       1248            /// Broadcast a starting position lock to all 
+              players in the lobby.
+       1249            /// Each position (1-8) can only be claimed by one
+               player.
+       1250            /// </summary>
+
+● Now add FetchAllFinalScores method. Let me read the current area around
+  where FetchPlayerBoardState ends:
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 20 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SyncManager.cs with 61 additions 
+       1477                });
+       1478            }
+       1479    
+       1480 +          /// <summary>
+       1481 +          /// Fetch all players' final scores from Firebase 
+            + for the end-game scoreboard.
+       1482 +          /// </summary>
+       1483 +          /// <param name="callback">Callback with list of 
+            + FinalScoreData, sorted by nothing (caller should 
+            + sort)</param>
+       1484 +          public void 
+            + FetchAllFinalScores(System.Action<List<FinalScoreData>> 
+            + callback)
+       1485 +          {
+       1486 +              if (_firebaseManager == null || 
+            + !_firebaseManager.IsReady())
+       1487 +              {
+       1488 +                  Debug.LogError("SyncManager: Cannot fetch 
+            + final scores - Firebase not ready");
+       1489 +                  callback?.Invoke(new 
+            + List<FinalScoreData>());
+       1490 +                  return;
+       1491 +              }
+       1492 +  
+       1493 +              if (_multiplayerManager == null || 
+            + string.IsNullOrEmpty(_multiplayerManager.LobbyCode))
+       1494 +              {
+       1495 +                  Debug.LogError("SyncManager: Cannot fetch 
+            + final scores - no lobby code");
+       1496 +                  callback?.Invoke(new 
+            + List<FinalScoreData>());
+       1497 +                  return;
+       1498 +              }
+       1499 +  
+       1500 +              string lobbyCode = 
+            + _multiplayerManager.LobbyCode;
+       1501 +              DatabaseReference finalScoresRef = 
+            + _firebaseManager.DatabaseReference
+       1502 +                  .Child($"games/{lobbyCode}/finalScores");
+       1503 +  
+       1504 +              
+            + finalScoresRef.GetValueAsync().ContinueWith(task =>
+       1505 +              {
+       1506 +                  if (task.IsFaulted)
+       1507 +                  {
+       1508 +                      Debug.LogError($"SyncManager: Failed 
+            + to fetch final scores: {task.Exception}");
+       1509 +                      InvokeOnMainThread(() => 
+            + callback?.Invoke(new List<FinalScoreData>()));
+       1510 +                      return;
+       1511 +                  }
+       1512 +  
+       1513 +                  var scores = new List<FinalScoreData>();
+       1514 +                  DataSnapshot snapshot = task.Result;
+       1515 +  
+       1516 +                  if (snapshot != null && snapshot.Exists)
+       1517 +                  {
+       1518 +                      foreach (DataSnapshot child in 
+            + snapshot.Children)
+       1519 +                      {
+       1520 +                          try
+       1521 +                          {
+       1522 +                              string json = 
+            + child.GetRawJsonValue();
+       1523 +                              var finalScore = 
+            + JsonUtility.FromJson<FinalScoreData>(json);
+       1524 +                              if (finalScore != null)
+       1525 +                              {
+       1526 +                                  scores.Add(finalScore);
+       1527 +                              }
+       1528 +                          }
+       1529 +                          catch (System.Exception ex)
+       1530 +                          {
+       1531 +                              Debug.LogError($"SyncManager: 
+            + Failed to deserialize final score for {child.Key}: 
+            + {ex.Message}");
+       1532 +                          }
+       1533 +                      }
+       1534 +                  }
+       1535 +  
+       1536 +                  Debug.Log($"SyncManager: Fetched 
+            + {scores.Count} final scores");
+       1537 +                  InvokeOnMainThread(() => 
+            + callback?.Invoke(scores));
+       1538 +              });
+       1539 +          }
+       1540 +  
+       1541        }
+       1542    
+       1543        // Data structures for serialization
+
+● SyncManager is done. Now implementing the full EndScoreboardUIManager:
+
+● Write(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/EndScoreboardUIManager.cs with 442 additions
+     and 12 removals
+
+         1 +  using System.Collections;
+         2    using System.Collections.Generic;
+         3 +  using System.Linq;
+         4    using UnityEngine;
+         5    using UnityEngine.UI;
+         6    using TMPro;
+         7 -  using Unity.VisualScripting;
+         7 +  using PocketPlanner.Multiplayer;
+         8    
+         9    public class EndScoreboardUIManager : MonoBehaviour
+        10    {
+        11 -      // At game end, replace the old end game panel with 
+           - this new UI manager
+        11        [Header("End Scoreboard Panel Reference")]
+        12        [SerializeField] private GameObject endScoreboardPanel;
+        13    
+        14 -       [Header("Player List Scoreboard UI")]
+        15 -       
+           -  // Activate panels up to max players in the game, disable 
+           -  the rest
+        16 -      [SerializeField] private List<GameObject> 
+           - playerListPanels; // List of 8 UI panels (index 0 
+           - corresponds to player with highest score at game end) for 
+           - displaying player names and scores;
+        17 -      [SerializeField] private List<TextMeshProUGUI> 
+           - playerNameTexts; // List of 8 Text components (index 0 
+           - corresponds to player with highest score at game end);
+        18 -      [SerializeField] private List<TextMeshProUGUI> 
+           - playerScoreTexts; // List of 8 Text components (index 0 
+           - corresponds to player with highest score at game end);
+        19 -      [SerializeField] private List<Button> 
+           - playerScoreBreakdownButtons; // List of 8 Buttons (index 0 
+           - corresponds to player with highest score at game end); each 
+           - button should open a detailed score breakdown for that 
+           - player when clicked
+        14 +      [Header("Player List Scoreboard UI")]
+        15 +      
+           +  // Activate panels up to max players in the game, disable 
+           +  the rest
+        16 +      // index 0 corresponds to player with highest score at 
+           + game end (rank 1)
+        17 +      [SerializeField] private List<GameObject> 
+           + playerListPanels;
+        18 +      [SerializeField] private List<TextMeshProUGUI> 
+           + playerNameTexts;
+        19 +      [SerializeField] private List<TextMeshProUGUI> 
+           + playerScoreTexts;
+        20 +      [SerializeField] private List<Button> 
+           + playerScoreBreakdownButtons;
+        21    
+        22        [Header("Return to Main Menu Button Reference")]
+        23 -      [SerializeField] private Button returnToMainMenuButton;
+           -   // Should call OnLeaveMultiplayerAndReturnToMainMenu on 
+           -  click
+        23 +      [SerializeField] private Button returnToMainMenuButton;
+        24    
+        25 -      // Start is called once before the first execution of 
+           - Update after the MonoBehaviour is created
+        25 +      [Header("Score Breakdown UI Reference")]
+        26 +      [SerializeField] private ScoreBreakdownUIManager 
+           + scoreBreakdownUIManager;
+        27 +  
+        28 +      [Header("Continue / Play Again Button")]
+        29 +      [SerializeField] private Button playAgainButton;
+        30 +  
+        31 +      // Stored ranked player data for score breakdown button
+           +  clicks
+        32 +      private List<PlayerScoreEntry> rankedPlayers = new 
+           + List<PlayerScoreEntry>();
+        33 +  
+        34 +      // Local player's ScoreComponents (for single player 
+           + mode)
+        35 +      private ScoreComponents localScore;
+        36 +  
+        37 +      // Is the scoreboard currently showing?
+        38 +      private bool isVisible = false;
+        39 +  
+        40 +      /// <summary>
+        41 +      /// Internal entry for tracking a ranked player's score
+           +  data.
+        42 +      /// </summary>
+        43 +      private class PlayerScoreEntry
+        44 +      {
+        45 +          public string playerId;
+        46 +          public string displayName;
+        47 +          public int totalScore;
+        48 +          public int rank;
+        49 +          public ScoreComponents scoreComponents;
+        50 +          public bool isLocalPlayer;
+        51 +      }
+        52 +  
+        53        void Start()
+        54        {
+        55 -          
+        55 +          // Wire up return to main menu button
+        56 +          if (returnToMainMenuButton != null && 
+           + GameManager.Instance != null)
+        57 +          {
+        58 +              returnToMainMenuButton.onClick.AddListener(Game
+           + Manager.Instance.ReturnToMainMenu);
+        59 +          }
+        60 +  
+        61 +          // Wire up play again button
+        62 +          if (playAgainButton != null && GameManager.Instance
+           +  != null)
+        63 +          {
+        64 +              playAgainButton.onClick.AddListener(GameManager
+           + .Instance.RestartGame);
+        65 +          }
+        66 +  
+        67 +          // Find ScoreBreakdownUIManager if not assigned
+        68 +          if (scoreBreakdownUIManager == null)
+        69 +          {
+        70 +              scoreBreakdownUIManager = 
+           + FindAnyObjectByType<ScoreBreakdownUIManager>();
+        71 +          }
+        72 +  
+        73 +          // Hide panel initially
+        74 +          if (endScoreboardPanel != null)
+        75 +          {
+        76 +              endScoreboardPanel.SetActive(false);
+        77 +          }
+        78        }
+        79    
+        80 -      
+        80 +      /// <summary>
+        81 +      /// Display the end-game scoreboard.
+        82 +      /// For single player: shows only the local player.
+        83 +      /// For multiplayer: fetches all final scores from 
+           + Firebase, ranks them, and displays.
+        84 +      /// </summary>
+        85 +      /// <param name="score">The local player's final 
+           + ScoreComponents</param>
+        86 +      public void DisplayScoreboard(ScoreComponents score)
+        87 +      {
+        88 +          localScore = score;
+        89 +  
+        90 +          bool isMultiplayer = MultiplayerManager.Instance !=
+           +  null && MultiplayerManager.Instance.IsMultiplayerMode;
+        91 +  
+        92 +          if (isMultiplayer)
+        93 +          {
+        94 +              // Broadcast our final score to Firebase, then 
+           + fetch all scores
+        95 +              StartCoroutine(DisplayMultiplayerScoreboardCoro
+           + utine(score));
+        96 +          }
+        97 +          else
+        98 +          {
+        99 +              // Single player: display immediately
+       100 +              DisplaySinglePlayerScoreboard(score);
+       101 +          }
+       102 +      }
+       103 +  
+       104 +      /// <summary>
+       105 +      /// Coroutine: broadcast local score, wait briefly, 
+           + then fetch all scores from Firebase.
+       106 +      /// </summary>
+       107 +      private IEnumerator 
+           + DisplayMultiplayerScoreboardCoroutine(ScoreComponents score)
+       108 +      {
+       109 +          // Show loading state
+       110 +          ShowPanelWithLoadingState();
+       111 +  
+       112 +          // Broadcast local score to Firebase
+       113 +          if (SyncManager.Instance != null)
+       114 +          {
+       115 +              var broadcastTask = 
+           + SyncManager.Instance.BroadcastFinalScore(score);
+       116 +              while (!broadcastTask.IsCompleted)
+       117 +              {
+       118 +                  yield return null;
+       119 +              }
+       120 +              Debug.Log("EndScoreboardUIManager: Final score 
+           + broadcast complete.");
+       121 +          }
+       122 +          else
+       123 +          {
+       124 +              Debug.LogError("EndScoreboardUIManager: 
+           + SyncManager not available for score broadcast.");
+       125 +          }
+       126 +  
+       127 +          // Wait a moment for other players' scores to 
+           + arrive in Firebase
+       128 +          yield return new WaitForSeconds(1.0f);
+       129 +  
+       130 +          // Fetch all final scores from Firebase
+       131 +          if (SyncManager.Instance != null)
+       132 +          {
+       133 +              bool fetchComplete = false;
+       134 +              List<FinalScoreData> allScores = null;
+       135 +  
+       136 +              SyncManager.Instance.FetchAllFinalScores(scores
+           +  =>
+       137 +              {
+       138 +                  allScores = scores;
+       139 +                  fetchComplete = true;
+       140 +              });
+       141 +  
+       142 +              // Wait for fetch to complete (timeout after 10
+           +  seconds)
+       143 +              float timeout = 10.0f;
+       144 +              float elapsed = 0f;
+       145 +              while (!fetchComplete && elapsed < timeout)
+       146 +              {
+       147 +                  yield return new WaitForSeconds(0.2f);
+       148 +                  elapsed += 0.2f;
+       149 +              }
+       150 +  
+       151 +              if (fetchComplete && allScores != null && 
+           + allScores.Count > 0)
+       152 +              {
+       153 +                  DisplayRankedScoreboard(allScores);
+       154 +              }
+       155 +              else
+       156 +              {
+       157 +                  // Fallback: show only local player
+       158 +                  Debug.LogWarning("EndScoreboardUIManager: 
+           + No scores fetched from Firebase, showing only local 
+           + player.");
+       159 +                  DisplaySinglePlayerScoreboard(score);
+       160 +              }
+       161 +          }
+       162 +          else
+       163 +          {
+       164 +              Debug.LogError("EndScoreboardUIManager: 
+           + SyncManager not available for score fetching.");
+       165 +              DisplaySinglePlayerScoreboard(score);
+       166 +          }
+       167 +      }
+       168 +  
+       169 +      /// <summary>
+       170 +      /// Display scoreboard for single player mode.
+       171 +      /// </summary>
+       172 +      private void 
+           + DisplaySinglePlayerScoreboard(ScoreComponents score)
+       173 +      {
+       174 +          rankedPlayers.Clear();
+       175 +  
+       176 +          string playerName = "Player 1";
+       177 +          if (MultiplayerManager.Instance != null && 
+           + MultiplayerManager.Instance.IsMultiplayerMode)
+       178 +          {
+       179 +              playerName = 
+           + MultiplayerManager.Instance.LocalPlayerId ?? "You";
+       180 +          }
+       181 +  
+       182 +          var entry = new PlayerScoreEntry
+       183 +          {
+       184 +              playerId = playerName,
+       185 +              displayName = playerName,
+       186 +              totalScore = score.totalScore,
+       187 +              rank = 1,
+       188 +              scoreComponents = score,
+       189 +              isLocalPlayer = true
+       190 +          };
+       191 +          rankedPlayers.Add(entry);
+       192 +  
+       193 +          PopulatePlayerPanels();
+       194 +          ShowPanel();
+       195 +      }
+       196 +  
+       197 +      /// <summary>
+       198 +      /// Rank players by totalScore (descending) and 
+           + populate the scoreboard.
+       199 +      /// </summary>
+       200 +      private void 
+           + DisplayRankedScoreboard(List<FinalScoreData> allScores)
+       201 +      {
+       202 +          rankedPlayers.Clear();
+       203 +  
+       204 +          // Sort by totalScore descending
+       205 +          var sortedScores = allScores.OrderByDescending(s =>
+           +  s.totalScore).ToList();
+       206 +  
+       207 +          string localPlayerId = 
+           + MultiplayerManager.Instance?.LocalPlayerId ?? "";
+       208 +  
+       209 +          for (int i = 0; i < sortedScores.Count; i++)
+       210 +          {
+       211 +              var scoreData = sortedScores[i];
+       212 +              ScoreComponents parsedComponents = new 
+           + ScoreComponents();
+       213 +  
+       214 +              // Deserialize the full ScoreComponents from 
+           + JSON
+       215 +              if 
+           + (!string.IsNullOrEmpty(scoreData.scoreComponentsJson))
+       216 +              {
+       217 +                  try
+       218 +                  {
+       219 +                      parsedComponents = JsonUtility.FromJson
+           + <ScoreComponents>(scoreData.scoreComponentsJson);
+       220 +                  }
+       221 +                  catch (System.Exception ex)
+       222 +                  {
+       223 +                      
+           + Debug.LogError($"EndScoreboardUIManager: Failed to parse 
+           + ScoreComponents for {scoreData.playerId}: {ex.Message}");
+       224 +                  }
+       225 +              }
+       226 +  
+       227 +              // If ScoreComponents couldn't be parsed, 
+           + reconstruct from the flat fields
+       228 +              if (parsedComponents.totalScore == 0 && 
+           + scoreData.totalScore != 0)
+       229 +              {
+       230 +                  parsedComponents = 
+           + ReconstructScoreComponents(scoreData);
+       231 +              }
+       232 +  
+       233 +              var entry = new PlayerScoreEntry
+       234 +              {
+       235 +                  playerId = scoreData.playerId,
+       236 +                  displayName = scoreData.displayName,
+       237 +                  totalScore = scoreData.totalScore,
+       238 +                  rank = i + 1,
+       239 +                  scoreComponents = parsedComponents,
+       240 +                  isLocalPlayer = scoreData.playerId == 
+           + localPlayerId
+       241 +              };
+       242 +              rankedPlayers.Add(entry);
+       243 +          }
+       244 +  
+       245 +          // If our local player isn't in the fetched scores 
+           + (shouldn't happen normally), add them
+       246 +          if (!string.IsNullOrEmpty(localPlayerId) && 
+           + !rankedPlayers.Any(p => p.playerId == localPlayerId))
+       247 +          {
+       248 +              var entry = new PlayerScoreEntry
+       249 +              {
+       250 +                  playerId = localPlayerId,
+       251 +                  displayName = "You",
+       252 +                  totalScore = localScore.totalScore,
+       253 +                  rank = rankedPlayers.Count + 1,
+       254 +                  scoreComponents = localScore,
+       255 +                  isLocalPlayer = true
+       256 +              };
+       257 +              rankedPlayers.Add(entry);
+       258 +  
+       259 +              // Re-sort
+       260 +              rankedPlayers = 
+           + rankedPlayers.OrderByDescending(p => p.totalScore).ToList();
+       261 +              for (int i = 0; i < rankedPlayers.Count; i++)
+       262 +              {
+       263 +                  rankedPlayers[i].rank = i + 1;
+       264 +              }
+       265 +          }
+       266 +  
+       267 +          PopulatePlayerPanels();
+       268 +          ShowPanel();
+       269 +      }
+       270 +  
+       271 +      /// <summary>
+       272 +      /// Reconstruct ScoreComponents from flat 
+           + FinalScoreData fields.
+       273 +      /// Used as fallback when JSON deserialization fails.
+       274 +      /// </summary>
+       275 +      private ScoreComponents 
+           + ReconstructScoreComponents(FinalScoreData data)
+       276 +      {
+       277 +          ScoreComponents components = new ScoreComponents
+       278 +          {
+       279 +              totalScore = data.totalScore,
+       280 +              starScore = data.stars,
+       281 +              emptyCellPenalty = data.emptyCellPenalty,
+       282 +              wildcardCostTotal = -data.wildcardsUsed * 
+           + (data.wildcardsUsed + 1) / 2, // Approximate: -1, -3, -6
+       283 +              industrialZoneScore = data.industrialZoneScore,
+       284 +              residentialZoneScore = 
+           + data.residentialZoneScore,
+       285 +              commercialZoneScore = data.commercialZoneScore,
+       286 +              parkScore = data.parkScore,
+       287 +              schoolScore = data.schoolScore
+       288 +          };
+       289 +          components.InitializeBreakdownArrays();
+       290 +          components.CalculateTotal();
+       291 +          return components;
+       292 +      }
+       293 +  
+       294 +      /// <summary>
+       295 +      /// Populate the player list panels with ranked player 
+           + data.
+       296 +      /// Activate panels up to the number of players, 
+           + disable the rest.
+       297 +      /// </summary>
+       298 +      private void PopulatePlayerPanels()
+       299 +      {
+       300 +          int playerCount = rankedPlayers.Count;
+       301 +          int maxPanels = Mathf.Min(playerListPanels.Count, 
+           + playerNameTexts.Count, playerScoreTexts.Count, 
+           + playerScoreBreakdownButtons.Count);
+       302 +  
+       303 +          for (int i = 0; i < maxPanels; i++)
+       304 +          {
+       305 +              bool hasPlayer = i < playerCount;
+       306 +  
+       307 +              // Show/hide panel
+       308 +              if (playerListPanels[i] != null)
+       309 +              {
+       310 +                  playerListPanels[i].SetActive(hasPlayer);
+       311 +              }
+       312 +  
+       313 +              if (hasPlayer)
+       314 +              {
+       315 +                  var player = rankedPlayers[i];
+       316 +  
+       317 +                  // Set player name (with rank prefix)
+       318 +                  if (playerNameTexts[i] != null)
+       319 +                  {
+       320 +                      playerNameTexts[i].text = 
+           + GetRankPrefix(player.rank) + " " + player.displayName;
+       321 +                  }
+       322 +  
+       323 +                  // Set player score
+       324 +                  if (playerScoreTexts[i] != null)
+       325 +                  {
+       326 +                      playerScoreTexts[i].text = 
+           + player.totalScore.ToString();
+       327 +                  }
+       328 +  
+       329 +                  // Wire up score breakdown button
+       330 +                  if (playerScoreBreakdownButtons[i] != null)
+       331 +                  {
+       332 +                      // Remove old listeners to avoid 
+           + duplicates
+       333 +                      
+           + playerScoreBreakdownButtons[i].onClick.RemoveAllListeners();
+       334 +  
+       335 +                      // Capture the player data in a local 
+           + variable for the closure
+       336 +                      var capturedPlayer = player;
+       337 +                      
+           + playerScoreBreakdownButtons[i].onClick.AddListener(() =>
+       338 +                      {
+       339 +                          
+           + OnScoreBreakdownButtonClicked(capturedPlayer);
+       340 +                      });
+       341 +                  }
+       342 +              }
+       343 +          }
+       344 +      }
+       345 +  
+       346 +      /// <summary>
+       347 +      /// Get a rank prefix string (1st, 2nd, 3rd, 4th, 
+           + etc.).
+       348 +      /// </summary>
+       349 +      private string GetRankPrefix(int rank)
+       350 +      {
+       351 +          return rank switch
+       352 +          {
+       353 +              1 => "1st",
+       354 +              2 => "2nd",
+       355 +              3 => "3rd",
+       356 +              _ => rank + "th"
+       357 +          };
+       358 +      }
+       359 +  
+       360 +      /// <summary>
+       361 +      /// Handler for when a player's score breakdown button 
+           + is clicked.
+       362 +      /// Shows the detailed ScoreBreakdownUIManager with 
+           + that player's data.
+       363 +      /// </summary>
+       364 +      private void 
+           + OnScoreBreakdownButtonClicked(PlayerScoreEntry player)
+       365 +      {
+       366 +          if (scoreBreakdownUIManager == null)
+       367 +          {
+       368 +              scoreBreakdownUIManager = 
+           + FindAnyObjectByType<ScoreBreakdownUIManager>();
+       369 +              if (scoreBreakdownUIManager == null)
+       370 +              {
+       371 +                  Debug.LogError("EndScoreboardUIManager: 
+           + ScoreBreakdownUIManager not found!");
+       372 +                  return;
+       373 +              }
+       374 +          }
+       375 +  
+       376 +          Debug.Log($"EndScoreboardUIManager: Showing score 
+           + breakdown for {player.displayName} (score: 
+           + {player.totalScore})");
+       377 +          scoreBreakdownUIManager.DisplayScoreBreakdown(playe
+           + r.scoreComponents);
+       378 +      }
+       379 +  
+       380 +      /// <summary>
+       381 +      /// Show the panel in a loading state (waiting for 
+           + Firebase data).
+       382 +      /// </summary>
+       383 +      private void ShowPanelWithLoadingState()
+       384 +      {
+       385 +          if (endScoreboardPanel != null)
+       386 +          {
+       387 +              endScoreboardPanel.SetActive(true);
+       388 +          }
+       389 +  
+       390 +          // Show only the first panel with "Loading..." text
+       391 +          int maxPanels = Mathf.Min(playerListPanels.Count, 
+           + playerNameTexts.Count);
+       392 +          for (int i = 0; i < maxPanels; i++)
+       393 +          {
+       394 +              if (playerListPanels[i] != null)
+       395 +              {
+       396 +                  playerListPanels[i].SetActive(i == 0);
+       397 +              }
+       398 +          }
+       399 +  
+       400 +          if (playerNameTexts.Count > 0 && playerNameTexts[0]
+           +  != null)
+       401 +          {
+       402 +              playerNameTexts[0].text = "Loading scores...";
+       403 +          }
+       404 +  
+       405 +          if (playerScoreTexts.Count > 0 && 
+           + playerScoreTexts[0] != null)
+       406 +          {
+       407 +              playerScoreTexts[0].text = "...";
+       408 +          }
+       409 +  
+       410 +          // Disable breakdown buttons during loading
+       411 +          foreach (var button in playerScoreBreakdownButtons)
+       412 +          {
+       413 +              if (button != null)
+       414 +              {
+       415 +                  button.interactable = false;
+       416 +              }
+       417 +          }
+       418 +  
+       419 +          isVisible = true;
+       420 +      }
+       421 +  
+       422 +      /// <summary>
+       423 +      /// Show the scoreboard panel.
+       424 +      /// </summary>
+       425 +      private void ShowPanel()
+       426 +      {
+       427 +          if (endScoreboardPanel != null)
+       428 +          {
+       429 +              endScoreboardPanel.SetActive(true);
+       430 +          }
+       431 +  
+       432 +          // Re-enable breakdown buttons
+       433 +          foreach (var button in playerScoreBreakdownButtons)
+       434 +          {
+       435 +              if (button != null)
+       436 +              {
+       437 +                  button.interactable = true;
+       438 +              }
+       439 +          }
+       440 +  
+       441 +          isVisible = true;
+       442 +      }
+       443 +  
+       444 +      /// <summary>
+       445 +      /// Hide the scoreboard panel.
+       446 +      /// </summary>
+       447 +      public void Hide()
+       448 +      {
+       449 +          if (endScoreboardPanel != null)
+       450 +          {
+       451 +              endScoreboardPanel.SetActive(false);
+       452 +          }
+       453 +          isVisible = false;
+       454 +      }
+       455 +  
+       456 +      /// <summary>
+       457 +      /// Whether the scoreboard is currently visible.
+       458 +      /// </summary>
+       459 +      public bool IsVisible => isVisible;
+       460    }
+
+● Now updating GameManager.cs to integrate with EndScoreboardUIManager:
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 15 lines
+
+● Add EndScoreboardUIManager field:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 3 additions            
+       91        [Header("Score Breakdown UI (Replacement for End Game 
+            UI)")]
+       92        [SerializeField] private ScoreBreakdownUIManager 
+            scoreBreakdownUIManager;
+       93    
+       94 +      [Header("End Scoreboard UI (Replacement for End Game 
+          + Panel)")]
+       95 +      [SerializeField] private EndScoreboardUIManager 
+          + endScoreboardUIManager;
+       96 +  
+       97        [Header("Top Panel Options UI")]
+       98        [SerializeField] private Button returnToMenuButton;
+       99        [SerializeField] private Button scoreGuideButton;
+
+● Now update FindAndAssignUIReferences to find EndScoreboardUIManager:
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 14 additions        
+       302                }
+       303            }
+       304    
+       305 +          // Find EndScoreboardUIManager if not already 
+           + assigned via inspector
+       306 +          if (endScoreboardUIManager == null)
+       307 +          {
+       308 +              endScoreboardUIManager = 
+           + FindAnyObjectByType<EndScoreboardUIManager>();
+       309 +              if (endScoreboardUIManager != null)
+       310 +              {
+       311 +                  Debug.Log("GameManager: Found 
+           + EndScoreboardUIManager in scene.");
+       312 +              }
+       313 +              else
+       314 +              {
+       315 +                  Debug.LogWarning("GameManager: 
+           + EndScoreboardUIManager not found in scene.");
+       316 +              }
+       317 +          }
+       318 +  
+       319            // Find top panel buttons and feedback text
+       320            panelObj = GameObject.Find("OptionsPanel");
+       321            if (panelObj != null)
+
+● Now update TriggerGameEnd to use the new scoreboard flow:
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 40 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 9 additions and 4 removals
+       1379            ScoreComponents score = CalculateFinalScore();
+       1380            currentScore = score;
+       1381    
+       1382 -          // Show score breakdown using the new 
+            - ScoreBreakdownUIManager (preferred)
+       1383 -          if (scoreBreakdownUIManager != null)
+       1382 +          // Show end-game scoreboard (new flow: scoreboard 
+            + → click breakdown button → detailed breakdown)
+       1383 +          if (endScoreboardUIManager != null)
+       1384            {
+       1385 +              
+            + endScoreboardUIManager.DisplayScoreboard(score);
+       1386 +          }
+       1387 +          else if (scoreBreakdownUIManager != null)
+       1388 +          {
+       1389 +              // Fallback: show detailed breakdown directly 
+            + (if scoreboard not available)
+       1390                
+              scoreBreakdownUIManager.DisplayScoreBreakdown(score);
+       1391            }
+       1392            else
+       1393            {
+       1394 -              // Fallback to old EndGamePanel
+       1395 -              Debug.LogWarning("GameManager: 
+            -  ScoreBreakdownUIManager not 
+            -  available, falling back to old EndGamePanel.");
+       1394 +              // Final fallback to old EndGamePanel
+       1395 +              Debug.LogWarning("GameManager: Neither 
+            +  EndScoreboardUIManager nor ScoreBreakdownUIManager 
+            +  available, falling back to old EndGamePanel.");
+       1396                ShowEndGameScreen(score);
+       1397            }
+       1398    
+
+● Let me do a final quick verification of the key integration points:
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 10 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 15 lines
+
+● Everything looks consistent. Let me finalize the todos:
+
+● Here's a summary of everything implemented across all files:
+
+  ---
+  Complete Implementation Summary
+
+  New end-game flow:
+
+  GameManager.TriggerGameEnd()
+    → Calculates ScoreComponents
+    → EndScoreboardUIManager.DisplayScoreboard(score)
+        → [Multiplayer] Broadcasts local score to Firebase
+        → [Multiplayer] Fetches all players' scores from Firebase
+        → Ranks players by totalScore (descending)
+        → Populates 1st/2nd/3rd... player panels
+        → [User clicks "Score Breakdown" button next to a player]
+        → ScoreBreakdownUIManager.DisplayScoreBreakdown(thatPlayerData)
+            → Shows detailed per-zone breakdown for that specific player
+
+  ---
+  Assets/Scripts/Multiplayer/SyncManager.cs
+
+  - FinalScoreData class (line 1507): Serializable data structure stored
+  to/from Firebase at games/{lobbyCode}/finalScores/{playerId}. Contains
+  playerId, displayName, totalScore, plus all individual score components
+  and a scoreComponentsJson field storing the full ScoreComponents as JSON
+  for detailed breakdown display.
+  - BroadcastFinalScore(ScoreComponents) (line 1182): Writes the local
+  player's full final score breakdown to Firebase at game end.
+  - FetchAllFinalScores(callback) (line 1484): Reads all players' final
+  scores from Firebase asynchronously, returns a List<FinalScoreData> via
+  callback.
+  - GetCurrentWildcardsUsed() (line 1242): Helper to read wildcards count
+  from GameManager.
+
+  ---
+  Assets/Scripts/UI/EndScoreboardUIManager.cs
+
+  - DisplayScoreboard(ScoreComponents) (line 86): Public entry point called
+  by GameManager. Detects single/multiplayer mode and routes accordingly.
+  - DisplayMultiplayerScoreboardCoroutine() (line 107): Broadcasts local
+  score to Firebase, waits 1 second for other players, then fetches all
+  scores and ranks them.
+  - DisplaySinglePlayerScoreboard() (line 172): Shows only local player at
+  rank 1.
+  - DisplayRankedScoreboard() (line 200): Sorts by totalScore descending,
+  deserializes each player's full ScoreComponents from the stored JSON,
+  populates panels.
+  - PopulatePlayerPanels() (line 298): Activates up to 8 player panels, sets
+   name (with rank prefix: "1st", "2nd", etc.), score, and wires each
+  breakdown button to show that player's detail.
+  - OnScoreBreakdownButtonClicked() (line 364): Calls
+  ScoreBreakdownUIManager.DisplayScoreBreakdown() with the selected player's
+   full ScoreComponents.
+  - ReconstructScoreComponents() (line 275): Fallback when the stored JSON
+  can't be deserialized — reconstructs from flat integer fields.
+  - Buttons wired: returnToMainMenuButton → GameManager.ReturnToMainMenu,
+  playAgainButton → GameManager.RestartGame.
+
+  ---
+  Assets/Scripts/GameManager.cs
+
+  - Added endScoreboardUIManager field (line 94-95).
+  - FindAndAssignUIReferences() now finds EndScoreboardUIManager at runtime
+  (lines 305-317).
+  - TriggerGameEnd() updated with priority chain (lines 1382-1397):
+    a. EndScoreboardUIManager → scoreboard with rankings + breakdown buttons
+    b. ScoreBreakdownUIManager (fallback)
+    c. Old EndGamePanel (final fallback)
+
+  ---
+  No changes needed to:
+
+  - ScoreBreakdownUIManager.cs — already has
+  DisplayScoreBreakdown(ScoreComponents) which works for any player's data.
+  - ScoreComponents.cs / ScoreManager.cs — already extended with per-zone
+  breakdown data from previous work.
+
+> SyncManager: Game end broadcasted
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.SyncManager/<BroadcastGameEnd>d__70:MoveNext () 
+(at Assets/Scripts/Multiplayer/SyncManager.cs:1170)
+UnityEngine.UnitySynchronizationContext:ExecuteTasks () (at 
+/home/bokken/build/output/unity/unity/Runtime/Export/Scripting/UnitySynchron
+izationContext.cs:110)
+
+SyncManager: Final score broadcast to 
+games/TMELR8/finalScores/rmW2mguhGrgVvgLl0RYlkzF3S6C3
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.SyncManager/<BroadcastFinalScore>d__71:MoveNext ()
+ (at Assets/Scripts/Multiplayer/SyncManager.cs:1231)
+UnityEngine.UnitySynchronizationContext:ExecuteTasks () (at 
+/home/bokken/build/output/unity/unity/Runtime/Export/Scripting/UnitySynchron
+izationContext.cs:110)
+
+EndScoreboardUIManager: Final score broadcast complete.
+UnityEngine.Debug:Log (object)
+EndScoreboardUIManager/<DisplayMultiplayerScoreboardCoroutine>d__14:MoveNext
+ () (at Assets/Scripts/UI/EndScoreboardUIManager.cs:120)
+UnityEngine.SetupCoroutine:InvokeMoveNext 
+(System.Collections.IEnumerator,intptr) (at /home/bokken/build/output/unity/
+unity/Runtime/Export/Scripting/Coroutines.cs:17)
+
+SyncManager: Failed to deserialize final score for 
+JBhnb3Vk7mM6agWzNvojmgUGXc73: JSON must represent an object type.
+UnityEngine.Debug:LogError (object)
+PocketPlanner.Multiplayer.SyncManager/<>c__DisplayClass78_0:<FetchAllFinalSc
+ores>b__0 (System.Threading.Tasks.Task`1<Firebase.Database.DataSnapshot>) 
+(at Assets/Scripts/Multiplayer/SyncManager.cs:1531)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+SyncManager: Failed to deserialize final score for 
+rmW2mguhGrgVvgLl0RYlkzF3S6C3: JSON must represent an object type.
+UnityEngine.Debug:LogError (object)
+PocketPlanner.Multiplayer.SyncManager/<>c__DisplayClass78_0:<FetchAllFinalSc
+ores>b__0 (System.Threading.Tasks.Task`1<Firebase.Database.DataSnapshot>) 
+(at Assets/Scripts/Multiplayer/SyncManager.cs:1531)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+SyncManager: Fetched 0 final scores
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.SyncManager/<>c__DisplayClass78_0:<FetchAllFinalSc
+ores>b__0 (System.Threading.Tasks.Task`1<Firebase.Database.DataSnapshot>) 
+(at Assets/Scripts/Multiplayer/SyncManager.cs:1536)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+EndScoreboardUIManager: No scores fetched from Firebase, showing only local 
+player.
+UnityEngine.Debug:LogWarning (object)
+EndScoreboardUIManager/<DisplayMultiplayerScoreboardCoroutine>d__14:MoveNext
+ () (at Assets/Scripts/UI/EndScoreboardUIManager.cs:158)
+UnityEngine.SetupCoroutine:InvokeMoveNext 
+(System.Collections.IEnumerator,intptr) (at /home/bokken/build/output/unity/
+unity/Runtime/Export/Scripting/Coroutines.cs:17) 
+
+● The issue is in FetchAllFinalScores - Firebase stores the JSON as a string
+   value, but GetRawJsonValue() returns the quoted string. I need to read it
+   as a plain string like the existing code does. Let me fix:
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SyncManager.cs with 8 additions and
+     1 removal
+
+       1519                        {
+       1520                            try
+       1521                            {
+       1522 -                              string json = 
+            - child.GetRawJsonValue();
+       1522 +                              // Firebase stores the JSON 
+            + string as a string value,
+       1523 +                              // so we need to read it as a 
+            + plain string (not raw JSON)
+       1524 +                              string json = child.Value as 
+            + string;
+       1525 +                              if 
+            + (string.IsNullOrEmpty(json))
+       1526 +                              {
+       1527 +                                  
+            + Debug.LogWarning($"SyncManager: Empty final score data for 
+            + {child.Key}");
+       1528 +                                  continue;
+       1529 +                              }
+       1530                                var finalScore = 
+              JsonUtility.FromJson<FinalScoreData>(json);
+       1531                                if (finalScore != null)
+       1532                                {
+
+● Fixed. The issue was GetRawJsonValue() vs child.Value as string:
+
+  - SetValueAsync(json) stores the JSON string as a Firebase string value
+  - GetRawJsonValue() returns the value with JSON wrapping (a quoted string
+  like "\"{...}\""), which JsonUtility.FromJson can't parse as an object
+  - child.Value as string returns the plain string value directly (like
+  {...}), which JsonUtility.FromJson can parse
+
+  This is the same pattern used by ProcessPlayerGameState at
+  SyncManager.cs:390.
+
+> Thank you it works! I'm now adding a display name input field to 
+HostSettingsPanel.cs and a display name input field to JoinLobbyManager.cs, 
+can you integrate this so that the player's inputted display name is now 
+used when joining/creating a lobby. I was using playerID as a placeholder in
+ many of the UI managers, can you also update every place where playerIDs 
+are used in the UI with displayNames now. Search for comments with "Temp" or
+ "placeholder". 
+
+● Search(pattern: "**/HostSettingsPanel.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "**/JoinLobbyManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "(?i)(temp|placeholder).*player|player.*(temp|placeholder)")
+  ⎿  Found 3 files (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs)
+  ⎿  Read 297 lines
+
+● Read(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Read 340 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 720 lines
+
+● Read(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Read 276 lines
+
+● Let me read MultiplayerManager and LobbyManager to understand the display
+  name flow:
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 100 lines
+
+● Search(pattern: "EnableMultiplayerMode|LocalPlayerId|DisplayName|_displayName|
+        displayName", path: "Assets/Scripts/Multiplayer/MultiplayerManager.cs",
+        output_mode: "content")
+  ⎿  Found 34 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 200 lines
+
+● Explore(Read LobbyManager CreateLobby and JoinLobby)
+  ⎿  Done (9 tool uses · 34.0k tokens · 1m 37s)                            
+
+● Let me read LobbyManager's CreateLobby and JoinLobby methods:
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 200 lines
+
+● Now I'll implement all changes. Starting with the bottom of the call chain
+   — LobbyManager:
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      1 removal
+       79            /// <param name="onError">Callback when error 
+            occurs</param>
+       80            /// <param name="maxPlayers">Maximum number of 
+            players allowed (default: 8)</param>
+       81            /// <param name="turnTimeLimit">Turn time limit in 
+            seconds, -1 for unlimited (default: -1)</param>
+       82 -          public void CreateLobby(string hostPlayerId, 
+          - Action<string> onLobbyCreated, Action<string> onError, int 
+          - maxPlayers = 8, int turnTimeLimit = -1)
+       82 +          /// <param name="displayName">Custom display name 
+          + for the player</param>
+       83 +          public void CreateLobby(string hostPlayerId, 
+          + Action<string> onLobbyCreated, Action<string> onError, int 
+          + maxPlayers = 8, int turnTimeLimit = -1, string displayName = 
+          + null)
+       84            {
+       85                if (!_firebaseManager.IsReady())
+       86                {
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      1 removal
+       115                };
+       116    
+       117                // Add host as first player
+       118 -              var hostPlayer = new PlayerData(hostPlayerId, 
+           - "Host", true, _deviceId);
+       118 +              string hostDisplayName = 
+           + !string.IsNullOrEmpty(displayName) ? displayName : "Host";
+       119 +              var hostPlayer = new PlayerData(hostPlayerId, 
+           + hostDisplayName, true, _deviceId);
+       120                var hostPlayerDict = 
+             PlayerDataToDictionary(hostPlayer);
+       121    
+       122                // Add host to players list
+
+● Now update JoinLobby to accept displayName:
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 1 addition and
+     1 removal
+
+       179            /// <summary>
+       180            /// Join an existing lobby.
+       181            /// </summary>
+       182 -          public void JoinLobby(string lobbyCode, string 
+           -  playerId, Action<string, Dictionary<string, PlayerData>> 
+           -  onLobbyJoined, Action<string> onError)
+       182 +          public void JoinLobby(string lobbyCode, string 
+           +  playerId, Action<string, Dictionary<string, PlayerData>> 
+           +  onLobbyJoined, Action<string> onError
+           +  , string displayName = null)
+       183            {
+       184                if (!_firebaseManager.IsReady())
+       185                {
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      1 removal
+       257                        Debug.Log($"LobbyManager: Turn time 
+             limit read successfully: {turnTimeLimit}");
+       258    
+       259                        // Add player to lobby
+       260 -                      var playerData = new 
+           - PlayerData(playerId, $"Player{playerCount + 1}", false, 
+           - _deviceId);
+       260 +                      string playerDisplayName = 
+           + !string.IsNullOrEmpty(displayName) ? displayName : $"Player 
+           + {playerCount + 1}";
+       261 +                      var playerData = new 
+           + PlayerData(playerId, playerDisplayName, false, _deviceId);
+       262                        Debug.Log($"LobbyManager: PlayerData 
+             created - PlayerId: {playerId}, DisplayName: 
+             {playerData.DisplayName}, DeviceId: {playerData.DeviceId}");
+       263    
+       264                        playerDict = 
+             PlayerDataToDictionary(playerData);
+
+● Now update MultiplayerManager.cs — add displayName parameter and property:
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition
+       37            public bool IsLobbyHost { get; private set; }
+       38            public string LobbyCode { get; private set; }
+       39            public string LocalPlayerId { get; private set; }
+       40 +          public string LocalDisplayName { get; private set; }
+       41            public Dictionary<string, PlayerData> Players { get;
+             private set; }
+       42    
+       43            // Shared random seed for synchronized dice rolls
+
+● Add displayName to EnableMultiplayerMode and thread it through to
+  CreateLobby and JoinLobby:
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 5       
+     additions and 2 removals
+       213            /// <param name="lobbyCode">Existing lobby code to 
+             join, or empty to create new</param>
+       214            /// <param name="maxPlayers">Maximum number of 
+             players allowed (default: 8, host only)</param>
+       215            /// <param name="turnTimeLimit">Turn time limit in 
+             seconds, -1 for unlimited (default: -1, host only)</param>
+       216 -          public void EnableMultiplayerMode(bool isHost, 
+           -  string lobbyCode = "", int maxPlayers = 8, int 
+           -  turnTimeLimit = -1)
+       216 +          public void EnableMultiplayerMode(bool isHost, 
+           +  string lobbyCode = "", int maxPlayers = 8, int 
+           +  turnTimeLimit = -1, string displayName = null)
+       217            {
+       218                if (!_firebaseManager.IsReady())
+       219                {
+     ...
+       236                    return;
+       237                }
+       238    
+       239 +              // Store display name
+       240 +              LocalDisplayName = 
+           + !string.IsNullOrEmpty(displayName) ? displayName : $"Player 
+           + {LocalPlayerId.Substring(0, Mathf.Min(LocalPlayerId.Length, 
+           + 5))}";
+       241 +  
+       242                IsMultiplayerMode = true;
+       243                IsLobbyHost = isHost;
+       244    
+     ...
+       253                    JoinLobby(lobbyCode);
+       254                }
+       255    
+       256 -              Debug.Log($"MultiplayerManager: Multiplayer 
+           -  mode enabled (Host: {isHost}, Lobby: {lobbyCode}, PlayerId:
+           -   {LocalPlayerId})");
+       256 +              Debug.Log($"MultiplayerManager: Multiplayer 
+           +  mode enabled (Host: {isHost}, Lobby: {lobbyCode}, PlayerId:
+           +   {LocalPlayerId}, DisplayName: {LocalDisplayName})");
+       257            }
+       258    
+       259            /// <summary>
+
+● Now thread displayName through the private CreateLobby/JoinLobby methods:
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition and 1 removal
+       327                }
+       328    
+       329                Debug.Log($"MultiplayerManager: Creating lobby 
+             for player {LocalPlayerId} with 
+             maxPlayers={_hostMaxPlayers}, 
+             turnTimeLimit={_hostTurnTimeLimit}...");
+       330 -              _lobbyManager.CreateLobby(LocalPlayerId, 
+           -  OnLobbyCreated, OnLobbyError, _hostMaxPlayers, 
+           -  _hostTurnTimeLimit);
+       330 +              _lobbyManager.CreateLobby(LocalPlayerId, 
+           +  OnLobbyCreated, OnLobbyError, _hostMaxPlayers, 
+           +  _hostTurnTimeLimit, LocalDisplayName);
+       331            }
+       332    
+       333            /// <summary>
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition and 1 removal
+       342                }
+       343    
+       344                Debug.Log($"MultiplayerManager: Joining lobby 
+             {lobbyCode} as player {LocalPlayerId}...");
+       345 -              _lobbyManager.JoinLobby(lobbyCode, 
+           -  LocalPlayerId, OnLobbyJoinedCallback, OnLobbyError);
+       345 +              _lobbyManager.JoinLobby(lobbyCode, 
+           +  LocalPlayerId, OnLobbyJoinedCallback, OnLobbyError
+           +  , LocalDisplayName);
+       346            }
+       347    
+       348            /// <summary>
+
+● Update OnLobbyCreated to use LocalDisplayName:
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 2       
+     additions and 1 removal
+       365                }
+       366    
+       367                // Add host as first player
+       368 -              var hostPlayer = new PlayerData(LocalPlayerId, 
+           - "Host", true, _deviceId);
+       368 +              string hostDisplayName = 
+           + !string.IsNullOrEmpty(LocalDisplayName) ? LocalDisplayName :
+           +  "Host";
+       369 +              var hostPlayer = new PlayerData(LocalPlayerId, 
+           + hostDisplayName, true, _deviceId);
+       370                Players[LocalPlayerId] = hostPlayer;
+       371    
+       372                Debug.Log($"MultiplayerManager: Invoking 
+             OnLobbyJoined event (null: {OnLobbyJoined == null}), 
+             subscriber count: {GetOnLobbyJoinedSubscriberCount()}");
+
+● Now update HostSettingsPanel and JoinLobbyManager to pass the display
+  name:
+
+● Update(Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs with 5      
+     additions and 2 removals
+       238    
+       239            Debug.Log($"HostSettingsPanel.ConfirmHostSettings: 
+             Creating lobby with maxPlayers={maxPlayers}, 
+             turnTimeLimit={turnTimeLimit}");
+       240    
+       241 +          // Get display name from input field
+       242 +          string displayName = displayNameInputField != null 
+           + ? displayNameInputField.text.Trim() : null;
+       243 +  
+       244            // Subscribe to events before enabling multiplayer 
+             mode
+       245            Debug.Log("HostSettingsPanel.ConfirmHostSettings: 
+             Subscribing to MultiplayerManager events...");
+       246            multiplayerManager.OnLobbyJoined += OnLobbyJoined;
+       247            multiplayerManager.OnError += OnMultiplayerError;
+       248    
+       249            // Enable multiplayer mode as host with selected 
+             settings
+       250 -          Debug.Log($"HostSettingsPanel.ConfirmHostSettings: 
+           -  Calling EnableMultiplayerMode(isHost: true, lobbyCode: 
+           -  \"\", maxPlayers: {maxPlayers}, turnTimeLimit: 
+           -  {turnTimeLimit})");
+       251 -          multiplayerManager.EnableMultiplayerMode(true, "", 
+           -  maxPlayers, turnTimeLimit);
+       250 +          Debug.Log($"HostSettingsPanel.ConfirmHostSettings: 
+           +  Calling EnableMultiplayerMode(isHost: true, lobbyCode: 
+           +  \"\", maxPlayers: {maxPlayers}, turnTimeLimit: 
+           +  {turnTimeLimit}, displayName: \"{displayName}\")");
+       251 +          multiplayerManager.EnableMultiplayerMode(true, "", 
+           +  maxPlayers, turnTimeLimit, displayName);
+       252            Debug.Log("HostSettingsPanel.ConfirmHostSettings: 
+             EnableMultiplayerMode called successfully.");
+       253        }
+       254    
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 4 addition
+      and 1 removal
+       136            CancelJoinTimeout();
+       137            joinTimeoutCoroutine = 
+             StartCoroutine(JoinTimeoutCoroutine(lobbyCode));
+       138    
+       139 +          // Get display name from input field
+       140 +          string displayName = displayNameInputField != null 
+           + ? displayNameInputField.text.Trim() : null;
+       141 +  
+       142            // Enable multiplayer mode as client (non-host) 
+             with the provided lobby code
+       143 -          multiplayerManager.EnableMultiplayerMode(false, 
+           -  lobbyCode);
+       143 +          multiplayerManager.EnableMultiplayerMode(false, 
+           +  lobbyCode, displayName: displayName);
+       144        }
+       145    
+       146        /// <summary>
+
+● Now update the UI managers. First, LobbyUIManager.cs — use DisplayName
+  everywhere:
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition and 
+      removal
+       18        [SerializeField] private TextMeshProUGUI roomCodeText; 
+            // Text component to display the room code in the lobby
+       19        [SerializeField] private TextMeshProUGUI maxPlayersText;
+             // Text component to display the maximum number of players 
+            in the lobby
+       20        [SerializeField] private TextMeshProUGUI turnTimeText; 
+            // Text component to display the turn time limit in the lobby
+       21 -      [SerializeField] private TextMeshProUGUI hostNameText; 
+          -  // Text component to display the host's device id 
+          -  (temporarily) in the lobby
+       21 +      [SerializeField] private TextMeshProUGUI hostNameText; 
+          +  // Text component to display the host's display name 
+          +  in the lobby
+       22    
+       23        [SerializeField] private Button startGameButton; // 
+            Button to start the game, only interactable by the host
+       24        [SerializeField] private Button readyButton; // Button 
+            for players to toggle their ready state (host does not have 
+            this button - they should be ready by default)
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 4 additions and
+     4 removals
+
+       298            {
+       299                if (player.IsHost)
+       300                {
+       301 -                  hostName = player.PlayerId; // Using 
+           - PlayerId as a placeholder for name
+       302 -                  // Clip host name to 5 characters for UI
+       303 -                  if (hostName.Length > 5)
+       301 +                  hostName = player.DisplayName;
+       302 +                  // Clip host name to 10 characters for UI
+       303 +                  if (hostName.Length > 10)
+       304                    {
+       305 -                      hostName = hostName.Substring(0, 5
+           -  ) + "...";
+       305 +                      hostName = hostName.Substring(0, 10
+           +  ) + "...";
+       306                    }
+       307                    break;
+       308                }
+
+● Now update the player name text in UpdatePlayerListUI:
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 5 additions and
+     4 removals
+
+       370            {
+       371                if (playerIndex >= CurrentMaxPlayers) break;
+       372    
+       373 -              // Update player name text
+       374 -              if (player.PlayerId.Length > 5) // Use PlayerID
+           -  as a placeholder for player name, clip to 5 chars
+       373 +              // Update player name text using DisplayName
+       374 +              string playerDisplayName = player.DisplayName;
+       375 +              if (playerDisplayName.Length > 10) // Clip to 
+           + 10 characters for UI space
+       376                {
+       377 -                  playerNameTexts[playerIndex].text = $"{
+           -  player.PlayerId.Substring(0, 5)}...";
+       377 +                  playerNameTexts[playerIndex].text = $"{
+           +  playerDisplayName.Substring(0, 10)}...";
+       378                }
+       379                else
+       380                {
+       381 -                  playerNameTexts[playerIndex].text = 
+           -  $"{player.PlayerId}";
+       381 +                  playerNameTexts[playerIndex].text = 
+           +  playerDisplayName;
+       382                }
+       383    
+       384                // Update checkmark image for players 2-8 
+             (playerIndex 1-7)
+
+● Now update SpectatorUIManager.cs — replace the temporary
+  playerId-as-displayName:
+
+● Update(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/SpectatorUIManager.cs with 5 additions and 5
+     removals
+
+       174                }
+       175                else
+       176                {
+       177 -                  //string displayName = 
+           - spectatorManager.GetPlayerDisplayName(currentPlayerId);
+       178 -                  // (TEMP) For now use player ID as display 
+           - name, there are no display name input fields yet.
+       179 -                  string displayName = currentPlayerId;
+       180 -                  // Trim to 5 characters for UI space
+       181 -                  if (displayName.Length > 5
+           -  ) displayName = displayName.Substring(0, 5) + "...";
+       177 +                  string displayName = 
+           + MultiplayerManager.Instance != null
+       178 +                      ? MultiplayerManager.Instance.GetPlayer
+           + DisplayName(currentPlayerId)
+       179 +                      : currentPlayerId;
+       180 +                  // Trim to 10 characters for UI space
+       181 +                  if (displayName.Length > 10
+           +  ) displayName = displayName.Substring(0, 10) + "...";
+       182                    headerText.text = opponentHeaderPrefix + 
+             displayName;
+       183                }
+       184            }
+
+● Let me do a final sweep for any remaining temp/placeholder uses:
+
+● Search(pattern: "(?i)(temp|placeholder).*player|player.*(temp|placeholder)|//.
+        *temp|//.*placeholder|\(TEMP\)", glob: "*.cs", output_mode: "content")
+  ⎿  Found 16 lines (ctrl+o to expand)
+
+● Found two more TEMP references in EndScoreboardUIManager.cs. Let me read
+  and fix those:
+
+● Read(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/EndScoreboardUIManager.cs with 4 additions  
+     and 6 removals
+       317                    // Set player name (with rank prefix)
+       318                    if (playerNameTexts[i] != null)
+       319                    {
+       320 -                      string displayName = player.playerId;
+           -   // TEMP use playerIDs for now 
+       321 -                      if (displayName.Length > 5)
+       320 +                      string displayName = player.displayName
+           +  ;
+       321 +                      if (displayName.Length > 10)
+       322                        {
+       323 -                          displayName = 
+           -  displayName.Substring(0, 5) + "...";
+       323 +                          displayName = 
+           +  displayName.Substring(0, 10) + "...";
+       324                        }
+       325 -                      // TEMP No rank prefix for now 
+       326 -                      playerNameTexts[i].text = displayName;
+       327 -                      // playerNameTexts[i].text = 
+           - GetRankPrefix(player.rank) + " " + displayName;
+       325 +                      playerNameTexts[i].text = 
+           + GetRankPrefix(player.rank) + " " + displayName;
+       326                    }
+       327    
+       328                    // Set player score
+
+● Now also fix the single-player display name to use MultiplayerManager's
+  display name:
+
+● Read(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/UI/EndScoreboardUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/EndScoreboardUIManager.cs with 1 addition an
+      1 removal
+       176            string playerName = "Player 1";
+       177            if (MultiplayerManager.Instance != null && 
+             MultiplayerManager.Instance.IsMultiplayerMode)
+       178            {
+       179 -              playerName = MultiplayerManager.Instance.
+           -  LocalPlayerId ?? "You";
+       179 +              playerName = MultiplayerManager.Instance.
+           +  LocalDisplayName ?? "You";
+       180            }
+       181    
+       182            var entry = new PlayerScoreEntry
+
+● Also need to clear LocalDisplayName in DisableMultiplayerMode:
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition
+       269                IsMultiplayerMode = false;
+       270                IsLobbyHost = false;
+       271                LobbyCode = string.Empty;
+       272 +              LocalDisplayName = string.Empty;
+       273                Players.Clear();
+       274    
+       275                // Reset game state fields
+
+● Search(pattern: "(TEMP|temp.*playerID|player.*temp|placeholder.*name|name.*pla
+        ceholder|using playerID|Use PlayerID)", glob: "**/LobbyUIManager.cs",
+        output_mode: "content")
+  ⎿  Found 0 lines 
+
+● Search(pattern: "(TEMP|temp.*playerID|player.*temp|placeholder.*name|name.*pla
+        ceholder|using playerID|Use PlayerID)", glob:
+        "**/SpectatorUIManager.cs", output_mode: "content")
+  ⎿  Found 0 lines 
+
+● Search(pattern:
+        "(TEMP|temp|player\.PlayerId.*name|placeholder|\.PlayerId.*text)", glob:
+         "**/EndScoreboardUIManager.cs", output_mode: "content")
+  ⎿  Found 0 lines 
+
+● All TEMP/placeholder references in the three UI managers are now clean.
+  Let me finalize:
+
+● Here's a summary of all changes made:
+
+  ---
+  Display Name Integration — Summary
+
+  Call chain: input field → Firebase → UI display
+
+  HostSettingsPanel.displayNameInputField /
+  JoinLobbyManager.displayNameInputField
+    → MultiplayerManager.EnableMultiplayerMode(..., displayName)
+      → MultiplayerManager.LocalDisplayName stored
+      → LobbyManager.CreateLobby(..., displayName) / JoinLobby(...,
+  displayName)
+        → new PlayerData(playerId, displayName, ...)
+          → PlayerData.DisplayName property
+            → Written to Firebase lobbies/{code}/players/{id}
+              → Read back by all clients via LobbyManager listeners
+                → LobbyUIManager → player.DisplayName
+                → SpectatorUIManager → GetPlayerDisplayName(id)
+                → EndScoreboardUIManager → FinalScoreData.displayName
+
+  Files modified (6):
+
+  LobbyManager.cs
+  - CreateLobby() — added displayName param (defaults null), uses it instead
+   of hardcoded "Host" (LobbyManager.cs:83, :118)
+  - JoinLobby() — added displayName param (defaults null), uses it instead
+  of auto-generated $"Player{count}" (LobbyManager.cs:182, :260)
+
+  MultiplayerManager.cs
+  - Added LocalDisplayName property (MultiplayerManager.cs:40)
+  - EnableMultiplayerMode() — added displayName param, stores in
+  LocalDisplayName with fallback (MultiplayerManager.cs:216, :239-240)
+  - CreateLobby() (private) — passes LocalDisplayName to
+  LobbyManager.CreateLobby (MultiplayerManager.cs:330)
+  - JoinLobby() (private) — passes LocalDisplayName to
+  LobbyManager.JoinLobby (MultiplayerManager.cs:345)
+  - OnLobbyCreated() — uses LocalDisplayName instead of hardcoded "Host"
+  (MultiplayerManager.cs:368-369)
+  - DisableMultiplayerMode() — clears LocalDisplayName
+  (MultiplayerManager.cs:272)
+
+  HostSettingsPanel.cs
+  - Reads displayNameInputField.text.Trim() and passes to
+  EnableMultiplayerMode(..., displayName) (HostSettingsPanel.cs:242, :251)
+
+  JoinLobbyManager.cs
+  - Reads displayNameInputField.text.Trim() and passes to
+  EnableMultiplayerMode(..., displayName) (JoinLobbyManager.cs:140, :143)
+
+  LobbyUIManager.cs
+  - UpdateGameSettingsUI() — uses player.DisplayName for host name text
+  (LobbyUIManager.cs:301)
+  - UpdatePlayerListUI() — uses player.DisplayName for player name text
+  (LobbyUIManager.cs:374)
+
+  SpectatorUIManager.cs
+  - UpdateHeader() — replaced TEMP currentPlayerId with
+  MultiplayerManager.Instance.GetPlayerDisplayName(currentPlayerId)
+  (SpectatorUIManager.cs:177-178)
+
+  EndScoreboardUIManager.cs
+  - PopulatePlayerPanels() — replaced TEMP player.playerId with
+  player.displayName, re-enabled rank prefix (EndScoreboardUIManager.cs:320,
+   :325)
+  - DisplaySinglePlayerScoreboard() — uses LocalDisplayName instead of
+  LocalPlayerId (EndScoreboardUIManager.cs:179)
+
+
+

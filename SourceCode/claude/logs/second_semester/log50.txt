@@ -1,0 +1,336 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 60 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 5 additions an
+      3 removals
+       325                }
+       326    
+       327                // Remove player from Firebase
+       328 -              if (_playersRef != null && 
+           -  FirebaseManager.Instance.UserId != null)
+       328 +              string userId = FirebaseManager.Instance?
+           +  .UserId;
+       329 +              Debug.Log($"LobbyManager.LeaveLobby: Checking 
+           + Firebase removal - playersRef={_playersRef != null}, 
+           + userId={userId ?? "null"}, 
+           + FirebaseManager.Instance={FirebaseManager.Instance != 
+           + null}");
+       330 +  
+       331 +              if (_playersRef != null && 
+           + !string.IsNullOrEmpty(userId))
+       332                {
+       333 -                  string userId = 
+           - FirebaseManager.Instance.UserId;
+       333                    Debug.Log($"LobbyManager.LeaveLobby: 
+             Removing player {userId} from Firebase");
+       334                    _playersRef.Child(userId).RemoveValueAsync(
+             ).ContinueWith(task =>
+       335                    {
+     ...
+       347                }
+       348                else
+       349                {
+       350 -                  Debug.LogWarning($"LobbyManager.LeaveLobby:
+           -   Cannot remove player - playersRef={_playersRef != null}, 
+           -  UserId={FirebaseManager.Instance?.UserId ?? "null"}");
+       350 +                  Debug.LogWarning($"LobbyManager.LeaveLobby:
+           +   Cannot remove player from Firebase 
+           +  - playersRef={_playersRef != null}, userId={userId
+           +   ?? "null"}");
+       351                }
+       352    
+       353                // Clean up listeners
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 12 additions 
+       629        {
+       630            // This would be attached to a Leave Lobby button 
+             in the UI
+       631            Debug.Log($"LobbyUIManager.OnLeaveLobbyClicked: 
+             localPlayerId={localPlayerId}, isHost={isHost}");
+       632 +          StartCoroutine(OnLeaveLobbyClickedCoroutine());
+       633 +      }
+       634 +  
+       635 +      private IEnumerator OnLeaveLobbyClickedCoroutine()
+       636 +      {
+       637            if (multiplayerManager != null)
+       638            {
+       639                Debug.Log($"LobbyUIManager: Calling 
+             DisableMultiplayerMode");
+       640                multiplayerManager.DisableMultiplayerMode();
+       641 +  
+       642 +              // Wait a short moment to allow Firebase 
+           + removal to start
+       643 +              // This gives the async Firebase operation a 
+           + chance to begin
+       644 +              // before we change scenes which might 
+           + interrupt it
+       645 +              Debug.Log($"LobbyUIManager: Waiting 0.2 seconds
+           +  before loading main menu");
+       646 +              yield return new WaitForSeconds(0.2f);
+       647 +  
+       648                Debug.Log($"LobbyUIManager: Calling 
+             PPSceneManager.LoadMainMenu");
+       649                PPSceneManager.LoadMainMenu();
+       650            }
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 50 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 19 additions  
+     and 1 removal
+       317            /// <summary>
+       318            /// Leave the current lobby.
+       319            /// </summary>
+       320 -          public void LeaveLobby()
+       320 +          /// <param name="onComplete">Optional callback 
+           + invoked after Firebase removal attempt (regardless of 
+           + success)</param>
+       321 +          public void LeaveLobby(Action onComplete = null)
+       322            {
+       323                if (!_isInLobby)
+       324                {
+       325 +                  onComplete?.Invoke();
+       326                    return;
+       327                }
+       328    
+     ...
+       345                        {
+       346                            Debug.Log($"LobbyManager: 
+             Successfully removed player {userId} from Firebase");
+       347                        }
+       348 +  
+       349 +                      // Clean up listeners AFTER Firebase 
+           + removal attempt (success or failure)
+       350 +                      CleanupLobbyListenersAndState();
+       351 +  
+       352 +                      // Invoke callback on main thread
+       353 +                      InvokeOnMainThread(() => 
+           + onComplete?.Invoke());
+       354                    });
+       355                }
+       356                else
+       357                {
+       358                    Debug.LogWarning($"LobbyManager.LeaveLobby:
+              Cannot remove player from Firebase - 
+             playersRef={_playersRef != null}, userId={userId ?? 
+             "null"}");
+       359 +                  // Still clean up even if Firebase removal 
+           + couldn't start
+       360 +                  CleanupLobbyListenersAndState();
+       361 +                  onComplete?.Invoke();
+       362                }
+       363 +          }
+       364    
+       365 +          /// <summary>
+       366 +          /// Clean up Firebase listeners and reset lobby 
+           + state.
+       367 +          /// Called after Firebase removal attempt.
+       368 +          /// </summary>
+       369 +          private void CleanupLobbyListenersAndState()
+       370 +          {
+       371                // Clean up listeners
+       372                if (_lobbyRef != null)
+       373                {
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 24      
+     additions and 11 removals
+       223            /// <summary>
+       224            /// Disable multiplayer mode and clean up.
+       225            /// </summary>
+       226 -          public void DisableMultiplayerMode()
+       226 +          /// <param name="onComplete">Optional callback 
+           + invoked after lobby cleanup completes</param>
+       227 +          public void DisableMultiplayerMode(Action 
+           + onComplete = null)
+       228            {
+       229                
+             Debug.Log($"MultiplayerManager.DisableMultiplayerMode: 
+             Current state - MultiplayerMode={IsMultiplayerMode}, 
+             Host={IsLobbyHost}, Lobby={LobbyCode}, 
+             PlayerCount={Players.Count}, 
+             LocalPlayerId={LocalPlayerId}");
+       230                IsMultiplayerMode = false;
+     ...
+       245                // Clean up Firebase listeners
+       246                if (_lobbyManager != null)
+       247                {
+       248 -                  Debug.Log("MultiplayerManager: Calling 
+           -  _lobbyManager.LeaveLobby()");
+       249 -                  _lobbyManager.LeaveLobby();
+       250 -                  Debug.Log("MultiplayerManager: 
+           - _lobbyManager.LeaveLobby() completed");
+       248 +                  Debug.Log("MultiplayerManager: Calling 
+           +  _lobbyManager.LeaveLobby() with callback");
+       249 +                  _lobbyManager.LeaveLobby(() =>
+       250 +                  {
+       251 +                      Debug.Log("MultiplayerManager: 
+           + _lobbyManager.LeaveLobby() callback received");
+       252 +  
+       253 +                      // Stop SyncManager Firebase listeners
+       254 +                      if (_syncManager != null)
+       255 +                      {
+       256 +                          _syncManager.StopListening();
+       257 +                      }
+       258 +  
+       259 +                      Debug.Log("MultiplayerManager: 
+           + Multiplayer mode disabled");
+       260 +                      onComplete?.Invoke();
+       261 +                  });
+       262                }
+       263                else
+       264                {
+       265                    Debug.LogWarning("MultiplayerManager: 
+             _lobbyManager is null, cannot leave lobby properly");
+       266 -              }
+       266    
+       267 -              // Stop SyncManager Firebase listeners
+       268 -              if (_syncManager != null)
+       269 -              {
+       270 -                  _syncManager.StopListening();
+       271 -              }
+       267 +                  // Stop SyncManager Firebase listeners
+       268 +                  if (_syncManager != null)
+       269 +                  {
+       270 +                      _syncManager.StopListening();
+       271 +                  }
+       272    
+       273 -              
+           -  Debug.Log("MultiplayerManager: Multiplayer mode disabled");
+       273 +                  
+           +  Debug.Log("MultiplayerManager: Multiplayer mode disabled
+           +   (without lobby manager)");
+       274 +                  onComplete?.Invoke();
+       275 +              }
+       276            }
+       277    
+       278            /// <summary>
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 21 additions an
+      7 removals
+       636        {
+       637            if (multiplayerManager != null)
+       638            {
+       639 -              Debug.Log($"LobbyUIManager: Calling 
+           -  DisableMultiplayerMode");
+       640 -              multiplayerManager.DisableMultiplayerMode();
+       639 +              Debug.Log($"LobbyUIManager: Calling 
+           +  DisableMultiplayerMode with callback");
+       640 +              bool cleanupComplete = false;
+       641    
+       642 -              // Wait a short moment to allow Firebase 
+           - removal to start
+       643 -              // This gives the async Firebase operation a 
+           - chance to begin
+       644 -              // before we change scenes which might 
+           - interrupt it
+       645 -              Debug.Log($"LobbyUIManager: Waiting 0.2 seconds
+           -  before loading main menu");
+       646 -              yield return new WaitForSeconds(0.2f);
+       642 +              multiplayerManager.DisableMultiplayerMode(() =>
+       643 +              {
+       644 +                  Debug.Log($"LobbyUIManager: 
+           + DisableMultiplayerMode callback received");
+       645 +                  cleanupComplete = true;
+       646 +              });
+       647    
+       648 +              // Wait for cleanup to complete (with timeout)
+       649 +              float timeout = 3.0f; // 3 second timeout
+       650 +              float elapsed = 0f;
+       651 +              while (!cleanupComplete && elapsed < timeout)
+       652 +              {
+       653 +                  elapsed += Time.deltaTime;
+       654 +                  yield return null;
+       655 +              }
+       656 +  
+       657 +              if (!cleanupComplete)
+       658 +              {
+       659 +                  Debug.LogWarning($"LobbyUIManager: Timeout 
+           + waiting for DisableMultiplayerMode callback after {elapsed} 
+           + seconds");
+       660 +              }
+       661 +  
+       662                Debug.Log($"LobbyUIManager: Calling 
+             PPSceneManager.LoadMainMenu");
+       663                PPSceneManager.LoadMainMenu();
+       664            }
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 60 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 5 additions and
+     4 removals
+
+       549                if (isLocalPlayer && multiplayerManager != null
+              && multiplayerManager.IsMultiplayerMode)
+       550                {
+       551                    Debug.Log($"LobbyUIManager: Local player 
+             {playerId} left the lobby (kicked or disconnected). 
+             Returning to main menu.");
+       552 -                  multiplayerManager.DisableMultiplayerMode()
+           -  ;
+       553 -                  Debug.Log($"LobbyUIManager: Calling 
+           - PPSceneManager.LoadMainMenu()");
+       554 -                  PPSceneManager.LoadMainMenu();
+       555 -                  Debug.Log($"LobbyUIManager: After 
+           - LoadMainMenu call");
+       552 +                  multiplayerManager.DisableMultiplayerMode((
+           +  ) =>
+       553 +                  {
+       554 +                      Debug.Log($"LobbyUIManager: 
+           + DisableMultiplayerMode callback received, loading main 
+           + menu");
+       555 +                      PPSceneManager.LoadMainMenu();
+       556 +                  });
+       557                }
+       558                else
+       559                {
+
+● Search(pattern: "DisableMultiplayerMode", output_mode: "content")
+  ⎿  Found 9 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerTester.cs)
+  ⎿  Read 10 lines
+
+● Search(pattern: "LeaveLobby\(\)", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+o to expand)
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 1 addition and
+     1 removal
+
+       360                    Debug.LogWarning($"LobbyManager.LeaveLobby:
+              Cannot remove player from Firebase - 
+             playersRef={_playersRef != null}, userId={userId ?? 
+             "null"}");
+       361                    // Still clean up even if Firebase removal 
+             couldn't start
+       362                    CleanupLobbyListenersAndState();
+       363 -                  onComplete?.Invoke();
+       363 +                  InvokeOnMainThread(() => 
+           +  onComplete?.Invoke());
+       364                }
+       365            }
+       366    
+
+
+

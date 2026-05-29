@@ -1,0 +1,100 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 80 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 10 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 40 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 15 lines
+
+● Search(pattern: "OnPlayerJoined.*Invoke", path: "Assets/Scripts/Multiplayer",
+        output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Search(pattern: "OnPlayerReadyChanged.*Invoke", path:
+        "Assets/Scripts/Multiplayer", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+o to expand)
+
+● Search(pattern: "OnPlayerLeft.*Invoke", path: "Assets/Scripts/Multiplayer",
+        output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 20 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition
+       427                if (isNewPlayer)
+       428                {
+       429                    Debug.Log($"MultiplayerManager: Player 
+             joined via Firebase - {playerData.DisplayName} 
+             ({playerData.PlayerId})");
+       430 +                  Debug.Log($"MultiplayerManager: 
+           + OnPlayerJoined subscriber count: 
+           + {OnPlayerJoined?.GetInvocationList()?.Length ?? 0}");
+       431                    
+             OnPlayerJoined?.Invoke(playerData.PlayerId);
+       432                }
+       433                else if (readyStateChanged)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 10 lines
+
+● Search(pattern: "OnAllPlayersReady.*Invoke", path:
+        "Assets/Scripts/Multiplayer", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition
+       433                else if (readyStateChanged)
+       434                {
+       435                    Debug.Log($"MultiplayerManager: Player 
+             ready state changed via Firebase - {playerData.DisplayName} 
+             ({playerData.PlayerId}) Ready={playerData.IsReady}");
+       436 +                  Debug.Log($"MultiplayerManager: 
+           + OnPlayerReadyChanged subscriber count: 
+           + {OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0}");
+       437                    
+             OnPlayerReadyChanged?.Invoke(playerData.PlayerId, 
+             playerData.IsReady);
+       438                }
+       439    
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 8 lines
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 1       
+     addition
+       451    
+       452                Players.Remove(playerId);
+       453                Debug.Log($"MultiplayerManager: Player left via
+              Firebase - {playerId}");
+       454 +              Debug.Log($"MultiplayerManager: OnPlayerLeft 
+           + subscriber count: {OnPlayerLeft?.GetInvocationList()?.Length
+           +  ?? 0}");
+       455                OnPlayerLeft?.Invoke(playerId);
+       456                CheckAllPlayersReady();
+       457            }
+
+
+

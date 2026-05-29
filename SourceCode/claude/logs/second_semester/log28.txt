@@ -1,0 +1,105 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 976 lines
+
+● I've completed the comprehensive multiplayer state cleanup implementation.
+   Here's what I've done:
+
+  Summary of Changes
+
+  1. Updated MultiplayerManager.DisableMultiplayerMode() 
+  (Assets/Scripts/Multiplayer/MultiplayerManager.cs:199-230)
+
+  Added complete state reset when leaving a lobby:
+
+  // Reset game state fields
+  _sharedRandomSeed = -1;
+  _currentSynchronizedTurn = 0;
+  _allPlayersReady = false;
+  _gameStarted = false;
+  _gameEnded = false;
+
+  // Reset host settings to defaults  
+  _hostMaxPlayers = 8;
+  _hostTurnTimeLimit = -1;
+
+  // Stop SyncManager Firebase listeners
+  if (_syncManager != null)
+  {
+      _syncManager.StopListening();
+  }
+
+  2. Verified SyncManager.StopListening() already exists 
+  (Assets/Scripts/Multiplayer/SyncManager.cs:105-124)
+
+  The StopListening() method already properly cleans up Firebase listeners:
+  - Removes _lobbyRootRef.ValueChanged listener
+  - Removes _gameEndsRef.ValueChanged listener
+  - Clears all database reference fields
+  - Logs "SyncManager: Firebase listeners stopped"
+
+  3. Integration with LobbyUIManager.OnLeaveLobbyClicked()
+
+  The OnLeaveLobbyClicked() method already calls
+  multiplayerManager.DisableMultiplayerMode(), which now triggers the
+  complete state cleanup.
+
+  What Gets Cleaned Up
+
+  | State Field              | Reset Value | Purpose
+          |
+  |--------------------------|-------------|--------------------------------
+  --------|
+  | _sharedRandomSeed        | -1          | Previous game's dice RNG seed
+          |
+  | _currentSynchronizedTurn | 0           | Turn counter for synchronized
+  gameplay |
+  | _allPlayersReady         | false       | Ready state flag
+          |
+  | _gameStarted             | false       | Game start flag
+          |
+  | _gameEnded               | false       | Game end flag
+          |
+  | _hostMaxPlayers          | 8           | Default lobby size
+          |
+  | _hostTurnTimeLimit       | -1          | Default unlimited turn time
+          |
+  | Firebase Listeners       | Removed     | Prevents callback conflicts
+          |
+
+  Testing the Implementation
+
+  To verify the state cleanup works correctly:
+
+  1. Create a lobby as host (from Create Game scene)
+  2. Have a client join the lobby (from Join Game scene)
+  3. Have the client leave the lobby using the Leave Lobby button
+  4. Check Console logs for:
+    - "MultiplayerManager: Multiplayer mode disabled"
+    - "SyncManager: Firebase listeners stopped"
+  5. Have the same client join a different lobby to confirm no issues from
+  lingering state
+
+  Result
+
+  When LobbyUIManager.OnLeaveLobbyClicked() is called, it triggers
+  MultiplayerManager.DisableMultiplayerMode(), which now:
+
+  1. Resets all game state fields to default values
+  2. Resets host settings to defaults
+  3. Calls SyncManager.StopListening() to clean up Firebase listeners
+  4. Calls LobbyManager.LeaveLobby() to remove player from Firebase and
+  clean up lobby listeners
+
+  This ensures players can leave a lobby and join another without any
+  conflicts from lingering multiplayer state or Firebase listeners.
+
+
+

@@ -1,0 +1,617 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+> /compact 
+  ⎿  Compacted (ctrl+o to see full summary)
+
+> Can you edit current-functionality.md to make sure it is fully up to date 
+and represents the current state of the project. I have tested Auto end 
+detection and it is fully working in singleplayer, check my recent commits 
+also. Determine whether next steps needs to be updated. Multiplayer is a 
+must have requirement, the deadline is approaching soon so it must be 
+prioritized. Check if the multiplayer plan md file needs updates also. 
+
+● Read(current-functionality.md)
+  ⎿  Read 328 lines
+
+● Read(user-stories.md)
+  ⎿  Read 383 lines
+
+● Search(pattern: "*multiplayer*.md")
+  ⎿  Found 2 files (ctrl+o to expand)
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 485 lines
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && git log --oneline -10)
+  ⎿  61c2fa7 Added host settings panel and other fixes [#41] 
+     63146f2 Fix for auto end detection on game restart [#40]
+     7466830 Auto end detection and prompt panel [#39]
+     … +8 lines (ctrl+o to expand)
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && git show --stat 7466830)
+  ⎿  commit 7466830701e3e3d6eb1497cd3a3cba81130a1e2c         
+     Author: JCombs712 <jordan.combs@students.plymouth.ac.uk>
+     Date:   Wed Apr 15 19:48:29 2026 +0100
+     … +39 lines (ctrl+o to expand)
+
+● Read(current-functionality.md)
+  ⎿  Read 10 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal
+       1    # Current Functionality - Pocket Planner
+       2    
+       3 -  *Last Updated: 2026-03-22*
+       3 +  *Last Updated: 2026-04-16*
+       4    
+       5    ## Project Overview
+       6    
+
+● Read(current-functionality.md)
+  ⎿  Read 20 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal      
+       13    
+       14    ## Current State Summary
+       15    
+       16 -  The project has made significant progress with core game 
+          -  systems now fully implemented. The current implementation 
+          -  includes board generation, shape management, dice system 
+          -  with UI, wildcard system, water die handling, touch-based 
+          -  shape movement and placement, ghost appearance with validity
+          -   color updates, manipulation panel for 
+          -  rotation/flip/confirmation, zone detection, scoring system, 
+          -  end game logic
+          -  , starting position selection, and a complete end game 
+          -  screen. Scene management has been added with a singleton 
+          -  PPSceneManager connecting main menu, lobby, and game scenes.
+          -   Firebase SDK is integrated and multiplayer framework 
+          -  classes are implemented (FirebaseManager, LobbyManager, 
+          -  etc.) with game state synchronization now implemented 
+          -  (placement broadcasting, deterministic dice RNG, multiplayer
+          -   event handlers). The prototype is now playable with core 
+          -  mechanics functional.
+       16 +  The project has made significant progress with core game 
+          +  systems now fully implemented. The current implementation 
+          +  includes board generation, shape management, dice system 
+          +  with UI, wildcard system, water die handling, touch-based 
+          +  shape movement and placement, ghost appearance with validity
+          +   color updates, manipulation panel for 
+          +  rotation/flip/confirmation, zone detection, scoring system, 
+          +  auto-end detection with wildcard prompt
+          +  , starting position selection, and a complete end game 
+          +  screen. Scene management has been added with a singleton 
+          +  PPSceneManager connecting main menu, lobby, and game scenes.
+          +   Firebase SDK is integrated and multiplayer framework 
+          +  classes are implemented (FirebaseManager, LobbyManager, 
+          +  etc.) with game state synchronization now implemented 
+          +  (placement broadcasting, deterministic dice RNG, multiplayer
+          +   event handlers). The prototype is now playable with core 
+          +  mechanics functional including automatic game end detection.
+       17    
+       18    ### Working Features
+       19    -  10×10 game board with correct river tile placement (11 
+            fixed positions)
+
+● Read(current-functionality.md)
+  ⎿  Read 30 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition                    
+       32    -  **Dice system fully integrated**: random rolls, 
+            auto‑rerolls, double detection, UI selection, shape 
+            generation integration, star awarding, turn progression, 
+            water die special handling (building type choice, river 
+            adjacency validation), wildcard system (UI panels, cost 
+            tracking, face override)
+       33    -  **Scoring system implemented**: ScoreComponents struct, 
+            ScoreManager singleton, zone scoring 
+            (Industrial/Residential/Commercial based on unique shapes), 
+            park scoring (+2 per distinct zone adjacent), school scoring 
+            (+2 per residential building in largest adjacent zone), star 
+            scoring, empty cell penalty (-1 per empty non-river cell), 
+            wildcard cost integration, GameManager integration
+       34    -  **End game logic implemented**: GameManager end game 
+            detection placeholder, TriggerGameEnd() method, ESC keybind 
+            for manual game end, score breakdown UI panel (implemented, 
+            requires Unity Editor assignment), restart and main menu 
+            buttons
+       35 +  -  **Auto-end detection system**: Automatic detection of no 
+          + valid placements after dice roll, wildcard prompt panel for 
+          + continuing with wildcard, validation checks for all shape 
+          + dice and water die positions, adjacency fix for multi-tile 
+          + shapes, integration with GameManager turn flow
+       36    -  **Ghost appearance system**: semi-transparent shape with 
+            color updates based on validity (green valid, red invalid), 
+            automatic updates on movement/rotation/flip
+       37    -  **Manipulation panel UI**: buttons for rotate, flip, and 
+            confirm placement, integrated with shape controller
+       38    -  **Scene management**: PPSceneManager singleton with 
+            DontDestroyOnLoad, scene transition methods for main menu, 
+            lobby, game scenes
+
+● Read(current-functionality.md)
+  ⎿  Read 10 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal      
+       42    ### Partially Implemented
+       43    - = GameManager (singleton pattern, full game loop 
+            implemented: dice roll → selection → shape placement → star 
+            awarding → turn advancement, wildcard tracking, water die 
+            usage flag)
+       44    - = Input system (actions defined, touch placement 
+            implemented, dice UI interaction working, rotation/flip input
+             connected via manipulation panel)
+       45 -  - = Complete game loop (roll → select → place → score) - 
+          -  implemented but game end detection is placeholder
+       45 +  - = Complete game loop (roll → select → place → score) - 
+          +  fully implemented including auto-end detection
+       46    - = Multiplayer systems (Firebase SDK integrated, lobby 
+            system ready for testing, game state synchronization 
+            implemented: placement broadcasting, deterministic dice RNG, 
+            multiplayer event handlers; gameplay integration and UI 
+            indicators pending - see 
+            `multiplayer-implementation-plan.md`)
+       47    
+       48    ### Not Yet Implemented
+
+● Read(current-functionality.md)
+  ⎿  Read 15 lines
+
+● Read(current-functionality.md)
+  ⎿  Read 10 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 6 additions and 3 removals    
+       114    - Penalties: -1 point per empty non-river cell at game end,
+              wildcard costs (-1, -2, -3)
+       115    - Integration: `GameManager.CalculateFinalScore()` method, 
+             automatic penalty calculation
+       116    
+       117 -  #### **End Game System** (`GameManager.cs`)
+       118 -  - `CheckGameEndCondition()` placeholder for automatic game 
+           - end detection (no valid placements)
+       117 +  #### **End Game System** (`GameManager.cs`
+           +  , `AutoEndDetector.cs`, `WildcardPromptManager.cs`)
+       118 +  - **Auto-end detection**: `AutoEndDetector` class checks 
+           + for valid placements after dice roll, before player 
+           + selection. Validates all shape dice against all empty 
+           + non-river positions, considers water die presence for river 
+           + adjacency, handles adjacency rules for multi-tile shapes.
+       119 +  - **Wildcard prompt**: `WildcardPromptManager` UI panel 
+           + prompts player to use wildcard when no valid placements 
+           + exist but wildcards available. Integrates with existing 
+           + wildcard system.
+       120 +  - **Game end flow**: `CheckForGameEndAfterRoll()` in 
+           + `GameManager` triggers detection. If no valid placements and
+           +  no wildcards left, `TriggerGameEnd()` is called. If 
+           + wildcards available, player chooses to use wildcard or end 
+           + game.
+       121    - `TriggerGameEnd()` method calculates final score and 
+             displays end game UI
+       122 -  - `OnGameEndInput()` public method bound to Input System's 
+           -  "GameEndInput" action
+       122 +  - `OnGameEndInput()` public method bound to Input System's 
+           +  "GameEndInput" action (manual game end)
+       123    - End game UI panel with score breakdown display 
+             (implemented, requires Unity Editor assignment)
+       124    - Restart and main menu buttons (placeholder: restart 
+             reloads scene, main menu placeholder)
+       125    - Integration: `InitializeEndGameUI()` called in 
+             `GameManager.Start()` to set up button listeners
+       126    - Score breakdown formatting using `ScoreComponents` data
+       127 +  - **Multiplayer integration**: Game end broadcast via 
+           + `SyncManager.BroadcastGameEnd()`. When any player cannot 
+           + continue, game ends for all players.
+       128    
+       129    #### **Game State Management** (`GameManager.cs`)
+       130    - Singleton pattern established
+
+● Read(current-functionality.md)
+  ⎿  Read 30 lines
+
+● Read(current-functionality.md)
+  ⎿  Read 40 lines
+
+● Read(current-functionality.md)
+  ⎿  Read 10 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal      
+       276    1. **Simultaneous turn coordination** - **NOT YET 
+             IMPLEMENTED**
+       277    2. **Player status indicators** - **NOT YET IMPLEMENTED**
+       278    3. **Spectator mode (switch view)** - **NOT YET 
+             IMPLEMENTED**
+       279 -  4. **Game end synchronization** - **NOT YET IMPLEMENTED**
+       279 +  4. **Game end synchronization** - **PARTIALLY IMPLEMENTED**
+           +  (BroadcastGameEnd() implemented, needs integration with 
+           + multiplayer turn coordination)
+       280    5. **Reconnection handling** - **NOT YET IMPLEMENTED**
+       281    
+       282    **Phase 2E: Polish & Testing** - **NOT YET IMPLEMENTED**
+
+● Read(current-functionality.md)
+  ⎿  Read 30 lines
+
+● Read(current-functionality.md)
+  ⎿  Read 5 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition                    
+       315    - Zone detection algorithms correctly group adjacent 
+             buildings of same type
+       316    - Scoring system calculates zone scores, park scores, 
+             school scores, penalties
+       317    - End game screen displays score breakdown with ESC keybind
+       318 +  - Auto-end detection system: Valid placement detection 
+           + works for all shape dice, water die consideration, adjacency
+           +  validation for multi-tile shapes, wildcard prompt UI 
+           + functional
+       319    - Starting position selection with tile highlighting works
+       320    - Multiplayer synchronization: Placement broadcasting, 
+             deterministic dice RNG, and event handlers implemented 
+             (requires Firebase testing)
+       321    
+
+● Read(current-functionality.md)
+  ⎿  Read 30 lines
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && git log --oneline -12 --format="%h - %s")
+  ⎿  61c2fa7 - Added host settings panel and other fixes [#41] 
+     63146f2 - Fix for auto end detection on game restart [#40]
+     7466830 - Auto end detection and prompt panel [#39]
+     … +12 lines (ctrl+o to expand)
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 10 additions and 10 removals  
+       206    ## Recent Development History
+       207    
+       208    ### Git Commits (Recent)
+       209 -  1. `728d3f2` - "Merge branch 'develop' of https://github.co
+           - m/Plymouth-University/comp2003-2025-2026-team-14 into 
+           - connect-scenes"
+       210 -  2. `88cb5d9` - "Added SceneManager singleton, connected 
+           - scenes via main menu buttons and improved UI layout [#33]"
+       211 -  3. `2c9bcb0` - "Merge branch 'develop' of https://github.co
+           - m/Plymouth-University/comp2003-2025-2026-team-14 into 
+           - connect-scenes"
+       212 -  4. `83ebf50` - "Added SceneManager singleton, connected 
+           - scenes via buttons and improved UI layout"
+       213 -  5. `45dece5` - "Updated main menu scene"
+       214 -  6. `a4f8ce8` - "Touch input, Manipulation panel 
+           - functionality and Ghost appearance updates for active shape 
+           - [#32]"
+       215 -  7. `8fe6b42` - "Implemented mobile touch input for 
+           - placement and manipulation by dragging"
+       216 -  8. `443f32a` - "Implemented manipulation panel 
+           - functionality"
+       217 -  9. `3b27882` - "Created ghost appearance for active shape 
+           - with updates based on validity"
+       218 -  10. `bbffcdd` - "Merge branch 'main' of https://github.com/
+           - Plymouth-University/comp2003-2025-2026-team-14 into 
+           - connect-scenes"
+       209 +  1. `61c2fa7` - "Added host settings panel and other fixes 
+           + [#41]"
+       210 +  2. `63146f2` - "Fix for auto end detection on game restart 
+           + [#40]"
+       211 +  3. `7466830` - "Auto end detection and prompt panel [#39]"
+       212 +  4. `ef8a99d` - "??"
+       213 +  5. `3bc67e0` - "Revert 'WelcomeSceneDone'"
+       214 +  6. `14b1f94` - "Create FirebaseConfigFiles.meta"
+       215 +  7. `3692b83` - "WelcomeSceneDone"
+       216 +  8. `9aa3a97` - "Fix Input Bug, Readd Wildcard Buttons and 
+           + Update Turn Counter [#38]"
+       217 +  9. `e6f5211` - "Starting Position Selection and Touch Input
+           +  Fix [#36]"
+       218 +  10. `21322b2` - "Multiplayer Synchronization Logic [#34]"
+       219    
+       220    ### Current Git Status
+       221    - **Branch:** `connect-scenes` (clean working tree)
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 2 additions and 2 removals    
+       218    10. `21322b2` - "Multiplayer Synchronization Logic [#34]"
+       219    
+       220    ### Current Git Status
+       221 -  - **Branch:** `connect-scenes` (clean working tree)
+       222 -  - **Recent modifications:** Scene management, touch input, 
+           - ghost appearance, manipulation panel, UI layout improvements
+       221 +  - **Branch:** `develop` (clean working tree)
+       222 +  - **Recent modifications:** Auto-end detection system with 
+           + wildcard prompt, multiplayer synchronization logic, host 
+           + settings panel, UI improvements
+       223    
+       224    ## Known Issues & Limitations
+       225    
+
+● Read(current-functionality.md)
+  ⎿  Read 10 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 2 additions                   
+       234    
+       235    ## Next Priority Tasks
+       236    
+       237 +  **CRITICAL PRIORITY**: Multiplayer implementation is now 
+           + the highest priority with deadline approaching. Phase 2D 
+           + (Multiplayer Gameplay Integration) must be completed next.
+       238 +  
+       239    Based on the current state and project specifications, the 
+             next critical tasks are:
+       240    
+       241    ### Phase 1A: Core Game Mechanics (Highest Priority) - 
+             COMPLETED
+
+● Read(user-stories.md)
+  ⎿  Read 10 lines
+
+● Update(user-stories.md)
+  ⎿  Updated user-stories.md with 2 additions                           
+       1    *The list of user stories from highest priority to lowest 
+           priority*
+       2    
+       3 +  **CRITICAL UPDATE (2026-04-16):** Multiplayer functionality 
+         + is now the highest priority with deadline approaching. User 
+         + stories 1.1 (Create Lobby), 1.2 (Join Lobby), 4.1 
+         + (Simultaneous Turns), and 4.2 (Player Status Widget) must be 
+         + prioritized for immediate implementation.
+       4 +  
+       5    ## High Priority
+       6    
+       7    **US 3.1: Board Display**
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "US 6.5" user-stories.md)
+  ⎿  187:**US 6.5: Game End Logic & Wildcard Check**
+
+● Read(user-stories.md)
+  ⎿  Read 20 lines
+
+● Update(user-stories.md)
+  ⎿  Updated user-stories.md with 1 addition and 1 removal               
+       184        - **Feedback:** The UI must briefly indicate 
+             "Re-rolling duplicates..." so the user understands why the 
+             dice are rolling again.
+       185    
+       186    
+       187 -  **US 6.5: Game End Logic & Wildcard Check**
+       187 +  **US 6.5: Game End Logic & Wildcard Check**
+           +   **[IMPLEMENTED - 2026-04-16]**
+       188    
+       189    - **Story:** As a player with no legal moves remaining, I 
+             want the system to check if I have Wildcards available and 
+             let me choose to continue or end the game, so that I have a 
+             final chance to save my game before ending it for everyone.
+       190        
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "US 6.4" user-stories.md)
+  ⎿  172:**US 6.4: Edge Case Auto-Reroll**
+
+● Read(user-stories.md)
+  ⎿  Read 15 lines
+
+● Update(user-stories.md)
+  ⎿  Updated user-stories.md with 1 addition and 1 removal               
+       169        - **Settings:** Tapping "Settings" opens a toggle menu 
+             for Audio/Music (as defined in US 5.3) as well as additional
+              accessibility settings.
+       170    
+       171    
+       172 -  **US 6.4: Edge Case Auto-Reroll**
+       172 +  **US 6.4: Edge Case Auto-Reroll** **[IMPLEMENTED]**
+       173    
+       174    - **Story:** As a player, I want the system to 
+             automatically re-roll any set of dice that lands on three of
+              the same type so that the game avoids "impossible" or 
+             unbalanced turns.
+       175        
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 1 addition and 1      
+     removal
+       1    # Pocket Planner Multiplayer Implementation Plan
+       2    
+       3 -  *Last Updated: 2026-03-22*
+       3 +  *Last Updated: 2026-04-16*
+       4    
+       5    ## Overview
+       6    
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 20 lines
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 1 addition and 1      
+     removal
+       14    - **Validation**: Shape placement validation (boundaries, 
+            river, overlap, adjacency rules)
+       15    - **UI**: Dice UI, wildcard panels, end game screen (needs 
+            Unity assignment)
+       16    - **Input**: Mouse/WASD placeholder, Unity Input System 
+            configured
+       17 -  - **Multiplayer**: Partially implemented (Firebase 
+          -  integration, lobby system scaffolding, game state 
+          -  synchronization complete)
+       17 +  - **Multiplayer**: Partially implemented (Firebase 
+          +  integration, lobby system scaffolding, game state 
+          +  synchronization complete, game end broadcast implemented)
+       18    
+       19    ### Missing Multiplayer Components
+       20    1. ✅ Firebase SDK integration (implemented - 
+            `FirebaseManager` singleton)
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 1 addition and 1      
+     removal
+       23    4. ⏳ Player authentication (optional Google Play Games 
+            Services) - anonymous authentication implemented
+       24    5. ⏳ Reconnection handling (constants defined, logic 
+            needed)
+       25    6. ⏳ Multiplayer turn coordination (needs UI indicators and
+             game loop modifications)
+       26 -  7. ⏳ Game end synchronization (not yet implemented)
+       26 +  7. 🔄 Game end synchronization (partially implemented - 
+          + BroadcastGameEnd() exists, needs integration with multiplayer
+          +  turn coordination)
+       27    
+       28    ## Architecture Design
+       29    
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "Phase 4:" multiplayer-implementation-plan.md)
+  ⎿  263:### Phase 4: Multiplayer Gameplay Integration [NOT STARTED]
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 15 lines
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "Implementation Phases" multiplayer-implementation-plan.md)
+  ⎿  233:## Implementation Phases
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 10 lines
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 2 additions         
+       232    
+       233    ## Implementation Phases
+       234    
+       235 +  **CRITICAL PRIORITY**: With the deadline approaching, Phase
+           +  4 (Multiplayer Gameplay Integration) must be completed 
+           + immediately. All other phases are either completed or 
+           + partially implemented.
+       236 +  
+       237    ### Phase 1: Firebase Setup & Basic Infrastructure 
+             [COMPLETED]
+       238    1. ✅ Add Firebase SDK to Unity project
+       239    2. ✅ Create Firebase project and configure Realtime 
+             Database (URL configured in `FirebaseManager`)
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 10 lines
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "Sync game end condition" multiplayer-implementation-plan.md)
+  ⎿  270:5. ⏳ Sync game end condition across players
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 1 addition and 1      
+     removal
+       267    2. ⏳ Add player status indicators to UI
+       268    3. ⏳ Implement "Switch View" for spectator mode
+       269    4. ⏳ Add reconnection handling (constants defined, logic 
+             needed)
+       270 -  5. ⏳ Sync game end condition across players
+       270 +  5. 🔄 Sync game end condition across players (partially 
+           + implemented - BroadcastGameEnd() exists, needs integration 
+           + with turn coordination)
+       271    
+       272    ### Phase 5: Polish & Testing [PARTIALLY STARTED]
+       273    1. ⏳ Add visual feedback for network events
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "Current Overall Status" multiplayer-implementation-plan.md)
+  ⎿ 279:**Current Overall Status**: Multiplayer infrastructure is partially
+     implemented with core Firebase integration, lobby system scaffolding,
+    and game state synchronization now complete. Key remaining work include
+    … +2 lines (ctrl+o to expand)
+
+
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 1 addition and 1      
+     removal
+       276    4. 🔄 Test with 8 players on various network conditions 
+             (`MultiplayerTester` provides basic testing)
+       277    5. ⏳ Add analytics for multiplayer usage
+       278    
+       279 -  **Current Overall Status**: Multiplayer infrastructure is 
+           -  partially implemented with core Firebase integration, lobby
+           -   system scaffolding, and game state synchronization now 
+           -  complete. Key remaining work includes UI integration, game 
+           -  loop modifications for simultaneous play, and comprehensive
+           -   testing.
+       279 +  **Current Overall Status**: Multiplayer infrastructure is 
+           +  partially implemented with core Firebase integration, lobby
+           +   system scaffolding, game state synchronization complete
+           +  , and game end broadcast implemented. 
+           +  **CRITICAL**: Phase 4 (Multiplayer Gameplay Integration) 
+           +  must be completed immediately to meet deadline. 
+           +  Key remaining work includes simultaneous turn coordination
+           +  , player status UI, and integration testing.
+       280    
+       281    ## Integration with Existing Codebase
+       282    
+
+● Bash(cd
+      "/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner"
+      && grep -n "Next Steps" multiplayer-implementation-plan.md)
+  ⎿  443:## Next Steps
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 20 lines
+
+● Update(multiplayer-implementation-plan.md)
+  ⎿  Updated multiplayer-implementation-plan.md with 10 additions and 11 
+     removals
+       442    
+       443    ## Next Steps
+       444    
+       445 -  ### Immediate Actions
+       446 -  1. Update `developer-instructions.md` with Firebase setup 
+           - steps
+       447 -  2. Add Firebase SDK via Unity Package Manager
+       448 -  3. Create Firebase project and configure database
+       449 -  4. Implement `FirebaseManager` basic skeleton
+       450 -  5. Test connectivity in Unity editor
+       445 +  ### Critical Immediate Actions (Phase 4 Priority)
+       446 +  1. **Implement simultaneous turn coordination**: Modify 
+           + GameManager to handle multiplayer turn flow, synchronize 
+           + dice rolls, and coordinate player readiness.
+       447 +  2. **Add player status indicators UI**: Create UI elements 
+           + showing other players' ready/waiting status during gameplay.
+       448 +  3. **Integrate game end synchronization**: Connect auto-end
+           +  detection with multiplayer broadcast, ensure game ends for 
+           + all players when one cannot continue.
+       449 +  4. **Test multiplayer gameplay**: Test with 2+ devices to 
+           + verify synchronization, lobby joining, and game flow.
+       450    
+       451    ### Subsequent Tasks
+       452 -  1. Design lobby UI in Unity editor
+       453 -  2. Implement lobby creation/joining logic
+       454 -  3. Integrate with existing game scene
+       455 -  4. Test with two devices locally
+       456 -  5. Iterate based on playtesting feedback
+       452 +  1. Implement "Switch View" spectator mode UI
+       453 +  2. Add reconnection handling logic
+       454 +  3. Polish network event visual feedback
+       455 +  4. Comprehensive testing with 8 players
+       456 +  5. Optimize data usage and error handling
+       457    
+       458    ## Appendix
+       459    
+
+
+

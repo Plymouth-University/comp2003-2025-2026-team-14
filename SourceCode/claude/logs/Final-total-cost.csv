@@ -1,0 +1,37 @@
+﻿user_id,utc_date,model,wallet_type,cost,currency
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-01-31,deepseek-chat & deepseek-reasoner,Paid,0.613471264,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-02-02,deepseek-chat & deepseek-reasoner,Paid,0.029397508,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-02-23,deepseek-chat & deepseek-reasoner,Paid,0.025132716,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-02-24,deepseek-chat & deepseek-reasoner,Paid,0.304772888,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-02-28,deepseek-chat & deepseek-reasoner,Paid,0.588977004,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-02,deepseek-chat & deepseek-reasoner,Paid,0.242489156,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-05,deepseek-chat & deepseek-reasoner,Paid,0.383089756,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-06,deepseek-chat & deepseek-reasoner,Paid,0.054382132,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-07,deepseek-chat & deepseek-reasoner,Paid,0.001914864,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-09,deepseek-chat & deepseek-reasoner,Paid,0.00649712,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-11,deepseek-chat & deepseek-reasoner,Paid,0.119521836,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-12,deepseek-chat & deepseek-reasoner,Paid,0.105904484,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-17,deepseek-chat & deepseek-reasoner,Paid,0.364960036,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-21,deepseek-chat & deepseek-reasoner,Paid,0.499164596,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-22,deepseek-chat & deepseek-reasoner,Paid,1.145621484,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-23,deepseek-chat & deepseek-reasoner,Paid,0.08422442,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-03-28,deepseek-chat & deepseek-reasoner,Paid,0.006900096,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-14,deepseek-chat & deepseek-reasoner,Paid,0.49905142,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-15,deepseek-chat & deepseek-reasoner,Paid,0.39402412,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-16,deepseek-chat & deepseek-reasoner,Paid,0.15908256,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-17,deepseek-chat & deepseek-reasoner,Paid,0.666041824,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-18,deepseek-chat & deepseek-reasoner,Paid,1.82681352,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-19,deepseek-chat & deepseek-reasoner,Paid,0.878346252,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-20,deepseek-chat & deepseek-reasoner,Paid,1.452368092,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-21,deepseek-chat & deepseek-reasoner,Paid,0.797070456,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-22,deepseek-chat & deepseek-reasoner,Paid,0.381376016,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-23,deepseek-chat & deepseek-reasoner,Paid,1.490853868,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-24,deepseek-v4-flash,Paid,0.012031824,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-24,deepseek-chat & deepseek-reasoner,Paid,0.241915492,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-25,deepseek-v4-pro,Paid,3.18407472,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-25,deepseek-v4-flash,Paid,0.058426004,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-26,deepseek-v4-pro,Paid,0.628163055,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-26,deepseek-v4-flash,Paid,0.000746648,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-29,deepseek-v4-pro,Paid,0.04293798,USD
+f17737d1-01c4-4556-8c67-51a6da425b47,2026-04-29,deepseek-v4-flash,Paid,0.00168168,USD
+,,,COST ,17.291426891,USD

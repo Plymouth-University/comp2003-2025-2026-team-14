@@ -1,0 +1,834 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> /resume 
+  ⎿  Resume cancelled
+
+> /resume 
+  ⎿  Resume cancelled
+
+> Hey, can you implement JoinLobbyManager.cs using the multiplayer managers.
+ The rough outline of the required logic is that the inputted lobby code 
+should be read (all 6 input fields in the serializedfield list) when the 
+Join lobby button is clicked, make sure that the lobby code exists in 
+firebase, make sure the lobby isn't full (read max players) and then enable 
+multiplayer mode and try to join the lobby. Read 
+multiplayer-implementation-plan.md and LobbyUIManager.cs for some context on
+ how to implement this. Also make sure that a onJoinLobbyButtonClicked() 
+function is implemented so I can assign it to the onclick of the button in 
+the inspector. Feel free to modify the multiplayer managers if you need to 
+implement a missing functionality. 
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 486 lines
+
+● Search(pattern: "**/LobbyUIManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 566 lines
+
+● Search(pattern: "**/JoinLobbyManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Read 27 lines
+
+● Search(pattern: "**/LobbyManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 598 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 512 lines
+
+● Search(pattern: "**/FirebaseManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/FirebaseManager.cs)
+  ⎿  Read 100 lines
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 187       
+     additions and 1 removal
+        17    
+        18        [SerializeField] private TextMeshProUGUI errorText; // 
+             Text element to display messages to the user (for example if
+              lobby code is invalid, lobby is full or lobby code too 
+             short)
+        19    
+        20 +      private bool isJoining = false;
+        21 +  
+        22        // Start is called once before the first execution of 
+             Update after the MonoBehaviour is created
+        23        void Start()
+        24        {
+        25 -          
+        25 +          FindManagersIfMissing();
+        26 +          SubscribeToEvents();
+        27 +          ClearError();
+        28        }
+        29    
+        30 +      private void OnEnable()
+        31 +      {
+        32 +          SubscribeToEvents();
+        33 +      }
+        34 +  
+        35 +      private void OnDisable()
+        36 +      {
+        37 +          UnsubscribeFromEvents();
+        38 +      }
+        39 +  
+        40 +      private void FindManagersIfMissing()
+        41 +      {
+        42 +          if (firebaseManager == null) firebaseManager = 
+           + FirebaseManager.Instance;
+        43 +          if (multiplayerManager == null) multiplayerManager 
+           + = MultiplayerManager.Instance;
+        44 +          if (syncManager == null) syncManager = 
+           + SyncManager.Instance;
+        45 +  
+        46 +          // LobbyManager doesn't have a singleton instance; 
+           + it's attached to the same GameObject as MultiplayerManager
+        47 +          if (lobbyManager == null && multiplayerManager != 
+           + null)
+        48 +          {
+        49 +              lobbyManager = 
+           + multiplayerManager.GetComponent<LobbyManager>();
+        50 +              if (lobbyManager == null)
+        51 +              {
+        52 +                  Debug.LogWarning("JoinLobbyManager: 
+           + LobbyManager not found on MultiplayerManager GameObject.");
+        53 +              }
+        54 +          }
+        55 +      }
+        56 +  
+        57 +      private void SubscribeToEvents()
+        58 +      {
+        59 +          if (multiplayerManager != null)
+        60 +          {
+        61 +              multiplayerManager.OnError += 
+           + OnMultiplayerError;
+        62 +              multiplayerManager.OnLobbyJoined += 
+           + OnLobbyJoined;
+        63 +          }
+        64 +      }
+        65 +  
+        66 +      private void UnsubscribeFromEvents()
+        67 +      {
+        68 +          if (multiplayerManager != null)
+        69 +          {
+        70 +              multiplayerManager.OnError -= 
+           + OnMultiplayerError;
+        71 +              multiplayerManager.OnLobbyJoined -= 
+           + OnLobbyJoined;
+        72 +          }
+        73 +      }
+        74 +  
+        75 +      /// <summary>
+        76 +      /// Called when the Join Lobby button is clicked in the
+           +  UI.
+        77 +      /// </summary>
+        78 +      public void OnJoinLobbyButtonClicked()
+        79 +      {
+        80 +          if (isJoining)
+        81 +          {
+        82 +              ShowError("Already attempting to join a 
+           + lobby.");
+        83 +              return;
+        84 +          }
+        85 +  
+        86 +          string lobbyCode = GetLobbyCodeFromInputFields();
+        87 +          if (string.IsNullOrEmpty(lobbyCode) || 
+           + lobbyCode.Length != 6)
+        88 +          {
+        89 +              ShowError("Please enter a valid 6-character 
+           + lobby code.");
+        90 +              return;
+        91 +          }
+        92 +  
+        93 +          if (multiplayerManager == null)
+        94 +          {
+        95 +              ShowError("Multiplayer system not ready. Please
+           +  try again.");
+        96 +              return;
+        97 +          }
+        98 +  
+        99 +          if (!firebaseManager.IsReady())
+       100 +          {
+       101 +              ShowError("Firebase not ready. Please check 
+           + your internet connection.");
+       102 +              return;
+       103 +          }
+       104 +  
+       105 +          ClearError();
+       106 +          isJoining = true;
+       107 +  
+       108 +          Debug.Log($"JoinLobbyManager: Attempting to join 
+           + lobby with code: {lobbyCode}");
+       109 +  
+       110 +          // Enable multiplayer mode as client (non-host) 
+           + with the provided lobby code
+       111 +          multiplayerManager.EnableMultiplayerMode(false, 
+           + lobbyCode);
+       112 +      }
+       113 +  
+       114 +      /// <summary>
+       115 +      /// Concatenates the text from each input field to form
+           +  the lobby code.
+       116 +      /// </summary>
+       117 +      private string GetLobbyCodeFromInputFields()
+       118 +      {
+       119 +          if (lobbyCodeInputFields == null || 
+           + lobbyCodeInputFields.Count != 6)
+       120 +          {
+       121 +              Debug.LogError("JoinLobbyManager: 
+           + lobbyCodeInputFields must have exactly 6 elements.");
+       122 +              return "";
+       123 +          }
+       124 +  
+       125 +          string code = "";
+       126 +          foreach (var inputField in lobbyCodeInputFields)
+       127 +          {
+       128 +              if (inputField == null)
+       129 +              {
+       130 +                  Debug.LogError("JoinLobbyManager: One of 
+           + the input fields is null.");
+       131 +                  return "";
+       132 +              }
+       133 +              string text = 
+           + inputField.text?.Trim().ToUpper();
+       134 +              if (string.IsNullOrEmpty(text) || text.Length 
+           + != 1)
+       135 +              {
+       136 +                  // Allow empty fields? We'll treat as 
+           + missing character.
+       137 +                  // For simplicity, we'll require all fields
+           +  filled.
+       138 +                  return "";
+       139 +              }
+       140 +              code += text;
+       141 +          }
+       142 +          return code;
+       143 +      }
+       144 +  
+       145 +      /// <summary>
+       146 +      /// Called when an error occurs in multiplayer 
+           + operations.
+       147 +      /// </summary>
+       148 +      private void OnMultiplayerError(string errorMessage)
+       149 +      {
+       150 +          Debug.LogError($"JoinLobbyManager: Multiplayer 
+           + error - {errorMessage}");
+       151 +          ShowError(errorMessage);
+       152 +          isJoining = false;
+       153 +      }
+       154 +  
+       155 +      /// <summary>
+       156 +      /// Called when successfully joined a lobby.
+       157 +      /// </summary>
+       158 +      private void OnLobbyJoined(string lobbyCode)
+       159 +      {
+       160 +          Debug.Log($"JoinLobbyManager: Successfully joined 
+           + lobby {lobbyCode}");
+       161 +          isJoining = false;
+       162 +          ClearError();
+       163 +          // The scene transition to lobby scene should be 
+           + handled elsewhere (e.g., PPSceneManager)
+       164 +          // Typically the MultiplayerManager's OnLobbyJoined
+           +  event is used by LobbyUIManager.
+       165 +          // We could trigger scene load here if needed.
+       166 +      }
+       167 +  
+       168 +      /// <summary>
+       169 +      /// Displays an error message to the user.
+       170 +      /// </summary>
+       171 +      private void ShowError(string message)
+       172 +      {
+       173 +          if (errorText != null)
+       174 +          {
+       175 +              errorText.text = message;
+       176 +              errorText.color = Color.red;
+       177 +          }
+       178 +          else
+       179 +          {
+       180 +              Debug.LogWarning($"JoinLobbyManager: Error text
+           +  UI element not assigned. Error: {message}");
+       181 +          }
+       182 +      }
+       183 +  
+       184 +      /// <summary>
+       185 +      /// Clears any displayed error message.
+       186 +      /// </summary>
+       187 +      private void ClearError()
+       188 +      {
+       189 +          if (errorText != null)
+       190 +          {
+       191 +              errorText.text = "";
+       192 +          }
+       193 +      }
+       194 +  
+       195 +      /// <summary>
+       196 +      /// Called when a lobby code input field changes (for 
+           + auto-advance functionality).
+       197 +      /// This can be attached to each input field's 
+           + OnValueChanged event.
+       198 +      /// </summary>
+       199 +      public void OnLobbyCodeInputFieldChanged(int 
+           + fieldIndex)
+       200 +      {
+       201 +          // Optional: auto-advance to next field when a 
+           + character is entered
+       202 +          if (lobbyCodeInputFields == null || fieldIndex < 0 
+           + || fieldIndex >= lobbyCodeInputFields.Count)
+       203 +              return;
+       204 +  
+       205 +          var currentField = 
+           + lobbyCodeInputFields[fieldIndex];
+       206 +          if (currentField.text.Length >= 1 && fieldIndex < 
+           + lobbyCodeInputFields.Count - 1)
+       207 +          {
+       208 +              lobbyCodeInputFields[fieldIndex + 1].Select();
+       209 +              lobbyCodeInputFields[fieldIndex + 
+           + 1].ActivateInputField();
+       210 +          }
+       211 +      }
+       212    }
+
+● Search(pattern: "PPSceneManager")
+  ⎿  Found 11 files (ctrl+o to expand)
+
+● Read(Assets/Scripts/Core/PPSceneManager.cs)
+  ⎿  Read 85 lines
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 2 addition
+      and 3 removals
+       160            Debug.Log($"JoinLobbyManager: Successfully joined 
+             lobby {lobbyCode}");
+       161            isJoining = false;
+       162            ClearError();
+       163 -          // The scene transition to lobby scene should be 
+           - handled elsewhere (e.g., PPSceneManager)
+       164 -          // Typically the MultiplayerManager's OnLobbyJoined
+           -  event is used by LobbyUIManager.
+       165 -          // We could trigger scene load here if needed.
+       163 +          // Load the lobby scene to show player list and 
+           + ready up
+       164 +          PPSceneManager.LoadLobby();
+       165        }
+       166    
+       167        /// <summary>
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+       18        [SerializeField] private TextMeshProUGUI errorText; // 
+            Text element to display messages to the user (for example if 
+            lobby code is invalid, lobby is full or lobby code too short)
+       19    
+       20        private bool isJoining = false;
+       21 +      private const string VALID_LOBBY_CODE_CHARS = 
+          + "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No ambiguous 
+          + characters (0, O, 1, I, etc.)
+       22    
+       23        // Start is called once before the first execution of 
+            Update after the MonoBehaviour is created
+       24        void Start()
+
+● Read(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 11        
+     additions and 5 removals
+       124            }
+       125    
+       126            string code = "";
+       127 -          foreach (var inputField in lobbyCodeInputFields)
+       127 +          for (int i = 0; i < lobbyCodeInputFields.Count; 
+           + i++)
+       128            {
+       129 +              var inputField = lobbyCodeInputFields[i];
+       130                if (inputField == null)
+       131                {
+       132 -                  Debug.LogError("JoinLobbyManager: One of 
+           -  the input fields is null.");
+       132 +                  Debug.LogError($"JoinLobbyManager: Input 
+           +  field at index {i} is null.");
+       133                    return "";
+       134                }
+       135                string text = 
+             inputField.text?.Trim().ToUpper();
+       136                if (string.IsNullOrEmpty(text) || text.Length 
+             != 1)
+       137                {
+       138 -                  // Allow empty fields? We'll treat as 
+           - missing character.
+       139 -                  // For simplicity, we'll require all fields
+           -  filled.
+       138 +                  // Require all fields filled.
+       139                    return "";
+       140                }
+       141 -              code += text;
+       141 +              char c = text[0];
+       142 +              if (!VALID_LOBBY_CODE_CHARS.Contains(c))
+       143 +              {
+       144 +                  Debug.LogWarning($"JoinLobbyManager: 
+           + Invalid character '{c}' in lobby code. Valid characters are:
+           +  {VALID_LOBBY_CODE_CHARS}");
+       145 +                  return "";
+       146 +              }
+       147 +              code += c;
+       148            }
+       149            return code;
+       150        }
+
+● Search(pattern: "**/PlayerData.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "**/SyncManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 60 lines
+
+● Bash(find
+      /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+      -name "*.csproj" -o -name "*.sln" 2>/dev/null | head -5)
+  ⎿ /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+    /Assembly-CSharp.csproj
+    /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+    /PocketPlanner.sln
+
+
+
+● Search(pattern: "IsReady", path:
+        "Assets/Scripts/Multiplayer/FirebaseManager.cs", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/FirebaseManager.cs)
+  ⎿  Read 20 lines
+
+● Bash(dotnet build Assembly-CSharp.csproj -v quiet 2>&1 | head -30)
+  ⎿  Tool use rejected with user message: No need
+
+● I've implemented JoinLobbyManager.cs with the required functionality.
+  Here's a summary of what was implemented:
+
+  Implementation Summary
+
+  Core Functionality:
+  - OnJoinLobbyButtonClicked() method that reads 6 input fields to construct
+   a lobby code
+  - Validates lobby code format (6 characters, valid characters only)
+  - Uses MultiplayerManager.EnableMultiplayerMode(false, lobbyCode) to join
+  as client
+  - Error handling with user feedback via errorText UI element
+  - Scene transition to LobbyScene on successful join via
+  PPSceneManager.LoadLobby()
+
+  Key Features:
+  1. Lobby Code Validation: Checks for 6-character codes using only valid
+  characters (ABCDEFGHJKLMNPQRSTUVWXYZ23456789 - no ambiguous characters)
+  2. Firebase Readiness Check: Verifies Firebase is initialized and
+  authenticated before attempting to join
+  3. Error Handling: Subscribes to MultiplayerManager.OnError for
+  Firebase/lobby errors and displays them to user
+  4. Anti-Double-Click: Prevents multiple join attempts with isJoining flag
+  5. Optional Auto-Advance: OnLobbyCodeInputFieldChanged() method for
+  auto-advancing between input fields
+  6. Manager Discovery: Automatically finds missing manager references
+  (similar to LobbyUIManager)
+
+  File Location: Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs
+
+  How to Use
+
+  1. Assign in Inspector:
+    - Drag 6 TMP_InputField objects into lobbyCodeInputFields list (ordered)
+    - Assign errorText (TextMeshProUGUI) for error messages
+    - Assign manager references (optional - they auto-find singletons)
+  2. Button Setup:
+    - Assign OnJoinLobbyButtonClicked() to your Join Lobby button's OnClick
+  event
+  3. Optional Auto-Advance:
+    - For each input field, add OnLobbyCodeInputFieldChanged(int) to
+  OnValueChanged event
+    - Pass the field index (0-5) as parameter
+
+  Integration with Existing System
+
+  The implementation leverages the existing multiplayer architecture:
+  - Uses MultiplayerManager.EnableMultiplayerMode() which calls
+  LobbyManager.JoinLobby()
+  - LobbyManager.JoinLobby() already handles Firebase existence checks and
+  lobby fullness validation
+  - Automatically transitions to LobbyScene on successful join
+  - Error flow matches existing LobbyUIManager patterns
+
+  No Multiplayer Manager Modifications Needed
+
+  The existing LobbyManager.JoinLobby() method (lines 173-262 in
+  LobbyManager.cs) already implements:
+  - Firebase lobby existence check (line 210-214)
+  - Lobby fullness check against maxPlayers (line 217-227)
+  - Player addition to Firebase lobby (line 240-260)
+
+  Therefore, no modifications to the multiplayer managers were required. The
+   implementation follows the same patterns used in LobbyUIManager.cs for
+  consistency.
+
+  The JoinLobbyManager is now ready to be assigned to UI elements in the
+  JoinGameScene.
+
+> So I tried joining an existing lobby but the scene didn't transition to 
+the lobby scene. These are the console logs on clicking join lobby: 
+JoinLobbyManager: Attempting to join lobby with code: 3KE98N
+UnityEngine.Debug:Log (object)
+JoinLobbyManager:OnJoinLobbyButtonClicked () (at 
+Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs:109)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+MultiplayerManager: Joining lobby 3KE98N as player 
+9MO6kw9wQdf9wFj5d4YbVyzFT3h2...
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.MultiplayerManager:JoinLobby (string) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:258)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:190)
+JoinLobbyManager:OnJoinLobbyButtonClicked () (at 
+Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs:112)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+LobbyManager: Attempting to join lobby: 3KE98N
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:JoinLobby 
+(string,string,System.Action`2<string, 
+System.Collections.Generic.Dictionary`2<string, 
+PocketPlanner.Multiplayer.PlayerData>>,System.Action`1<string>) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:196)
+PocketPlanner.Multiplayer.MultiplayerManager:JoinLobby (string) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:259)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:190)
+JoinLobbyManager:OnJoinLobbyButtonClicked () (at 
+Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs:112)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+MultiplayerManager: Multiplayer mode enabled (Host: False, Lobby: 3KE98N, 
+PlayerId: 9MO6kw9wQdf9wFj5d4YbVyzFT3h2)
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:193)
+JoinLobbyManager:OnJoinLobbyButtonClicked () (at 
+Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs:112)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514) 
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 20 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 100 lines
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+       19    
+       20        private bool isJoining = false;
+       21        private const string VALID_LOBBY_CODE_CHARS = 
+            "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No ambiguous 
+            characters (0, O, 1, I, etc.)
+       22 +      private Coroutine joinTimeoutCoroutine;
+       23    
+       24        // Start is called once before the first execution of 
+            Update after the MonoBehaviour is created
+       25        void Start()
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+       37        private void OnDisable()
+       38        {
+       39            UnsubscribeFromEvents();
+       40 +          CancelJoinTimeout();
+       41        }
+       42    
+       43        private void FindManagersIfMissing()
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 4 addition
+
+       110    
+       111            Debug.Log($"JoinLobbyManager: Attempting to join 
+             lobby with code: {lobbyCode}");
+       112    
+       113 +          // Start timeout for join operation
+       114 +          CancelJoinTimeout();
+       115 +          joinTimeoutCoroutine = 
+           + StartCoroutine(JoinTimeoutCoroutine(lobbyCode));
+       116 +  
+       117            // Enable multiplayer mode as client (non-host) 
+             with the provided lobby code
+       118            multiplayerManager.EnableMultiplayerMode(false, 
+             lobbyCode);
+       119        }
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 37        
+     additions
+       221                lobbyCodeInputFields[fieldIndex + 
+             1].ActivateInputField();
+       222            }
+       223        }
+       224 +  
+       225 +      /// <summary>
+       226 +      /// Coroutine that times out join operation after 10 
+           + seconds.
+       227 +      /// </summary>
+       228 +      private System.Collections.IEnumerator 
+           + JoinTimeoutCoroutine(string lobbyCode)
+       229 +      {
+       230 +          yield return new WaitForSeconds(10f); // 10 second 
+           + timeout
+       231 +  
+       232 +          if (isJoining)
+       233 +          {
+       234 +              Debug.LogError($"JoinLobbyManager: Join 
+           + operation timed out for lobby code: {lobbyCode}");
+       235 +              ShowError("Join operation timed out. Please 
+           + check your internet connection and try again.");
+       236 +              isJoining = false;
+       237 +              CancelJoinTimeout();
+       238 +          }
+       239 +      }
+       240 +  
+       241 +      /// <summary>
+       242 +      /// Cancel the join timeout coroutine.
+       243 +      /// </summary>
+       244 +      private void CancelJoinTimeout()
+       245 +      {
+       246 +          if (joinTimeoutCoroutine != null)
+       247 +          {
+       248 +              StopCoroutine(joinTimeoutCoroutine);
+       249 +              joinTimeoutCoroutine = null;
+       250 +          }
+       251 +      }
+       252 +  
+       253 +      /// <summary>
+       254 +      /// Reset join state (called on success or failure).
+       255 +      /// </summary>
+       256 +      private void ResetJoinState()
+       257 +      {
+       258 +          isJoining = false;
+       259 +          CancelJoinTimeout();
+       260 +      }
+       261    }
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+     and 1 removal
+
+       162        {
+       163            Debug.LogError($"JoinLobbyManager: Multiplayer 
+             error - {errorMessage}");
+       164            ShowError(errorMessage);
+       165 -          isJoining = false;
+       165 +          ResetJoinState();
+       166        }
+       167    
+       168        /// <summary>
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+     and 1 removal
+
+       171        private void OnLobbyJoined(string lobbyCode)
+       172        {
+       173            Debug.Log($"JoinLobbyManager: Successfully joined 
+             lobby {lobbyCode}");
+       174 -          isJoining = false;
+       174 +          ResetJoinState();
+       175            ClearError();
+       176            // Load the lobby scene to show player list and 
+             ready up
+       177            PPSceneManager.LoadLobby();
+
+● Update(Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs)
+  ⎿  Updated Assets/Scripts/UI/JoinGame/JoinLobbyManager.cs with 1 addition
+       109            isJoining = true;
+       110    
+       111            Debug.Log($"JoinLobbyManager: Attempting to join 
+             lobby with code: {lobbyCode}");
+       112 +          Debug.Log($"JoinLobbyManager: Firebase status - 
+           + Initialized: {firebaseManager.IsInitialized}, Authenticated:
+           +  {firebaseManager.IsAuthenticated}, UserId: 
+           + {firebaseManager.UserId}");
+       113    
+       114            // Start timeout for join operation
+       115            CancelJoinTimeout();
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Error editing file
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions 
+       199                _lobbyRef = _firebaseManager.DatabaseReference.
+             Child("lobbies").Child(lobbyCode);
+       200                _playersRef = _lobbyRef.Child("players");
+       201    
+       202 +              Debug.Log($"LobbyManager: Firebase references 
+           + set - LobbyRef: {_lobbyRef != null}, PlayersRef: 
+           + {_playersRef != null}, DatabaseRef: 
+           + {_firebaseManager.DatabaseReference != null}");
+       203 +  
+       204                _lobbyRef.GetValueAsync().ContinueWith(task => 
+             {
+       205                    if (task.IsFaulted)
+       206                    {
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions 
+       202                Debug.Log($"LobbyManager: Firebase references 
+             set - LobbyRef: {_lobbyRef != null}, PlayersRef: 
+             {_playersRef != null}, DatabaseRef: 
+             {_firebaseManager.DatabaseReference != null}");
+       203    
+       204                _lobbyRef.GetValueAsync().ContinueWith(task => 
+             {
+       205 +                  Debug.Log($"LobbyManager: GetValueAsync 
+           + completed - IsCompleted: {task.IsCompleted}, IsFaulted: 
+           + {task.IsFaulted}, IsCanceled: {task.IsCanceled}");
+       206                    if (task.IsFaulted)
+       207                    {
+       208 +                      Debug.LogError($"LobbyManager: 
+           + GetValueAsync failed - {task.Exception?.Message}");
+       209                        InvokeOnMainThread(onError, $"Failed to
+              join lobby: {task.Exception?.Message}");
+       210                        return;
+       211                    }
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions 
+       211                    }
+       212    
+       213                    DataSnapshot snapshot = task.Result;
+       214 +                  Debug.Log($"LobbyManager: Snapshot exists: 
+           + {snapshot.Exists}, ChildrenCount: 
+           + {snapshot.ChildrenCount}");
+       215                    if (!snapshot.Exists)
+       216                    {
+       217 +                      Debug.LogWarning($"LobbyManager: Lobby 
+           + not found - {lobbyCode}");
+       218                        InvokeOnMainThread(onError, "Lobby not 
+             found");
+       219                        return;
+       220                    }
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions 
+       226                    {
+       227                        maxPlayers = 
+             Convert.ToInt32(snapshot.Child("maxPlayers").Value);
+       228                    }
+       229 +                  Debug.Log($"LobbyManager: Player count: 
+           + {playerCount}, Max players: {maxPlayers}");
+       230                    if (playerCount >= maxPlayers)
+       231                    {
+       232 +                      Debug.LogWarning($"LobbyManager: Lobby 
+           + is full - {playerCount}/{maxPlayers} players");
+       233                        InvokeOnMainThread(onError, $"Lobby is 
+             full (max {maxPlayers} players)");
+       234                        return;
+       235                    }
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 3 additions 
+       245                    var playerData = new PlayerData(playerId, 
+             $"Player{playerCount + 1}", false, 
+             SystemInfo.deviceUniqueIdentifier);
+       246                    var playerDict = 
+             PlayerDataToDictionary(playerData);
+       247    
+       248 +                  Debug.Log($"LobbyManager: Adding player to 
+           + Firebase - PlayerId: {playerId}");
+       249                    _playersRef.Child(playerId).SetValueAsync(p
+             layerDict).ContinueWith(joinTask => {
+       250 +                      Debug.Log($"LobbyManager: SetValueAsync
+           +  completed - IsCompleted: {joinTask.IsCompleted}, IsFaulted:
+           +  {joinTask.IsFaulted}, IsCanceled: {joinTask.IsCanceled}");
+       251                        if (joinTask.IsFaulted)
+       252                        {
+       253 +                          Debug.LogError($"LobbyManager: 
+           + SetValueAsync failed - {joinTask.Exception?.Message}");
+       254                            InvokeOnMainThread(onError, 
+             $"Failed to join lobby: {joinTask.Exception?.Message}");
+       255                            return;
+       256                        }
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 4 additions 
+       256                        }
+       257    
+       258                        // Set up listeners and get current 
+             player list
+       259 +                      Debug.Log($"LobbyManager: SetValueAsync
+           +  succeeded, setting up listeners");
+       260                        SetupLobbyListeners(lobbyCode);
+       261    
+       262                        _currentLobbyCode = lobbyCode;
+     ...
+       263                        _maxPlayers = maxPlayers;
+       264                        _turnTimeLimit = turnTimeLimit;
+       265    
+       266 +                      Debug.Log($"LobbyManager: Local state 
+           + updated - LobbyCode: {_currentLobbyCode}, InLobby: 
+           + {_isInLobby}");
+       267 +  
+       268                        // Load all players from Firebase 
+             (including the one we just added)
+       269                        LoadCurrentPlayers(() => {
+       270                            // Callback after players are 
+             loaded
+       271 +                          Debug.Log($"LobbyManager: 
+           + LoadCurrentPlayers completed, invoking onLobbyJoined with 
+           + {_players.Count} players");
+       272                            InvokeOnMainThread(() => 
+             onLobbyJoined?.Invoke(lobbyCode, _players));
+       273                        });
+       274                    });
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 6 additions an
+      1 removal
+       582            /// </summary>
+       583            private void InvokeOnMainThread(Action action)
+       584            {
+       585 -              if (action == null) return;
+       585 +              if (action == null)
+       586 +              {
+       587 +                  
+           + Debug.LogWarning("LobbyManager.InvokeOnMainThread: action is
+           +  null");
+       588 +                  return;
+       589 +              }
+       590 +              Debug.Log($"LobbyManager.InvokeOnMainThread: 
+           + Enqueuing action ({action.Method.Name})");
+       591                _mainThreadActions.Enqueue(action);
+       592            }
+       593    
+
+
+

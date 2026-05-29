@@ -1,0 +1,714 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> Can you fix these compilation errors: 
+Assets/Scripts/Multiplayer/SpectatorManager.cs(61,41): error CS0117: 
+'ShapeManager' does not contain a definition for 'Instance', 
+Assets/Scripts/Multiplayer/SpectatorManager.cs(275,43): error CS1061: 
+'MultiplayerManager' does not contain a definition for 
+'GetPlayerDisplayName' and no accessible extension method 
+'GetPlayerDisplayName' accepting a first argument of type 
+'MultiplayerManager' could be found (are you missing a using directive or an
+ assembly reference?) and then read and continue following the 
+switch-player-view-plan.md to implement a spectator view. 
+
+● Read(Assets/Scripts/Multiplayer/SpectatorManager.cs)
+  ⎿  Read 323 lines
+
+● Read(switch-player-view-plan.md)
+  ⎿  Read 217 lines
+
+● Let me read the relevant files to understand the current codebase before
+  fixing the errors.
+
+● Read(Assets/Scripts/ShapeManager.cs)
+  ⎿  Read 638 lines
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 1383 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 1597 lines
+
+● Read(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Read 201 lines
+
+● Read(Assets/Scripts/Core/ShapeSerializationHelper.cs)
+  ⎿  Read 179 lines
+
+● Now I see the issues. Let me check MultiplayerManager for the missing
+  GetPlayerDisplayName method.
+
+● Explore(Find MultiplayerManager methods)
+  ⎿  Done (5 tool uses · 25.9k tokens · 25s)                               
+
+● Let me read the MultiplayerManager to find where to add the method.
+
+● Search(pattern: "GetPlayerNames", path:
+        "Assets/Scripts/Multiplayer/MultiplayerManager.cs", output_mode:
+        "content")
+  ⎿  Found 18 lines (ctrl+o to expand)
+
+● Good. Now I have a complete picture of what's needed. Let me implement all
+   the changes.
+
+● Now let me fix all the issues. I'll start with the two compilation errors
+  and the other improvements in parallel.
+
+● Update(Assets/Scripts/ShapeManager.cs)
+  ⎿  Updated Assets/Scripts/ShapeManager.cs with 3 additions             
+        9    
+       10    public class ShapeManager : MonoBehaviour
+       11    {
+       12 +      // Singleton instance
+       13 +      public static ShapeManager Instance { get; private set; 
+          + }
+       14 +  
+       15        [Header("Shape Type Prefabs")]
+       16        [SerializeField] private GameObject TShapePrefab;
+       17        [SerializeField] private GameObject LShapePrefab;
+
+● Update(Assets/Scripts/ShapeManager.cs)
+  ⎿  Updated Assets/Scripts/ShapeManager.cs with 8 additions  
+       43    
+       44        void Awake()
+       45        {
+       46 +          // Singleton pattern
+       47 +          if (Instance != null && Instance != this)
+       48 +          {
+       49 +              Destroy(gameObject);
+       50 +              return;
+       51 +          }
+       52 +          Instance = this;
+       53 +  
+       54          // Instead of: PlayerInput playerInput = 
+            GetComponent<PlayerInput>();
+       55          // Use:
+       56          PlayerInput playerInput = 
+            GameManager.Instance.GetComponent<PlayerInput>();
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  File must be read first
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 40 lines
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 13      
+     additions
+       659            }
+       660    
+       661            /// <summary>
+       662 +          /// Get the display name for a specific player ID.
+       663 +          /// Falls back to the player ID if no display name 
+           + is found.
+       664 +          /// </summary>
+       665 +          public string GetPlayerDisplayName(string playerId)
+       666 +          {
+       667 +              if (Players.TryGetValue(playerId, out 
+           + PlayerData playerData))
+       668 +              {
+       669 +                  return playerData.DisplayName;
+       670 +              }
+       671 +              return playerId;
+       672 +          }
+       673 +  
+       674 +          /// <summary>
+       675            /// Get the number of players in the lobby.
+       676            /// </summary>
+       677            public int GetPlayerCount()
+
+● Update(Assets/Scripts/Multiplayer/SpectatorManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SpectatorManager.cs with 9 addition
+      and 2 removals
+       72            /// <summary>
+       73            /// Initialize spectator manager with list of player
+             IDs in the game.
+       74            /// Should be called when multiplayer game starts.
+       75 +          /// Only opponent IDs (non-local) are added to the 
+          + cycle list.
+       76            /// </summary>
+       77            public void Initialize(List<string> playerIdsInGame)
+       78            {
+       79                playerIds.Clear();
+       80 -              playerIds.AddRange(playerIdsInGame);
+       80 +              foreach (string id in playerIdsInGame)
+       81 +              {
+       82 +                  if (id != LocalPlayerId)
+       83 +                  {
+       84 +                      playerIds.Add(id);
+       85 +                  }
+       86 +              }
+       87                cachedOpponentBoards.Clear();
+       88                localPlayerShapesBackup.Clear();
+       89                CurrentSpectatedPlayerId = LocalPlayerId;
+       90                currentSpectatedIndex = -1;
+       91                IsSpectating = false;
+       92    
+       93 -              Debug.Log($"SpectatorManager initialized with 
+          -  {playerIds.Count} players, local ID: {LocalPlayerId}");
+       93 +              Debug.Log($"SpectatorManager initialized with 
+          +  {playerIds.Count} opponents, local ID: {LocalPlayerId}");
+       94            }
+       95    
+       96            /// <summary>
+
+● Now let me add the SpectatorManager initialization in GameManager's
+  OnMultiplayerGameStarted():
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 11 additions             
+       966        {
+       967            Debug.Log($"GameManager: Multiplayer game started 
+             event received. Current turn: {currentTurn}, seed: 
+             {MultiplayerManager.Instance?.SharedRandomSeed ?? -1}");
+       968    
+       969 +          // Initialize spectator mode with all player IDs
+       970 +          if (MultiplayerManager.Instance != null)
+       971 +          {
+       972 +              var playerIds = 
+           + MultiplayerManager.Instance.Players.Keys.ToList();
+       973 +              if (SpectatorManager.Instance != null)
+       974 +              {
+       975 +                  
+           + SpectatorManager.Instance.Initialize(playerIds);
+       976 +                  Debug.Log($"GameManager: SpectatorManager 
+           + initialized with {playerIds.Count} players");
+       977 +              }
+       978 +          }
+       979 +  
+       980            // Only roll dice for first turn if we're still on 
+             turn 1 and haven't rolled dice yet
+       981            if (currentTurn == 1 && !_firstTurnDiceRolled)
+       982            {
+
+● Update(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/SpectatorUIManager.cs with 4 additions    
+        92            /// </summary>
+        93            private void OnSpectatorModeChanged(bool 
+             isSpectating)
+        94            {
+        95 +              // Refresh opponent list (may now be available 
+           + if initialized after Start)
+        96 +              if (spectatorManager != null)
+        97 +                  opponentPlayerIds = 
+           + spectatorManager.GetOpponentPlayerIds();
+        98 +  
+        99                // Show/hide panel based on spectator mode
+       100                if (spectatorPanel != null)
+       101                    spectatorPanel.SetActive(isSpectating);
+
+● Read(developer-instructions.md)
+  ⎿  Read 650 lines
+
+● Now let me write the developer instructions for the Unity Editor setup.
+
+● Read(Assets/Scripts/Multiplayer/SpectatorManager.cs)
+  ⎿  Read 330 lines
+
+● Now I need to fix the UX flow — the cycle button is inside a panel that
+  starts hidden, so there's no way to enter spectator mode. Let me update
+  SpectatorUIManager and GameManager to handle this properly.
+
+● Update(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/SpectatorUIManager.cs with 22 additions and 
+      removals
+       34    
+       35            private void Awake()
+       36            {
+       37 -              // Ensure panel is hidden by default
+       37 +              // Ensure panel is hidden by default
+          +   (will be shown when Initialize is called)
+       38                if (spectatorPanel != null)
+       39                    spectatorPanel.SetActive(false);
+       40            }
+     ...
+       68                if (closeButton != null)
+       69                    
+            closeButton.onClick.AddListener(OnCloseButtonClicked);
+       70    
+       71 -              // Get opponent list
+       71 +              // Get opponent list (may be empty if Initialize
+          +  not yet called)
+       72                opponentPlayerIds = 
+            spectatorManager.GetOpponentPlayerIds();
+       73 +          }
+       74 +  
+       75 +          /// <summary>
+       76 +          /// Call this after SpectatorManager.Initialize() to
+          +  show the panel
+       77 +          /// when opponents are available.
+       78 +          /// </summary>
+       79 +          public void OnSpectatorDataReady()
+       80 +          {
+       81 +              if (spectatorManager != null)
+       82 +                  opponentPlayerIds = 
+          + spectatorManager.GetOpponentPlayerIds();
+       83 +  
+       84 +              bool hasOpponents = opponentPlayerIds.Count > 0;
+       85 +  
+       86 +              if (spectatorPanel != null)
+       87 +                  spectatorPanel.SetActive(hasOpponents);
+       88 +  
+       89 +              if (cycleButton != null)
+       90 +                  cycleButton.interactable = hasOpponents;
+       91 +  
+       92 +              UpdateHeader();
+       93                UpdatePlayerIndicator();
+       94            }
+       95    
+
+● Update(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/SpectatorUIManager.cs with 7 additions and 7
+     removals
+
+       109    
+       110            /// <summary>
+       111            /// Called when spectator mode changes (from either
+              SpectatorManager or GameManager).
+       112 +          /// Updates UI content without changing panel 
+           + visibility (managed by OnSpectatorDataReady).
+       113            /// </summary>
+       114            private void OnSpectatorModeChanged(bool 
+             isSpectating)
+       115            {
+       116 -              // Refresh opponent list (may now be available 
+           - if initialized after Start)
+       116 +              // Refresh opponent list
+       117                if (spectatorManager != null)
+       118                    opponentPlayerIds = 
+             spectatorManager.GetOpponentPlayerIds();
+       119    
+       120 -              // Show/hide panel based on spectator mode
+       121 -              if (spectatorPanel != null)
+       122 -                  spectatorPanel.SetActive(isSpectating);
+       123 -  
+       124 -              // Update UI elements
+       120 +              // Update UI content
+       121                UpdateHeader();
+       122 -              UpdatePlayerIndicator();
+       122    
+       123 +              // Show/hide close button when spectating vs 
+           + local view
+       124 +              if (closeButton != null)
+       125 +                  
+           + closeButton.gameObject.SetActive(isSpectating);
+       126 +  
+       127                // Disable/enable cycle button if no opponents
+       128                if (cycleButton != null)
+       129                    cycleButton.interactable = 
+             opponentPlayerIds.Count > 0;
+
+● Now I need to call OnSpectatorDataReady() from GameManager after
+  initialization, and also handle close button visibility correctly in the
+  UpdatePlayerIndicator method. Let me also check the UpdateHeader method
+  since we removed the spectatorManager.IsSpectating check from
+  OnSpectatorModeChanged:
+
+● Read(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Read 90 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 8 additions             
+       974                {
+       975                    
+             SpectatorManager.Instance.Initialize(playerIds);
+       976                    Debug.Log($"GameManager: SpectatorManager 
+             initialized with {playerIds.Count} players");
+       977 +  
+       978 +                  // Notify SpectatorUIManager that data is 
+           + ready (show panel)
+       979 +                  SpectatorUIManager spectatorUI = 
+           + FindObjectOfType<SpectatorUIManager>();
+       980 +                  if (spectatorUI != null)
+       981 +                  {
+       982 +                      spectatorUI.OnSpectatorDataReady();
+       983 +                      Debug.Log("GameManager: 
+           + SpectatorUIManager notified of data ready");
+       984 +                  }
+       985                }
+       986            }
+       987    
+
+● Update(Assets/Scripts/UI/SpectatorUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/SpectatorUIManager.cs with 4 additions 
+       89                if (cycleButton != null)
+       90                    cycleButton.interactable = hasOpponents;
+       91    
+       92 +              // Hide close button initially (only visible 
+          + when actively spectating)
+       93 +              if (closeButton != null)
+       94 +                  closeButton.gameObject.SetActive(false);
+       95 +  
+       96                UpdateHeader();
+       97                UpdatePlayerIndicator();
+       98            }
+
+● Update(Assets/Scripts/Multiplayer/SpectatorManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SpectatorManager.cs with 2 addition
+      and 2 removals
+       100            /// </summary>
+       101            public void CycleToNextPlayer()
+       102            {
+       103 -              if (playerIds.Count <= 1)
+       103 +              if (playerIds.Count < 1)
+       104                {
+       105 -                  Debug.LogWarning("SpectatorManager: Not 
+           -  enough players to cycle.");
+       105 +                  Debug.LogWarning("SpectatorManager: No 
+           +  opponents to cycle through.");
+       106                    return;
+       107                }
+       108    
+
+● Update(Assets/Scripts/Multiplayer/SpectatorManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/SpectatorManager.cs with 2 addition
+      and 10 removals
+       285            }
+       286    
+       287            /// <summary>
+       288 -          /// Get the list of player IDs in the game (
+           -  excluding local player if desired).
+       288 +          /// Get the list of opponent player IDs (excludes
+           +   local player).
+       289            /// </summary>
+       290            public List<string> GetOpponentPlayerIds()
+       291            {
+       292 -              List<string> opponents = new List<string>();
+       293 -              foreach (string id in playerIds)
+       294 -              {
+       295 -                  if (id != LocalPlayerId)
+       296 -                  {
+       297 -                      opponents.Add(id);
+       298 -                  }
+       299 -              }
+       300 -              return opponents;
+       292 +              return new List<string>(playerIds);
+       293            }
+       294    
+       295            /// <summary>
+
+● Now let me verify there are no remaining compilation issues by checking
+  the SyncManager for the expected method signatures.
+
+● Search(pattern: "FetchPlayerBoardState", path:
+        "Assets/Scripts/Multiplayer/SyncManager.cs", output_mode: "content")
+  ⎿  Found 11 lines (ctrl+o to expand)
+
+● Search(pattern: "public (void|List|int)
+        (PlaceShapesFromBoardState|ClearAllShapes|GetCurrentBoardState)", path:
+        "Assets/Scripts/ShapeManager.cs", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Search(pattern: "GetCurrentBoardState|PlaceShapesFromBoardState", path:
+        "Assets/Scripts/ShapeManager.cs", output_mode: "content")
+  ⎿  Found 5 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/ShapeManager.cs)
+  ⎿  Read 60 lines
+
+● Update(developer-instructions.md)
+  ⎿  Updated developer-instructions.md with 99 additions and 1 removal   
+       647    
+       648    **Action Required**: Update Firebase Realtime Database 
+             security rules in Firebase Console with the corrected rule.
+       649    
+       650 -  *Last Updated: 2026-04-19*
+       650   \ No newline at end of file
+       651 +  ## Spectator Mode Implementation (2026-04-23)
+       652 +  
+       653 +  Spectator mode allows players in multiplayer games to cycle
+           +  through and view other players' boards. Key components have
+           +  been implemented in code; the following Unity Editor setup 
+           + is required.
+       654 +  
+       655 +  ### New/Modified Scripts
+       656 +  
+       657 +  1. **SpectatorManager.cs** 
+           + (`Assets/Scripts/Multiplayer/SpectatorManager.cs`)
+       658 +     - New singleton manager that handles state transitions, 
+           + board backup/restore, and opponent board caching
+       659 +     - `Initialize(List<string> playerIdsInGame)` — called by
+           +  `GameManager` when multiplayer game starts
+       660 +     - `CycleToNextPlayer()` — cycles through opponents or 
+           + back to local player
+       661 +     - `SwitchToPlayer(string playerId)` — switches to a 
+           + specific player
+       662 +     - Caches fetched opponent boards to reduce Firebase 
+           + calls
+       663 +  
+       664 +  2. **SpectatorUIManager.cs** 
+           + (`Assets/Scripts/UI/SpectatorUIManager.cs`)
+       665 +     - Manages the spectator UI panel with header text, cycle
+           +  button, player indicator, and close button
+       666 +     - `OnSpectatorDataReady()` — call this after 
+           + `SpectatorManager.Initialize()` to show the panel
+       667 +     - `RefreshOpponentList()` — updates the opponent list 
+           + (e.g., when players disconnect)
+       668 +  
+       669 +  3. **ShapeSerializationHelper.cs** 
+           + (`Assets/Scripts/Core/ShapeSerializationHelper.cs`)
+       670 +     - Utility class for converting between `ShapeController`
+           +  and serializable `BoardShapeData`
+       671 +     - Used to backup/restore board states during spectator 
+           + mode transitions
+       672 +  
+       673 +  4. **Modified: ShapeManager.cs**
+       674 +     - Added `public static ShapeManager Instance` singleton 
+           + property (was missing, causing a compilation error)
+       675 +     - Singleton pattern in `Awake()` with duplicate 
+           + destruction
+       676 +  
+       677 +  5. **Modified: MultiplayerManager.cs**
+       678 +     - Added `GetPlayerDisplayName(string playerId)` method
+       679 +  
+       680 +  6. **Modified: GameManager.cs**
+       681 +     - Added spectator mode properties: 
+           + `IsSpectatingOtherPlayers`, `CurrentSpectatedPlayerId`
+       682 +     - Added `SetSpectatorMode(bool)` and 
+           + `SetSpectatedPlayer(string)` methods
+       683 +     - Input callbacks (`OnTouchPress`, `OnMouseClickTEST`, 
+           + `OnPlaceShapeInput`) now check `IsSpectatingOtherPlayers` to
+           +  disable input during spectator mode
+       684 +     - `OnMultiplayerGameStarted()` now initializes 
+           + `SpectatorManager` and notifies `SpectatorUIManager`
+       685 +  
+       686 +  ### Unity Editor Setup Instructions
+       687 +  
+       688 +  #### 1. Add SpectatorManager to the Scene
+       689 +  The `SpectatorManager` singleton must be present in the 
+           + game scene (and persists via DontDestroyOnLoad):
+       690 +     - In the **MainGameScene** hierarchy, select the 
+           + GameObject that contains `GameManager` (or create a new 
+           + empty GameObject called "SpectatorManager")
+       691 +     - Add the `SpectatorManager` component 
+           + (**PocketPlanner.Multiplayer.SpectatorManager**)
+       692 +     - It will find `ShapeManager`, `SyncManager`, 
+           + `GameManager`, and `MultiplayerManager` automatically via 
+           + singletons
+       693 +  
+       694 +  #### 2. Create Spectator UI Panel
+       695 +  Create the spectator UI in the game's Canvas:
+       696 +  
+       697 +     **a. Create the spectator panel container:**
+       698 +     - In the Canvas, create a new **Panel** GameObject 
+           + called "SpectatorPanel"
+       699 +     - Add a **CanvasGroup** component (for potential fade 
+           + effects)
+       700 +     - Position at top-right of screen or wherever 
+           + appropriate
+       701 +     - Set width/height appropriately (compact: ~300x80 for a
+           +  bar-type UI)
+       702 +  
+       703 +     **b. Add child UI elements to SpectatorPanel:**
+       704 +     - **Header Text** (TextMeshProUGUI): Named "HeaderText",
+           +  displays "Your Board" or "Viewing: Player X"
+       705 +     - **Player Indicator Text** (TextMeshProUGUI): Named 
+           + "PlayerIndicatorText", displays "1 / 3" format
+       706 +     - **Cycle Button** (Button): Named "CycleButton", label 
+           + "↻" or "Next" — this is the main navigator
+       707 +     - **Close Button** (Button): Named "CloseButton", label 
+           + "✕" or "Return" — only visible when spectating
+       708 +  
+       709 +     **IMPORTANT — Button placement:**
+       710 +     - The **CycleButton** MUST be placed OUTSIDE the 
+           + `SpectatorPanel` in the Canvas hierarchy so it's always 
+           + visible in multiplayer mode. It will still reference the 
+           + `SpectatorPanel` container in the inspector.
+       711 +     - The **CloseButton** goes INSIDE the `SpectatorPanel` 
+           + (it shows/hides with spectator mode)
+       712 +  
+       713 +     Alternatively, both buttons can be inside the 
+           + `SpectatorPanel` and the entire panel stays always visible 
+           + in multiplayer mode — but then you should remove the 
+           + `Awake()` panel hiding from `SpectatorUIManager` if you 
+           + prefer this approach.
+       714 +  
+       715 +  #### 3. Add SpectatorUIManager Component
+       716 +     - Create a new empty GameObject called 
+           + "SpectatorUIManager" in the Canvas (or add to the existing 
+           + UI manager GameObject)
+       717 +     - Add the `SpectatorUIManager` component 
+           + (**PocketPlanner.UI.SpectatorUIManager**)
+       718 +     - Wire up the Inspector references:
+       719 +       - **Spectator Panel**: The `SpectatorPanel` GameObject
+       720 +       - **Header Text**: The `HeaderText` TextMeshProUGUI 
+           + component
+       721 +       - **Cycle Button**: The `CycleButton` Button component
+       722 +       - **Player Indicator Text**: The `PlayerIndicatorText`
+           +  TextMeshProUGUI component
+       723 +       - **Close Button**: The `CloseButton` Button component
+       724 +  
+       725 +  #### 4. Verify Initial State
+       726 +     - `SpectatorPanel` should be initially **inactive** 
+           + (deactivated) in the scene — the script will activate it 
+           + when spectator data is ready (i.e., when multiplayer game 
+           + starts)
+       727 +     - If you prefer manual setup, ensure 
+           + `spectatorPanel.SetActive(false)` in the Scene hierarchy 
+           + before play
+       728 +  
+       729 +  #### 5. Test the Flow
+       730 +     1. Start a multiplayer game (lobby with 2+ players)
+       731 +     2. After the game loads, the SpectatorPanel should 
+           + appear (showing "Your Board" and the cycle button)
+       732 +     3. Tap/click the **CycleButton**:
+       733 +        - Local board should be replaced with the first 
+           + opponent's board
+       734 +        - Header updates to "Viewing: [Opponent Name]"
+       735 +        - Close button appears
+       736 +        - All game input is disabled (can't place shapes, 
+           + select dice, etc.)
+       737 +     4. Tap/click **CycleButton** again to go to the next 
+           + opponent (or back to "Your Board")
+       738 +     5. Tap/click **CloseButton** to return immediately to 
+           + your own board
+       739 +     6. Your own board should be fully restored with all 
+           + shapes, stars, and zone data intact
+       740 +  
+       741 +  ### Known Limitations & Next Steps
+       742 +  
+       743 +  1. **No Input Action for Cycle Button**: The cycle button 
+           + is connected via `UnityEngine.UI.Button.onClick` in the 
+           + Editor Inspector. No new Input System action is needed for 
+           + this button-based interaction.
+       744 +  2. **Firebase Board State Fetching**: Opponent boards are 
+           + loaded from Firebase via 
+           + `SyncManager.FetchPlayerBoardState()`. In early testing, 
+           + boards may appear empty if no placements have been synced 
+           + yet.
+       745 +  3. **No Incremental Updates**: When new placements are 
+           + received from opponents while spectating, the board does not
+           +  automatically refresh. The user must cycle away and back to
+           +  see updates. This is a Phase 5 optimization.
+       746 +  4. **Zone Detection**: When restoring the local player's 
+           + board, zone detection data is not persisted (zones are 
+           + recalculated from shapes). This is acceptable since zones 
+           + are only needed for scoring at game end.
+       747 +  5. **Shape Registration on Grid**: When restoring boards 
+           + via `PlaceShapesFromBoardState`, shapes are created visually
+           +  but may not be registered in `TilemapManager`'s internal 
+           + grid tile references. This is only relevant if grid lookups 
+           + are needed during spectator mode (currently not the case 
+           + since input is disabled).
+       748 +  
+       749 +  *Last Updated: 2026-04-23*
+       750   \ No newline at end of file
+
+● Read(current-functionality.md)
+  ⎿  Read 362 lines
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal
+       1    # Current Functionality - Pocket Planner
+       2    
+       3 -  *Last Updated: 2026-04-22*
+       3 +  *Last Updated: 2026-04-23*
+       4    
+       5    ## Project Overview
+       6    
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition and 1 removal      
+       13    
+       14    ## Current State Summary
+       15    
+       16 -  The project has made significant progress with core game 
+          -  systems now fully implemented. The current implementation 
+          -  includes board generation, shape management, dice system 
+          -  with UI, wildcard system, water die handling, touch-based 
+          -  shape movement and placement, ghost appearance with validity
+          -   color updates, manipulation panel for 
+          -  rotation/flip/confirmation, zone detection, scoring system, 
+          -  auto-end detection with wildcard prompt, starting position 
+          -  selection, and a complete end game screen. Scene management 
+          -  has been added with a singleton PPSceneManager connecting 
+          -  main menu, lobby, and game scenes. Firebase SDK is 
+          -  integrated and multiplayer framework classes are implemented
+          -   (FirebaseManager, LobbyManager, etc.) with game state 
+          -  synchronization now implemented (placement broadcasting, 
+          -  deterministic dice RNG, multiplayer event handlers). The 
+          -  lobby system is fully functional with configurable host 
+          -  settings (max players 2-8, turn time limit), LobbyUIManager 
+          -  with ready up system, and dynamic player list UI. 
+          -  Multiplayer turn coordination is now working: players wait 
+          -  for all players to complete their turn before proceeding to 
+          -  the next turn, dice rolls are synchronized using a shared 
+          -  seed, and end game broadcasting works (when a player cannot 
+          -  move and has no wildcards available, the game ends for all 
+          -  players). 
+          -  The prototype is now playable with core mechanics functional
+          -   including automatic game end detection.
+       16 +  The project has made significant progress with core game 
+          +  systems now fully implemented. The current implementation 
+          +  includes board generation, shape management, dice system 
+          +  with UI, wildcard system, water die handling, touch-based 
+          +  shape movement and placement, ghost appearance with validity
+          +   color updates, manipulation panel for 
+          +  rotation/flip/confirmation, zone detection, scoring system, 
+          +  auto-end detection with wildcard prompt, starting position 
+          +  selection, and a complete end game screen. Scene management 
+          +  has been added with a singleton PPSceneManager connecting 
+          +  main menu, lobby, and game scenes. Firebase SDK is 
+          +  integrated and multiplayer framework classes are implemented
+          +   (FirebaseManager, LobbyManager, etc.) with game state 
+          +  synchronization now implemented (placement broadcasting, 
+          +  deterministic dice RNG, multiplayer event handlers). The 
+          +  lobby system is fully functional with configurable host 
+          +  settings (max players 2-8, turn time limit), LobbyUIManager 
+          +  with ready up system, and dynamic player list UI. 
+          +  Multiplayer turn coordination is now working: players wait 
+          +  for all players to complete their turn before proceeding to 
+          +  the next turn, dice rolls are synchronized using a shared 
+          +  seed, and end game broadcasting works (when a player cannot 
+          +  move and has no wildcards available, the game ends for all 
+          +  players). 
+          +  Spectator mode is now implemented: players can cycle through
+          +   opponents' boards in multiplayer games with board 
+          +  backup/restore, input disabling, and Firebase board state 
+          +  fetching with caching. 
+          +  The prototype is now playable with core mechanics functional
+          +   including automatic game end detection.
+       17    
+       18    ### Working Features
+       19    -  10×10 game board with correct river tile placement (11 
+            fixed positions)
+
+● Update(current-functionality.md)
+  ⎿  Updated current-functionality.md with 1 addition                    
+       38    -  **Scene management**: PPSceneManager singleton with 
+            DontDestroyOnLoad, scene transition methods for main menu, 
+            lobby, game scenes
+       39    -  **UI scenes**: Main menu scene with buttons, join lobby 
+            scene with input field, create game scene with host settings 
+            panel, lobby scene with fully functional UI (player list, 
+            ready up system, host controls), settings scene, rules scene
+       40    -  **Firebase SDK integration**: FirebaseManager singleton 
+            handles authentication and database reference, multiplayer 
+            framework classes (LobbyManager, MultiplayerManager, 
+            SyncManager, PlayerData) implemented with game state 
+            synchronization now connected, lobby system fully functional 
+            with configurable host settings and LobbyUIManager ready up 
+            system
+       41 +  -  **Spectator mode**: New SpectatorManager singleton 
+          + handles board backup/restore and opponent cycling, 
+          + SpectatorUIManager for UI (header, cycle button, close 
+          + button), ShapeSerializationHelper for shape↔BoardShapeData 
+          + conversion, ShapeManager now has Instance singleton, 
+          + MultiplayerManager has GetPlayerDisplayName, GameManager 
+          + integrates spectator initialization on multiplayer start, 
+          + input disabled during spectator mode, opponent boards fetched
+          +  from Firebase with caching
+       42    
+       43    ### Partially Implemented
+       44    - = GameManager (singleton pattern, full game loop 
+            implemented: dice roll → selection → shape placement → star 
+            awarding → turn advancement, wildcard tracking, water die 
+            usage flag)
+
+
+

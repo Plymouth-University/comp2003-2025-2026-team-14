@@ -1,0 +1,501 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> Hey can you refactor OnLeaveLobbyClickedCoroutine into a new function in 
+GameManager.cs with an appropriate name, I want the logic to be used 
+universally for any button that takes a player back to the main menu when 
+they're in multiplayer. For example in the ReturnToMainMenu() function of 
+GameManager I want the player to also leave the lobby when they're in 
+multiplayer mode. 
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 1471 lines
+
+● Search(pattern: "OnLeaveLobbyClickedCoroutine", output_mode: "content")
+  ⎿  Found 2 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 759 lines
+
+● Search(pattern: "**/MultiplayerManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 100 lines
+
+● Search(pattern: "DisableMultiplayerMode", path:
+        "Assets/Scripts/Multiplayer/MultiplayerManager.cs", output_mode:
+        "content")
+  ⎿  Found 2 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 100 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 80 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 46 additions             
+       1320        public void ReturnToMainMenu()
+       1321        {
+       1322            Debug.Log("Returning to main menu");
+       1323 +          LeaveMultiplayerAndReturnToMainMenu();
+       1324 +      }
+       1325 +  
+       1326 +      /// <summary>
+       1327 +      /// Leave multiplayer lobby and return to main menu.
+       1328 +      /// If not in multiplayer mode, simply returns to main
+            +  menu.
+       1329 +      /// </summary>
+       1330 +      public void LeaveMultiplayerAndReturnToMainMenu()
+       1331 +      {
+       1332 +          StartCoroutine(LeaveMultiplayerAndReturnToMainMenu
+            + Coroutine());
+       1333 +      }
+       1334 +  
+       1335 +      private IEnumerator 
+            + LeaveMultiplayerAndReturnToMainMenuCoroutine()
+       1336 +      {
+       1337 +          // Check if in multiplayer mode
+       1338 +          if (MultiplayerManager.Instance != null && 
+            + MultiplayerManager.Instance.IsMultiplayerMode)
+       1339 +          {
+       1340 +              Debug.Log("GameManager: Leaving multiplayer 
+            + lobby...");
+       1341 +              bool cleanupComplete = false;
+       1342 +  
+       1343 +              
+            + MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+       1344 +              {
+       1345 +                  cleanupComplete = true;
+       1346 +              });
+       1347 +  
+       1348 +              // Wait for cleanup to complete (with timeout)
+       1349 +              float timeout = 3.0f; // 3 second timeout
+       1350 +              float elapsed = 0f;
+       1351 +              while (!cleanupComplete && elapsed < timeout)
+       1352 +              {
+       1353 +                  elapsed += Time.deltaTime;
+       1354 +                  yield return null;
+       1355 +              }
+       1356 +  
+       1357 +              if (!cleanupComplete)
+       1358 +              {
+       1359 +                  Debug.LogWarning($"GameManager: Timeout 
+            + waiting for DisableMultiplayerMode callback after {elapsed}
+            +  seconds");
+       1360 +              }
+       1361 +  
+       1362 +              Debug.Log("GameManager: Multiplayer cleanup 
+            + complete, loading main menu.");
+       1363 +          }
+       1364 +          else
+       1365 +          {
+       1366 +              Debug.Log("GameManager: Not in multiplayer 
+            + mode, proceeding to main menu.");
+       1367 +          }
+       1368 +  
+       1369            // Load main menu scene
+       1370            PPSceneManager.LoadMainMenu();
+       1371        }
+
+● Search(pattern: "DisableMultiplayerMode", output_mode: "content")
+  ⎿  Found 12 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 40 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition and 
+      removals
+       556                if (isLocalPlayer && multiplayerManager != null
+              && multiplayerManager.IsMultiplayerMode)
+       557                {
+       558                    Debug.Log($"LobbyUIManager: Local player 
+             {playerId} left the lobby (kicked or disconnected). 
+             Returning to main menu.");
+       559 -                  
+           - multiplayerManager.DisableMultiplayerMode(() =>
+       560 -                  {
+       561 -                      Debug.Log($"LobbyUIManager: 
+           - DisableMultiplayerMode callback received, loading main 
+           - menu");
+       562 -                      PPSceneManager.LoadMainMenu();
+       563 -                  });
+       559 +                  
+           + GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
+       560                }
+       561                else
+       562                {
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 10 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 6 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition and 
+      removal
+       634        {
+       635            // This would be attached to a Leave Lobby button 
+             in the UI
+       636            Debug.Log($"LobbyUIManager.OnLeaveLobbyClicked: 
+             localPlayerId={localPlayerId}, isHost={isHost}");
+       637 -          StartCoroutine(OnLeaveLobbyClickedCoroutine());
+       637 +          
+           + GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
+       638        }
+       639    
+       640        private IEnumerator OnLeaveLobbyClickedCoroutine()
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 40 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 35 removals  
+       637            
+             GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
+       638        }
+       639    
+       640 -      private IEnumerator OnLeaveLobbyClickedCoroutine()
+       641 -      {
+       642 -          if (multiplayerManager != null)
+       643 -          {
+       644 -              Debug.Log($"LobbyUIManager: Calling 
+           - DisableMultiplayerMode with callback");
+       645 -              bool cleanupComplete = false;
+       640    
+       641 -              multiplayerManager.DisableMultiplayerMode(() =>
+       642 -              {
+       643 -                  Debug.Log($"LobbyUIManager: 
+           - DisableMultiplayerMode callback received");
+       644 -                  cleanupComplete = true;
+       645 -              });
+       646 -  
+       647 -              // Wait for cleanup to complete (with timeout)
+       648 -              float timeout = 3.0f; // 3 second timeout
+       649 -              float elapsed = 0f;
+       650 -              while (!cleanupComplete && elapsed < timeout)
+       651 -              {
+       652 -                  elapsed += Time.deltaTime;
+       653 -                  yield return null;
+       654 -              }
+       655 -  
+       656 -              if (!cleanupComplete)
+       657 -              {
+       658 -                  Debug.LogWarning($"LobbyUIManager: Timeout 
+           - waiting for DisableMultiplayerMode callback after {elapsed} 
+           - seconds");
+       659 -              }
+       660 -  
+       661 -              Debug.Log($"LobbyUIManager: Calling 
+           - PPSceneManager.LoadMainMenu");
+       662 -              PPSceneManager.LoadMainMenu();
+       663 -          }
+       664 -          else
+       665 -          {
+       666 -              
+           - Debug.LogError("LobbyUIManager.OnLeaveLobbyClicked: 
+           - multiplayerManager is null!");
+       667 -          }
+       668 -      }
+       669 -  
+       641        private IEnumerator PollPlayerListChanges()
+       642        {
+       643            while (true)
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 1 addition and
+     6 removals
+
+       727                        if (MultiplayerManager.Instance != 
+             null)
+       728                        {
+       729                            Debug.Log($"LobbyManager: Notifying
+              MultiplayerManager about lobby deletion");
+       730 -                          
+           - MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+       731 -                          {
+       732 -                              Debug.Log($"LobbyManager: Lobby
+           -  deletion cleanup complete, loading main menu");
+       733 -                              PPSceneManager.LoadMainMenu();
+       734 -                          });
+       730                        }
+       731                        else
+       732                        {
+       733                            Debug.LogWarning($"LobbyManager: 
+             MultiplayerManager.Instance is null, loading main menu 
+             directly");
+       734 -                          PPSceneManager.LoadMainMenu();
+       734                        }
+       735 +                      
+           + GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu();
+       736                    });
+       737                    return;
+       738                }
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 40 lines
+
+● Search(pattern: "_firstTurnDiceRolled", path: "Assets/Scripts/GameManager.cs",
+         output_mode: "content")
+  ⎿  Found 12 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 6 lines
+
+● Search(pattern: "LeaveMultiplayerAndReturnToMainMenu", path:
+        "Assets/Scripts/GameManager.cs", output_mode: "content")
+  ⎿  Found 4 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 1 addition          
+       34        private bool _multiplayerEventsSubscribed = false;
+       35        private bool _multiplayerManagerEventsSubscribed = 
+            false;
+       36        private bool _firstTurnDiceRolled = false;
+       37 +      private bool _isLeavingLobby = false;
+       38    
+       39        // Wildcard constants
+       40        public const int MAX_WILDCARDS = 3;
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 50 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 5 additions              
+       1330        /// </summary>
+       1331        public void LeaveMultiplayerAndReturnToMainMenu()
+       1332        {
+       1333 +          if (_isLeavingLobby)
+       1334 +          {
+       1335 +              Debug.LogWarning("GameManager: Already leaving
+            +  lobby, ignoring duplicate call.");
+       1336 +              return;
+       1337 +          }
+       1338            StartCoroutine(LeaveMultiplayerAndReturnToMainMenu
+              Coroutine());
+       1339        }
+       1340    
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 45 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 37 additions and 23 removal
+
+       1340    
+       1341        private IEnumerator 
+              LeaveMultiplayerAndReturnToMainMenuCoroutine()
+       1342        {
+       1343 -          // Check if in multiplayer mode
+       1344 -          if (MultiplayerManager.Instance != null && 
+            - MultiplayerManager.Instance.IsMultiplayerMode)
+       1343 +          if (_isLeavingLobby)
+       1344            {
+       1345 -              Debug.Log("GameManager: Leaving multiplayer 
+            - lobby...");
+       1346 -              bool cleanupComplete = false;
+       1345 +              Debug.LogWarning("GameManager: Already leaving
+            +  lobby, ignoring duplicate call.");
+       1346 +              yield break;
+       1347 +          }
+       1348    
+       1349 -              
+            - MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+       1349 +          _isLeavingLobby = true;
+       1350 +          try
+       1351 +          {
+       1352 +              // Check if in multiplayer mode
+       1353 +              if (MultiplayerManager.Instance != null && 
+            + MultiplayerManager.Instance.IsMultiplayerMode)
+       1354                {
+       1355 -                  cleanupComplete = true;
+       1356 -              });
+       1355 +                  Debug.Log("GameManager: Leaving 
+            + multiplayer lobby...");
+       1356 +                  bool cleanupComplete = false;
+       1357    
+       1358 -              // Wait for cleanup to complete (with timeout)
+       1359 -              float timeout = 3.0f; // 3 second timeout
+       1360 -              float elapsed = 0f;
+       1361 -              while (!cleanupComplete && elapsed < timeout)
+       1362 -              {
+       1363 -                  elapsed += Time.deltaTime;
+       1364 -                  yield return null;
+       1365 -              }
+       1358 +                  
+            + MultiplayerManager.Instance.DisableMultiplayerMode(() =>
+       1359 +                  {
+       1360 +                      cleanupComplete = true;
+       1361 +                  });
+       1362    
+       1363 -              if (!cleanupComplete)
+       1363 +                  // Wait for cleanup to complete (with 
+            + timeout)
+       1364 +                  float timeout = 3.0f; // 3 second timeout
+       1365 +                  float elapsed = 0f;
+       1366 +                  while (!cleanupComplete && elapsed < 
+            + timeout)
+       1367 +                  {
+       1368 +                      elapsed += Time.deltaTime;
+       1369 +                      yield return null;
+       1370 +                  }
+       1371 +  
+       1372 +                  if (!cleanupComplete)
+       1373 +                  {
+       1374 +                      Debug.LogWarning($"GameManager: 
+            + Timeout waiting for DisableMultiplayerMode callback after 
+            + {elapsed} seconds");
+       1375 +                  }
+       1376 +  
+       1377 +                  Debug.Log("GameManager: Multiplayer 
+            + cleanup complete, loading main menu.");
+       1378 +              }
+       1379 +              else
+       1380                {
+       1381 -                  Debug.LogWarning($"GameManager: Timeout 
+            - waiting for DisableMultiplayerMode callback after {elapsed}
+            -  seconds");
+       1381 +                  Debug.Log("GameManager: Not in multiplayer
+            +  mode, proceeding to main menu.");
+       1382                }
+       1383    
+       1384 -              Debug.Log("GameManager: Multiplayer cleanup 
+            - complete, loading main menu.");
+       1384 +              // Load main menu scene
+       1385 +              PPSceneManager.LoadMainMenu();
+       1386            }
+       1387 -          else
+       1387 +          finally
+       1388            {
+       1389 -              Debug.Log("GameManager: Not in multiplayer 
+            - mode, proceeding to main menu.");
+       1389 +              _isLeavingLobby = false;
+       1390            }
+       1391 -  
+       1392 -          // Load main menu scene
+       1393 -          PPSceneManager.LoadMainMenu();
+       1391        }
+       1392    
+       1393        void ResetGameState()
+
+● Bash(find
+      /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+      -name "*.csproj" -o -name "*.sln" | head -5)
+  ⎿ /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+    /Assembly-CSharp.csproj
+    /home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+    /PocketPlanner.sln
+
+
+
+● Bash(dotnet build Assembly-CSharp.csproj -verbosity:m 2>&1 | head -30)
+  ⎿  Tool use rejected with user message: No need to compile
+
+● I've successfully refactored the OnLeaveLobbyClickedCoroutine logic into a
+   reusable function in GameManager.cs and updated all relevant multiplayer
+  exit points to use it. Here's what I implemented:
+
+  Changes Made
+
+  1. Created New Reusable Function in GameManager.cs
+
+  - Added LeaveMultiplayerAndReturnToMainMenu() method that handles
+  multiplayer cleanup and scene transition
+  - Added LeaveMultiplayerAndReturnToMainMenuCoroutine() private coroutine
+  with timeout logic and duplicate call protection
+  - Added _isLeavingLobby flag to prevent multiple simultaneous exit calls
+
+  Key Features:
+  - ✅ Handles both multiplayer and single-player scenarios
+  - ✅ 3-second timeout for multiplayer cleanup with proper error handling
+  - ✅ Prevents duplicate calls with warning logging
+  - ✅ Proper try-finally block to ensure flag reset
+
+  2. Updated ReturnToMainMenu() in GameManager.cs
+
+  - Modified ReturnToMainMenu() to call the new
+  LeaveMultiplayerAndReturnToMainMenu() method
+  - Ensures multiplayer cleanup happens when returning to main menu from any
+   context
+
+  3. Updated LobbyUIManager.cs
+
+  - OnLeaveLobbyClicked(): Now calls
+  GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu() instead of
+  local coroutine
+  - OnPlayerLeft(): Updated to use the centralized GameManager function when
+   local player is kicked/disconnected
+  - Removed the redundant OnLeaveLobbyClickedCoroutine() method
+
+  4. Updated LobbyManager.cs
+
+  - Modified lobby deletion handling to use
+  GameManager.Instance.LeaveMultiplayerAndReturnToMainMenu()
+  - Maintains proper logging for both multiplayer and non-multiplayer
+  scenarios
+
+  Code Structure
+
+  GameManager.cs:1327-1391 - New centralized exit function:
+  public void LeaveMultiplayerAndReturnToMainMenu()
+  {
+      if (_isLeavingLobby)
+      {
+          Debug.LogWarning("GameManager: Already leaving lobby, ignoring 
+  duplicate call.");
+          return;
+      }
+      StartCoroutine(LeaveMultiplayerAndReturnToMainMenuCoroutine());
+  }
+
+  private IEnumerator LeaveMultiplayerAndReturnToMainMenuCoroutine()
+  {
+      // Handles multiplayer cleanup with timeout, then loads main menu
+      // Includes try-finally to ensure _isLeavingLobby flag is reset
+  }
+
+  Benefits
+
+  1. Centralized Logic: All multiplayer exit paths now use the same cleanup
+  logic
+  2. Consistent Behavior: Same timeout, error handling, and logging across
+  all exit points
+  3. Maintainable: Changes to multiplayer cleanup only need to be made in
+  one place
+  4. Safe: Prevents duplicate calls and ensures proper cleanup even with
+  timeouts
+  5. Universal: Can be called from any UI button or system that needs to
+  return to main menu
+
+  The refactoring ensures that whether a player leaves via the lobby UI,
+  gets kicked, experiences lobby deletion, or uses the main menu button,
+  they all follow the same cleanup process with proper multiplayer state
+  management.
+
+
+
