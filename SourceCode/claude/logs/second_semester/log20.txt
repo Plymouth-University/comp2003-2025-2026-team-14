@@ -1,0 +1,815 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 11 additions
+        91                _lobbyRef = _firebaseManager.DatabaseReference.
+             Child("lobbies").Child(lobbyCode);
+        92                _playersRef = _lobbyRef.Child("players");
+        93    
+        94 +              Debug.Log($"LobbyManager: Starting Firebase 
+           + SetValueAsync for lobby {lobbyCode}");
+        95                
+             _lobbyRef.SetValueAsync(lobbyData).ContinueWith(task => {
+        96 +                  Debug.Log($"LobbyManager: Firebase 
+           + SetValueAsync continuation started. IsCompleted: 
+           + {task.IsCompleted}, IsFaulted: {task.IsFaulted}, IsCanceled:
+           +  {task.IsCanceled}");
+        97 +  
+        98                    if (task.IsFaulted)
+        99                    {
+       100                        Debug.LogError($"LobbyManager: Firebase
+              write failed: {task.Exception?.Message}");
+     ...
+        99                        return;
+       100                    }
+       101    
+       102 +                  if (task.IsCanceled)
+       103 +                  {
+       104 +                      Debug.LogError("LobbyManager: Firebase 
+           + write was canceled");
+       105 +                      InvokeOnMainThread(onError, "Lobby 
+           + creation was canceled");
+       106 +                      return;
+       107 +                  }
+       108 +  
+       109                    Debug.Log("LobbyManager: Firebase write 
+             successful, setting up listeners");
+       110    
+       111                    // Set up listeners
+     ...
+       109                    _players[hostPlayerId] = hostPlayer;
+       110    
+       111                    Debug.Log($"LobbyManager: Calling 
+             InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated
+              == null})");
+       112 +                  Debug.Log($"LobbyManager: onLobbyCreated 
+           + method: {onLobbyCreated?.Method?.Name} on target: 
+           + {onLobbyCreated?.Target}");
+       113                    InvokeOnMainThread(onLobbyCreated, 
+             lobbyCode);
+       114                    Debug.Log("LobbyManager: InvokeOnMainThread
+              called");
+       115                });
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      2 removals
+       527            {
+       528                if (action == null)
+       529                {
+       530 -                  Debug.LogWarning(
+           -  "LobbyManager.InvokeOnMainThread<T>: action is null, 
+           -  skipping");
+       530 +                  Debug.LogWarning($
+           +  "LobbyManager.InvokeOnMainThread<T>: action is null, 
+           +  skipping. Type: {typeof(T).Name}, Arg: {arg}");
+       531                    return;
+       532                }
+       533 -              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           -   Starting coroutine for action");
+       533 +              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           +   Starting coroutine for action
+           +   {action.Method.Name} on target {action.Target}");
+       534                StartCoroutine(InvokeActionCoroutine(() => 
+             action(arg)));
+       535            }
+       536    
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 17 additions  
+     and 4 removals
+       545    
+       546            private IEnumerator InvokeActionCoroutine(Action 
+             action)
+       547            {
+       548 -              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           -   Waiting one frame, action null: {action == null}");
+       548 +              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           +   Starting, action null: {action == null}");
+       549 +              if (action == null)
+       550 +              {
+       551 +                  
+           + Debug.LogWarning("LobbyManager.InvokeActionCoroutine: Action
+           +  is null, skipping");
+       552 +                  yield break;
+       553 +              }
+       554 +              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           +  Waiting one frame");
+       555                yield return null; // Wait one frame to ensure 
+             we're on main thread
+       556 -              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           -   Invoking action, action null: {action == null}");
+       557 -              action?.Invoke();
+       558 -              Debug.Log("LobbyManager.InvokeActionCoroutine: 
+           - Action invoked");
+       556 +              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           +   Invoking action {action.Method.Name} on target {action
+           +  .Target}");
+       557 +              try
+       558 +              {
+       559 +                  action.Invoke();
+       560 +                  
+           + Debug.Log("LobbyManager.InvokeActionCoroutine: Action 
+           + invoked successfully");
+       561 +              }
+       562 +              catch (Exception ex)
+       563 +              {
+       564 +                  
+           + Debug.LogError($"LobbyManager.InvokeActionCoroutine: 
+           + Exception invoking action: {ex.Message}");
+       565 +              }
+       566            }
+       567        }
+       568    }
+       569   \ No newline at end of file
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 20 lines
+
+● Read(Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 32 additions  
+     and 23 removals
+        93    
+        94                Debug.Log($"LobbyManager: Starting Firebase 
+             SetValueAsync for lobby {lobbyCode}");
+        95                
+             _lobbyRef.SetValueAsync(lobbyData).ContinueWith(task => {
+        96 -                  Debug.Log($"LobbyManager: Firebase 
+           - SetValueAsync continuation started. IsCompleted: 
+           - {task.IsCompleted}, IsFaulted: {task.IsFaulted}, IsCanceled:
+           -  {task.IsCanceled}");
+        97 -  
+        98 -                  if (task.IsFaulted)
+        96 +                  try
+        97                    {
+        98 -                      Debug.LogError($"LobbyManager: Firebase
+           -  write failed: {task.Exception?.Message}");
+        99 -                      InvokeOnMainThread(onError, $"Failed to
+           -  create lobby: {task.Exception?.Message}");
+       100 -                      return;
+       101 -                  }
+        98 +                      Debug.Log($"LobbyManager: Firebase 
+           + SetValueAsync continuation started. IsCompleted: 
+           + {task.IsCompleted}, IsFaulted: {task.IsFaulted}, IsCanceled:
+           +  {task.IsCanceled}");
+        99    
+       100 -                  if (task.IsCanceled)
+       101 -                  {
+       102 -                      Debug.LogError("LobbyManager: Firebase 
+           - write was canceled");
+       103 -                      InvokeOnMainThread(onError, "Lobby 
+           - creation was canceled");
+       104 -                      return;
+       105 -                  }
+       100 +                      if (task.IsFaulted)
+       101 +                      {
+       102 +                          Debug.LogError($"LobbyManager: 
+           + Firebase write failed: {task.Exception?.Message}");
+       103 +                          InvokeOnMainThread(onError, 
+           + $"Failed to create lobby: {task.Exception?.Message}");
+       104 +                          return;
+       105 +                      }
+       106    
+       107 -                  Debug.Log("LobbyManager: Firebase write 
+           - successful, setting up listeners");
+       107 +                      if (task.IsCanceled)
+       108 +                      {
+       109 +                          Debug.LogError("LobbyManager: 
+           + Firebase write was canceled");
+       110 +                          InvokeOnMainThread(onError, "Lobby 
+           + creation was canceled");
+       111 +                          return;
+       112 +                      }
+       113    
+       114 -                  // Set up listeners
+       115 -                  SetupLobbyListeners(lobbyCode);
+       114 +                      Debug.Log("LobbyManager: Firebase write
+           +  successful, setting up listeners");
+       115    
+       116 -                  _currentLobbyCode = lobbyCode;
+       117 -                  _isInLobby = true;
+       118 -                  _players[hostPlayerId] = hostPlayer;
+       116 +                      // Set up listeners
+       117 +                      SetupLobbyListeners(lobbyCode);
+       118    
+       119 -                  Debug.Log($"LobbyManager: Calling 
+           - InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated
+           -  == null})");
+       120 -                  Debug.Log($"LobbyManager: onLobbyCreated 
+           - method: {onLobbyCreated?.Method?.Name} on target: 
+           - {onLobbyCreated?.Target}");
+       121 -                  InvokeOnMainThread(onLobbyCreated, 
+           - lobbyCode);
+       122 -                  Debug.Log("LobbyManager: InvokeOnMainThread
+           -  called");
+       119 +                      _currentLobbyCode = lobbyCode;
+       120 +                      _isInLobby = true;
+       121 +                      _players[hostPlayerId] = hostPlayer;
+       122 +  
+       123 +                      Debug.Log($"LobbyManager: Calling 
+           + InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated
+           +  == null})");
+       124 +                      Debug.Log($"LobbyManager: 
+           + onLobbyCreated method: {onLobbyCreated?.Method?.Name} on 
+           + target: {onLobbyCreated?.Target}");
+       125 +                      InvokeOnMainThread(onLobbyCreated, 
+           + lobbyCode);
+       126 +                      Debug.Log("LobbyManager: 
+           + InvokeOnMainThread called");
+       127 +                  }
+       128 +                  catch (Exception ex)
+       129 +                  {
+       130 +                      Debug.LogError($"LobbyManager: 
+           + Exception in Firebase continuation: {ex.Message}");
+       131 +                      Debug.LogError($"LobbyManager: Stack 
+           + trace: {ex.StackTrace}");
+       132 +                      InvokeOnMainThread(onError, $"Exception
+           +  creating lobby: {ex.Message}");
+       133 +                  }
+       134                });
+       135            }
+       136    
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/MultiplayerManager.cs with 3       
+     additions
+       247            /// </summary>
+       248            private void OnLobbyCreated(string lobbyCode)
+       249            {
+       250 +              Debug.Log($"MultiplayerManager.OnLobbyCreated 
+           + called with lobbyCode: {lobbyCode}");
+       251                LobbyCode = lobbyCode;
+       252                Debug.Log($"MultiplayerManager: Lobby created 
+             with code: {lobbyCode}");
+       253    
+     ...
+       254                var hostPlayer = new PlayerData(LocalPlayerId, 
+             "Host", true, SystemInfo.deviceUniqueIdentifier);
+       255                Players[LocalPlayerId] = hostPlayer;
+       256    
+       257 +              Debug.Log($"MultiplayerManager: Invoking 
+           + OnLobbyJoined event (null: {OnLobbyJoined == null}), 
+           + subscriber count: 
+           + {OnLobbyJoined?.GetInvocationList()?.Length ?? 0}");
+       258                OnLobbyJoined?.Invoke(lobbyCode);
+       259 +              Debug.Log($"MultiplayerManager: OnLobbyJoined 
+           + event invoked");
+       260            }
+       261    
+       262            /// <summary>
+
+● Update(Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs)
+  ⎿  Updated Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs with 4      
+     additions
+       160    
+       161        private void OnLobbyJoined(string lobbyCode)
+       162        {
+       163 +          Debug.Log($"HostSettingsPanel.OnLobbyJoined called 
+           + with lobbyCode: {lobbyCode}");
+       164            Debug.Log($"HostSettingsPanel: Lobby joined 
+             successfully with code: {lobbyCode}");
+       165    
+       166            // Unsubscribe from events to prevent multiple 
+             calls
+       167            if (multiplayerManager != null)
+       168            {
+       169 +              Debug.Log($"HostSettingsPanel: Unsubscribing 
+           + from MultiplayerManager events");
+       170                multiplayerManager.OnLobbyJoined -= 
+             OnLobbyJoined;
+       171                multiplayerManager.OnError -= 
+             OnMultiplayerError;
+       172            }
+       173    
+       174 +          Debug.Log($"HostSettingsPanel: Loading lobby scene 
+           + via PPSceneManager.LoadLobby()");
+       175            // Load the lobby scene
+       176            PPSceneManager.LoadLobby();
+       177 +          Debug.Log($"HostSettingsPanel: 
+           + PPSceneManager.LoadLobby() called");
+       178        }
+       179    
+       180        private void OnMultiplayerError(string errorMessage)
+
+● I've added extensive debug logging throughout the entire callback chain to
+   pinpoint where the lobby creation callback is failing. The issue appears
+  to be that OnLobbyCreated is not being invoked from LobbyManager to
+  MultiplayerManager, despite Firebase operations appearing successful in
+  the logs.
+
+  Debug Logging Added
+
+  1. LobbyManager.cs (Assets/Scripts/Multiplayer/LobbyManager.cs)
+
+  - Added detailed logging in CreateLobby() method around the Firebase
+  SetValueAsync operation
+  - Logs task completion status (IsCompleted, IsFaulted, IsCanceled)
+  - Logs callback method details (onLobbyCreated?.Method?.Name,
+  onLobbyCreated?.Target)
+  - Added try-catch around the entire Firebase continuation with error
+  logging
+  - Enhanced InvokeOnMainThread<T> to log action details before starting
+  coroutine
+  - Enhanced InvokeActionCoroutine with try-catch and detailed logging
+
+  2. MultiplayerManager.cs 
+  (Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+
+  - Added logging in OnLobbyCreated() method to trace when it's called
+  - Logs OnLobbyJoined event subscriber count before invoking
+  - Added confirmation log after event invocation
+
+  3. HostSettingsPanel.cs 
+  (Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs)
+
+  - Added detailed logging in OnLobbyJoined() method
+  - Logs scene transition via PPSceneManager.LoadLobby()
+
+  Key Debug Points to Check
+
+  When you test again, look for these specific logs in the Console:
+
+  1. LobbyManager: Firebase SetValueAsync continuation started. IsCompleted:
+   ... - Confirms the Firebase task continuation is executing
+  2. LobbyManager: Calling InvokeOnMainThread for onLobbyCreated (null: ...)
+   - Shows if the callback is null
+  3. LobbyManager: onLobbyCreated method: ... on target: ... - Shows which
+  method and object the callback points to
+  4. LobbyManager.InvokeOnMainThread<T>: Starting coroutine for action ... -
+   Confirms coroutine is starting
+  5. LobbyManager.InvokeActionCoroutine: Invoking action ... - Confirms
+  coroutine is executing
+  6. MultiplayerManager.OnLobbyCreated called with lobbyCode: ... - Confirms
+   callback reaches MultiplayerManager
+  7. MultiplayerManager: Invoking OnLobbyJoined event (null: ...), 
+  subscriber count: ... - Shows if HostSettingsPanel is subscribed
+  8. HostSettingsPanel.OnLobbyJoined called with lobbyCode: ... - Confirms
+  event reaches UI
+
+  Potential Issues Being Investigated
+
+  1. Threading Issue: Firebase callbacks run on background threads;
+  InvokeOnMainThread should handle this
+  2. Callback Null: The onLobbyCreated callback might be null when invoked
+  3. Coroutine Failure: StartCoroutine might fail if the GameObject is
+  inactive/destroyed
+  4. Event Subscription: HostSettingsPanel might not be properly subscribed
+  to MultiplayerManager.OnLobbyJoined
+  5. Exception Silencing: An exception might be thrown and caught without
+  proper logging
+
+  Next Steps
+
+  Please test the Create Game scene again with these changes and share the
+  complete console logs. The new debug logs will show exactly where in the
+  callback chain the process is breaking down.
+
+  Important: Look for any error messages, especially from the new try-catch
+  blocks that might reveal exceptions we haven't seen yet.
+
+● I've added extensive debug logging throughout the entire callback chain to
+   identify why OnLobbyCreated isn't being invoked. The new logs will show
+  exactly where the flow breaks.
+
+  Debug Logs Added
+
+  1. LobbyManager.CreateLobby() 
+  (Assets/Scripts/Multiplayer/LobbyManager.cs):
+
+  - Firebase task status logging (IsCompleted, IsFaulted, IsCanceled)
+  - Callback details before invocation (method name, target object)
+  - Exception wrapping for the entire Firebase continuation
+  - Stack trace on exceptions
+
+  2. LobbyManager.InvokeOnMainThread():
+
+  - Action method name and target logging
+  - Null action warnings with type information
+
+  3. LobbyManager.InvokeActionCoroutine():
+
+  - Detailed coroutine execution tracing
+  - Try-catch with exception logging
+  - Action invocation confirmation
+
+  4. MultiplayerManager.OnLobbyCreated() 
+  (Assets/Scripts/Multiplayer/MultiplayerManager.cs):
+
+  - Entry logging with lobby code
+  - OnLobbyJoined event subscriber count
+  - Event invocation confirmation
+
+  5. HostSettingsPanel.OnLobbyJoined() 
+  (Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs):
+
+  - Entry logging with lobby code
+  - Event unsubscription confirmation
+  - PPSceneManager.LoadLobby() call logging
+
+  Expected Log Sequence
+
+  When you press the Confirm button, you should see logs in this order:
+
+  1. HostSettingsPanel: Creating lobby with maxPlayers=X, turnTimeLimit=Y
+  2. LobbyManager: Starting Firebase SetValueAsync for lobby XXXXXX
+  3. LobbyManager: Firebase SetValueAsync continuation started...
+  4. LobbyManager: Firebase write successful, setting up listeners
+  5. LobbyManager: Setting up Firebase listeners for lobby XXXXXX
+  6. LobbyManager: Calling InvokeOnMainThread for onLobbyCreated...
+  7. LobbyManager.InvokeOnMainThread<T>: Starting coroutine for action...
+  8. LobbyManager.InvokeActionCoroutine: Starting...
+  9. LobbyManager.InvokeActionCoroutine: Invoking action...
+  10. MultiplayerManager.OnLobbyCreated called with lobbyCode: XXXXXX
+  11. MultiplayerManager: Invoking OnLobbyJoined event...
+  12. HostSettingsPanel.OnLobbyJoined called with lobbyCode: XXXXXX
+  13. HostSettingsPanel: Loading lobby scene via PPSceneManager.LoadLobby()
+
+  Next Steps
+
+  Please test again with the updated code and share the complete console 
+  logs. Look for:
+
+  1. Missing logs: Which expected log messages don't appear?
+  2. Error messages: Any exceptions or warnings?
+  3. Callback details: What does onLobbyCreated method: ... on target: ...
+  show?
+  4. Event subscribers: What does subscriber count: ... show in
+  MultiplayerManager?
+
+  The logs will pinpoint exactly where the callback chain breaks - whether
+  it's:
+  - Firebase write not completing
+  - Callback being null
+  - Coroutine not starting
+  - Event not subscribed
+  - Scene transition failing
+
+  Once we see the new logs, we can fix the specific issue.
+
+> HostSettingsPanel: Creating lobby with maxPlayers=6, turnTimeLimit=120
+UnityEngine.Debug:Log (object)
+HostSettingsPanel:ConfirmHostSettings () (at 
+Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs:151)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+MultiplayerManager: Creating lobby for player 9MO6kw9wQdf9wFj5d4YbVyzFT3h2 
+with maxPlayers=6, turnTimeLimit=120...
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.MultiplayerManager:CreateLobby () (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:226)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:185)
+HostSettingsPanel:ConfirmHostSettings () (at 
+Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs:158)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+LobbyManager: Creating lobby with code: JK23R5
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:CreateLobby 
+(string,System.Action`1<string>,System.Action`1<string>,int,int) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:69)
+PocketPlanner.Multiplayer.MultiplayerManager:CreateLobby () (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:227)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:185)
+HostSettingsPanel:ConfirmHostSettings () (at 
+Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs:158)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+LobbyManager: Starting Firebase SetValueAsync for lobby JK23R5
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:CreateLobby 
+(string,System.Action`1<string>,System.Action`1<string>,int,int) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:94)
+PocketPlanner.Multiplayer.MultiplayerManager:CreateLobby () (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:227)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:185)
+HostSettingsPanel:ConfirmHostSettings () (at 
+Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs:158)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+MultiplayerManager: Multiplayer mode enabled (Host: True, Lobby: , PlayerId:
+ 9MO6kw9wQdf9wFj5d4YbVyzFT3h2)
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.MultiplayerManager:EnableMultiplayerMode 
+(bool,string,int,int) (at 
+Assets/Scripts/Multiplayer/MultiplayerManager.cs:193)
+HostSettingsPanel:ConfirmHostSettings () (at 
+Assets/Scripts/UI/CreateGame/HostSettingsPanel.cs:158)
+UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/co
+m.unity.ugui@2f76d124d05a/Runtime/UGUI/EventSystem/EventSystem.cs:514)
+
+LobbyManager: Firebase SetValueAsync continuation started. IsCompleted: 
+True, IsFaulted: False, IsCanceled: False
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:98)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Firebase write successful, setting up listeners
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:114)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Setting up Firebase listeners for lobby JK23R5
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:SetupLobbyListeners (string) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:389)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:117)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Loading current players from Firebase
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:LoadCurrentPlayers (System.Action) 
+(at Assets/Scripts/Multiplayer/LobbyManager.cs:416)
+PocketPlanner.Multiplayer.LobbyManager:SetupLobbyListeners (string) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:400)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:117)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Lobby data changed
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:OnLobbyDataChanged 
+(object,Firebase.Database.ValueChangedEventArgs) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:456)
+Firebase.Database.Internal.InternalValueListener/<>c__DisplayClass3_0:<OnVal
+ueChangedHandler>b__0 () (at /Users/runner/work/firebase-unity-sdk/firebase-
+unity-sdk/database/src/internal/InternalValueListener.cs:53)
+Firebase.ExceptionAggregator:Wrap (System.Action) (at /Users/runner/work/fir
+ebase-unity-sdk/firebase-unity-sdk/app/platform/ExceptionAggregator.cs:112)
+Firebase.Database.Internal.InternalValueListener:OnValueChangedHandler 
+(int,intptr) (at /Users/runner/work/firebase-unity-sdk/firebase-unity-sdk/da
+tabase/src/internal/InternalValueListener.cs:45)
+Firebase.AppUtil:PollCallbacks () (at /Users/runner/work/firebase-unity-sdk/
+firebase-unity-sdk/macos_unity/x86_64/app/swig/Firebase.App_fixed.cs:4878)
+Firebase.Platform.FirebaseAppUtils:PollCallbacks () (at /Users/runner/work/f
+irebase-unity-sdk/firebase-unity-sdk/app/platform/FirebaseAppUtils.cs:33)
+Firebase.Platform.FirebaseHandler:Update () (at /Users/runner/work/firebase-
+unity-sdk/firebase-unity-sdk/app/platform/Unity/FirebaseHandler.cs:208)
+Firebase.Platform.FirebaseMonoBehaviour:Update () (at 
+/Users/runner/work/firebase-unity-sdk/firebase-unity-sdk/app/platform/Unity/
+FirebaseMonoBehaviour.cs:45)
+
+LobbyManager: Player added - Host (9MO6kw9wQdf9wFj5d4YbVyzFT3h2)
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager:OnPlayerAdded 
+(object,Firebase.Database.ChildChangedEventArgs) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:477)
+Firebase.Database.Internal.InternalChildListener/<>c__DisplayClass4_0:<OnChi
+ldChangeHandler>b__0 () (at /Users/runner/work/firebase-unity-sdk/firebase-u
+nity-sdk/database/src/internal/InternalChildListener.cs:59)
+Firebase.ExceptionAggregator:Wrap (System.Action) (at /Users/runner/work/fir
+ebase-unity-sdk/firebase-unity-sdk/app/platform/ExceptionAggregator.cs:112)
+Firebase.Database.Internal.InternalChildListener:OnChildChangeHandler 
+(int,Firebase.Database.ChildChangeType,intptr,string) (at 
+/Users/runner/work/firebase-unity-sdk/firebase-unity-sdk/database/src/intern
+al/InternalChildListener.cs:47)
+Firebase.AppUtil:PollCallbacks () (at /Users/runner/work/firebase-unity-sdk/
+firebase-unity-sdk/macos_unity/x86_64/app/swig/Firebase.App_fixed.cs:4878)
+Firebase.Platform.FirebaseAppUtils:PollCallbacks () (at /Users/runner/work/f
+irebase-unity-sdk/firebase-unity-sdk/app/platform/FirebaseAppUtils.cs:33)
+Firebase.Platform.FirebaseHandler:Update () (at /Users/runner/work/firebase-
+unity-sdk/firebase-unity-sdk/app/platform/Unity/FirebaseHandler.cs:208)
+Firebase.Platform.FirebaseMonoBehaviour:Update () (at 
+/Users/runner/work/firebase-unity-sdk/firebase-unity-sdk/app/platform/Unity/
+FirebaseMonoBehaviour.cs:45)
+
+LobbyManager: Calling InvokeOnMainThread for onLobbyCreated (null: False)
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:123)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Exception in Firebase continuation: ToString can only be 
+called from the main thread.
+Constructors and field initializers will be executed from the loading thread
+ when loading a scene.
+Don't use this function in the constructor or field initializers, instead 
+move initialization code to the Awake or Start function.
+UnityEngine.Debug:LogError (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:130)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Loaded player Host (9MO6kw9wQdf9wFj5d4YbVyzFT3h2)
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass20_0:<LoadCurrentPla
+yers>b__0 (System.Threading.Tasks.Task`1<Firebase.Database.DataSnapshot>) 
+(at Assets/Scripts/Multiplayer/LobbyManager.cs:443)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Loaded 1 players
+UnityEngine.Debug:Log (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass20_0:<LoadCurrentPla
+yers>b__0 (System.Threading.Tasks.Task`1<Firebase.Database.DataSnapshot>) 
+(at Assets/Scripts/Multiplayer/LobbyManager.cs:447)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback ()
+
+LobbyManager: Stack trace:   at (wrapper managed-to-native) UnityEngine.Obje
+ct.ToString_Injected(intptr,UnityEngine.Bindings.ManagedSpanWrapper&)
+  at UnityEngine.Object.ToString (UnityEngine.Object obj) [0x00006] in 
+<7d51e2b049cf4f829b02b1a8144f1738>:0 
+  at UnityEngine.Object.ToString () [0x00001] in /home/bokken/build/output/u
+nity/unity/Runtime/Export/Scripting/UnityEngineObject.bindings.cs:892 
+  at System.Text.StringBuilder.AppendFormatHelper (System.IFormatProvider 
+provider, System.String format, System.ParamsArray args) [0x0037e] in 
+<1a795a29c7af4385b159eb69f68237b8>:0 
+  at System.String.FormatHelper (System.IFormatProvider provider, 
+System.String format, System.ParamsArray args) [0x00023] in 
+<1a795a29c7af4385b159eb69f68237b8>:0 
+  at System.String.Format (System.String format, System.Object arg0, 
+System.Object arg1) [0x00009] in <1a795a29c7af4385b159eb69f68237b8>:0 
+  at PocketPlanner.Multiplayer.LobbyManager+<>c__DisplayClass8_0.<CreateLobb
+y>b__0 (System.Threading.Tasks.Task task) [0x00129] in 
+/home/jords/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner/Asse
+ts/Scripts/Multiplayer/LobbyManager.cs:124 
+UnityEngine.Debug:LogError (object)
+PocketPlanner.Multiplayer.LobbyManager/<>c__DisplayClass8_0:<CreateLobby>b__
+0 (System.Threading.Tasks.Task) (at 
+Assets/Scripts/Multiplayer/LobbyManager.cs:131)
+System.Threading._ThreadPoolWaitCallback:PerformWaitCallback () 
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 4 additions an
+      1 removal
+       121                        _players[hostPlayerId] = hostPlayer;
+       122    
+       123                        Debug.Log($"LobbyManager: Calling 
+             InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated
+              == null})");
+       124 -                      Debug.Log($"LobbyManager: 
+           - onLobbyCreated method: {onLobbyCreated?.Method?.Name} on 
+           - target: {onLobbyCreated?.Target}");
+       124 +                      // Safe logging - capture values before
+           +  string interpolation to avoid thread issues
+       125 +                      string methodName = 
+           + onLobbyCreated?.Method?.Name ?? "null";
+       126 +                      string targetType = 
+           + onLobbyCreated?.Target?.GetType().Name ?? "null";
+       127 +                      Debug.Log($"LobbyManager: 
+           + onLobbyCreated method: {methodName} on target type: 
+           + {targetType}");
+       128                        InvokeOnMainThread(onLobbyCreated, 
+             lobbyCode);
+       129                        Debug.Log("LobbyManager: 
+             InvokeOnMainThread called");
+       130                    }
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 4 removals  
+       121                        _players[hostPlayerId] = hostPlayer;
+       122    
+       123                        Debug.Log($"LobbyManager: Calling 
+             InvokeOnMainThread for onLobbyCreated (null: {onLobbyCreated
+              == null})");
+       124 -                      // Safe logging - capture values before
+           -  string interpolation to avoid thread issues
+       125 -                      string methodName = 
+           - onLobbyCreated?.Method?.Name ?? "null";
+       126 -                      string targetType = 
+           - onLobbyCreated?.Target?.GetType().Name ?? "null";
+       127 -                      Debug.Log($"LobbyManager: 
+           - onLobbyCreated method: {methodName} on target type: 
+           - {targetType}");
+       124                        InvokeOnMainThread(onLobbyCreated, 
+             lobbyCode);
+       125                        Debug.Log("LobbyManager: 
+             InvokeOnMainThread called");
+       126                    }
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 15 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 15 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 25 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 6 additions an
+      2 removals
+       535            {
+       536                if (action == null)
+       537                {
+       538 -                  
+           - Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+           - action is null, skipping. Type: {typeof(T).Name}, Arg: 
+           - {arg}");
+       538 +                  // Safe logging - convert arg to string 
+           + before interpolation
+       539 +                  string argString = arg?.ToString() ?? 
+           + "null";
+       540 +                  
+           + Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+           + action is null, skipping. Type: {typeof(T).Name}, Arg: 
+           + {argString}");
+       541                    return;
+       542                }
+       543 -              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           -  Starting coroutine for action {action.Method.Name} on 
+           - target {action.Target}");
+       543 +              // Safe logging - don't access action.Target on
+           +  background thread
+       544 +              string methodName = action.Method?.Name ?? 
+           + "unknown";
+       545 +              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           +  Starting coroutine for action {methodName}");
+       546                StartCoroutine(InvokeActionCoroutine(() => 
+             action(arg)));
+       547            }
+       548    
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      3 removals
+       535            {
+       536                if (action == null)
+       537                {
+       538 -                  // Safe logging - convert arg to string 
+           - before interpolation
+       539 -                  string argString = arg?.ToString() ?? 
+           - "null";
+       540 -                  
+           - Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+           - action is null, skipping. Type: {typeof(T).Name}, Arg: 
+           - {argString}");
+       538 +                  // Safe logging - don't call ToString() on 
+           + potentially Unity objects
+       539 +                  
+           + Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+           + action is null, skipping. Type: {typeof(T).Name}");
+       540                    return;
+       541                }
+       542                // Safe logging - don't access action.Target on
+              background thread
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 25 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 3 additions an
+      1 removal
+       564                }
+       565                Debug.Log($"LobbyManager.InvokeActionCoroutine:
+              Waiting one frame");
+       566                yield return null; // Wait one frame to ensure 
+             we're on main thread
+       567 -              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           -  Invoking action {action.Method.Name} on target 
+           - {action.Target}");
+       567                try
+       568                {
+       569 +                  // Safe logging - get method name inside 
+           + try-catch
+       570 +                  string methodName = action.Method?.Name ?? 
+           + "unknown";
+       571 +                  
+           + Debug.Log($"LobbyManager.InvokeActionCoroutine: Invoking 
+           + action {methodName}");
+       572                    action.Invoke();
+       573                    
+             Debug.Log("LobbyManager.InvokeActionCoroutine: Action 
+             invoked successfully");
+       574                }
+
+
+

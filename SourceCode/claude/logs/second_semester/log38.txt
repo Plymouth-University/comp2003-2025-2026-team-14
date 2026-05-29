@@ -1,0 +1,154 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 15 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 10 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 40 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 19 additions 
+       179    
+       180            if (multiplayerManager != null)
+       181            {
+       182 +              // Log current subscriber counts before 
+           + subscribing
+       183 +              Debug.Log($"LobbyUIManager: Before subscribing 
+           + - " +
+       184 +                  $"OnPlayerJoined: {multiplayerManager.OnPla
+           + yerJoined?.GetInvocationList()?.Length ?? 0}, " +
+       185 +                  $"OnPlayerLeft: {multiplayerManager.OnPlaye
+           + rLeft?.GetInvocationList()?.Length ?? 0}, " +
+       186 +                  $"OnPlayerReadyChanged: {multiplayerManager
+           + .OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0}, " 
+           + +
+       187 +                  $"OnAllPlayersReady: {multiplayerManager.On
+           + AllPlayersReady?.GetInvocationList()?.Length ?? 0}, " +
+       188 +                  $"OnGameStarted: {multiplayerManager.OnGame
+           + Started?.GetInvocationList()?.Length ?? 0}, " +
+       189 +                  $"OnLobbyJoined: {multiplayerManager.OnLobb
+           + yJoined?.GetInvocationList()?.Length ?? 0}");
+       190 +  
+       191                multiplayerManager.OnPlayerJoined += 
+             OnPlayerJoined;
+       192                multiplayerManager.OnPlayerLeft += 
+             OnPlayerLeft;
+       193                multiplayerManager.OnPlayerReadyChanged += 
+             OnPlayerReadyChanged;
+     ...
+       186                multiplayerManager.OnGameStarted += 
+             OnGameStarted;
+       187                multiplayerManager.OnLobbyJoined += 
+             OnLobbyJoined;
+       188                eventsSubscribed = true;
+       189 +  
+       190 +              // Log subscriber counts after subscribing
+       191 +              Debug.Log($"LobbyUIManager: After subscribing -
+           +  " +
+       192 +                  $"OnPlayerJoined: {multiplayerManager.OnPla
+           + yerJoined?.GetInvocationList()?.Length ?? 0}, " +
+       193 +                  $"OnPlayerLeft: {multiplayerManager.OnPlaye
+           + rLeft?.GetInvocationList()?.Length ?? 0}, " +
+       194 +                  $"OnPlayerReadyChanged: {multiplayerManager
+           + .OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0}, " 
+           + +
+       195 +                  $"OnAllPlayersReady: {multiplayerManager.On
+           + AllPlayersReady?.GetInvocationList()?.Length ?? 0}, " +
+       196 +                  $"OnGameStarted: {multiplayerManager.OnGame
+           + Started?.GetInvocationList()?.Length ?? 0}, " +
+       197 +                  $"OnLobbyJoined: {multiplayerManager.OnLobb
+           + yJoined?.GetInvocationList()?.Length ?? 0}");
+       198 +  
+       199                Debug.Log("LobbyUIManager: Subscribed to 
+             MultiplayerManager events");
+       200            }
+       201            else
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 19 additions 
+       219            Debug.Log($"LobbyUIManager.UnsubscribeFromEvents: 
+             multiplayerManager is {(multiplayerManager == null ? "null" 
+             : "not null")}");
+       220            if (multiplayerManager != null)
+       221            {
+       222 +              // Log subscriber counts before unsubscribing
+       223 +              Debug.Log($"LobbyUIManager: Before 
+           + unsubscribing - " +
+       224 +                  $"OnPlayerJoined: {multiplayerManager.OnPla
+           + yerJoined?.GetInvocationList()?.Length ?? 0}, " +
+       225 +                  $"OnPlayerLeft: {multiplayerManager.OnPlaye
+           + rLeft?.GetInvocationList()?.Length ?? 0}, " +
+       226 +                  $"OnPlayerReadyChanged: {multiplayerManager
+           + .OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0}, " 
+           + +
+       227 +                  $"OnAllPlayersReady: {multiplayerManager.On
+           + AllPlayersReady?.GetInvocationList()?.Length ?? 0}, " +
+       228 +                  $"OnGameStarted: {multiplayerManager.OnGame
+           + Started?.GetInvocationList()?.Length ?? 0}, " +
+       229 +                  $"OnLobbyJoined: {multiplayerManager.OnLobb
+           + yJoined?.GetInvocationList()?.Length ?? 0}");
+       230 +  
+       231                multiplayerManager.OnPlayerJoined -= 
+             OnPlayerJoined;
+       232                multiplayerManager.OnPlayerLeft -= 
+             OnPlayerLeft;
+       233                multiplayerManager.OnPlayerReadyChanged -= 
+             OnPlayerReadyChanged;
+     ...
+       226                multiplayerManager.OnGameStarted -= 
+             OnGameStarted;
+       227                multiplayerManager.OnLobbyJoined -= 
+             OnLobbyJoined;
+       228                eventsSubscribed = false;
+       229 +  
+       230 +              // Log subscriber counts after unsubscribing
+       231 +              Debug.Log($"LobbyUIManager: After unsubscribing
+           +  - " +
+       232 +                  $"OnPlayerJoined: {multiplayerManager.OnPla
+           + yerJoined?.GetInvocationList()?.Length ?? 0}, " +
+       233 +                  $"OnPlayerLeft: {multiplayerManager.OnPlaye
+           + rLeft?.GetInvocationList()?.Length ?? 0}, " +
+       234 +                  $"OnPlayerReadyChanged: {multiplayerManager
+           + .OnPlayerReadyChanged?.GetInvocationList()?.Length ?? 0}, " 
+           + +
+       235 +                  $"OnAllPlayersReady: {multiplayerManager.On
+           + AllPlayersReady?.GetInvocationList()?.Length ?? 0}, " +
+       236 +                  $"OnGameStarted: {multiplayerManager.OnGame
+           + Started?.GetInvocationList()?.Length ?? 0}, " +
+       237 +                  $"OnLobbyJoined: {multiplayerManager.OnLobb
+           + yJoined?.GetInvocationList()?.Length ?? 0}");
+       238 +  
+       239                Debug.Log("LobbyUIManager: Unsubscribed from 
+             MultiplayerManager events");
+       240            }
+       241        }
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 25 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 15 lines
+
+
+

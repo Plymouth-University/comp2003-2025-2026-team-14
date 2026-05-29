@@ -1,0 +1,327 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 40 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 25 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 2 additions an
+      3 removals
+       539                    
+             Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+             action is null, skipping. Type: {typeof(T).Name}");
+       540                    return;
+       541                }
+       542 -              // Safe logging - don't access action.Target 
+           -  on background thread
+       543 -              string methodName = action.Method?.Name ?? 
+           - "unknown";
+       544 -              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           -  Starting coroutine for action {methodName}");
+       542 +              // Don't access any action properties 
+           +  on background thread
+       543 +              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           +  Starting coroutine");
+       544                StartCoroutine(InvokeActionCoroutine(() => 
+             action(arg)));
+       545            }
+       546    
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 6 additions an
+      4 removals
+       555    
+       556            private IEnumerator InvokeActionCoroutine(Action 
+             action)
+       557            {
+       558 -              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           -  Starting, action null: {action == null}");
+       558 +              // Don't log anything here - we might be on 
+           + background thread
+       559 +              yield return null; // Wait one frame to ensure 
+           + we're on main thread
+       560 +  
+       561 +              // Now we're on main thread, safe to log
+       562                if (action == null)
+       563                {
+       564                    
+             Debug.LogWarning("LobbyManager.InvokeActionCoroutine: Action
+              is null, skipping");
+       565                    yield break;
+       566                }
+       567 -              Debug.Log($"LobbyManager.InvokeActionCoroutine:
+           -  Waiting one frame");
+       568 -              yield return null; // Wait one frame to ensure 
+           - we're on main thread
+       567 +  
+       568                try
+       569                {
+       570 -                  // Safe logging - get method name inside 
+           -  try-catch
+       570 +                  // Safe logging - get method name on 
+           +  main thread
+       571                    string methodName = action.Method?.Name ?? 
+             "unknown";
+       572                    
+             Debug.Log($"LobbyManager.InvokeActionCoroutine: Invoking 
+             action {methodName}");
+       573                    action.Invoke();
+
+● Search(pattern: "InvokeOnMainThread", path:
+        "Assets/Scripts/Multiplayer/LobbyManager.cs", output_mode: "content")
+  ⎿  Found 21 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 10 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 20 lines
+
+● Search(pattern: "ContinueWith", path:
+        "Assets/Scripts/Multiplayer/LobbyManager.cs", output_mode: "content")
+  ⎿  Found 4 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 50 lines
+
+● Search(pattern: "ConcurrentQueue", path:
+        "~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner")
+  ⎿  Found 0 files 
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 1 addition
+       1    using System;
+       2    using System.Collections;
+       3 +  using System.Collections.Concurrent;
+       4    using System.Collections.Generic;
+       5    using System.Threading.Tasks;
+       6    using UnityEngine;
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 3 additions 
+       18            private bool _isInLobby = false;
+       19            private Dictionary<string, PlayerData> _players = 
+            new Dictionary<string, PlayerData>();
+       20    
+       21 +          // Main thread dispatch
+       22 +          private ConcurrentQueue<Action> _mainThreadActions =
+          +  new ConcurrentQueue<Action>();
+       23 +  
+       24            // Firebase references
+       25            private FirebaseManager _firebaseManager;
+       26    
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 16 additions
+       42                }
+       43            }
+       44    
+       45 +          private void Update()
+       46 +          {
+       47 +              // Process main thread actions
+       48 +              while (_mainThreadActions.TryDequeue(out var 
+          + action))
+       49 +              {
+       50 +                  try
+       51 +                  {
+       52 +                      action?.Invoke();
+       53 +                  }
+       54 +                  catch (Exception ex)
+       55 +                  {
+       56 +                      Debug.LogError($"LobbyManager: Exception
+          +  in main thread action: {ex.Message}");
+       57 +                  }
+       58 +              }
+       59 +          }
+       60 +  
+       61            /// <summary>
+       62            /// Create a new lobby as host.
+       63            /// </summary>
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 60 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 27 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 4 additions an
+      31 removals
+       545            private void InvokeOnMainThread(Action action)
+       546            {
+       547                if (action == null) return;
+       548 -              StartCoroutine(InvokeActionCoroutine(action));
+       548 +              _mainThreadActions.Enqueue(action);
+       549            }
+       550    
+       551            /// <summary>
+     ...
+       559                    
+             Debug.LogWarning($"LobbyManager.InvokeOnMainThread<T>: 
+             action is null, skipping. Type: {typeof(T).Name}");
+       560                    return;
+       561                }
+       562 -              // Don't access any action properties on 
+           - background thread
+       563 -              Debug.Log($"LobbyManager.InvokeOnMainThread<T>:
+           -  Starting coroutine");
+       564 -              StartCoroutine(InvokeActionCoroutine(() => 
+           - action(arg)));
+       562 +              // Enqueue action to be executed on main thread
+       563 +              _mainThreadActions.Enqueue(() => action(arg));
+       564            }
+       565    
+       566            /// <summary>
+     ...
+       570            private void InvokeOnMainThread<T1, T2>(Action<T1, 
+             T2> action, T1 arg1, T2 arg2)
+       571            {
+       572                if (action == null) return;
+       573 -              StartCoroutine(InvokeActionCoroutine(() => 
+           - action(arg1, arg2)));
+       573 +              _mainThreadActions.Enqueue(() => action(arg1, 
+           + arg2));
+       574            }
+       575 -  
+       576 -          private IEnumerator InvokeActionCoroutine(Action 
+           - action)
+       577 -          {
+       578 -              // Don't log anything here - we might be on 
+           - background thread
+       579 -              yield return null; // Wait one frame to ensure 
+           - we're on main thread
+       580 -  
+       581 -              // Now we're on main thread, safe to log
+       582 -              if (action == null)
+       583 -              {
+       584 -                  
+           - Debug.LogWarning("LobbyManager.InvokeActionCoroutine: Action
+           -  is null, skipping");
+       585 -                  yield break;
+       586 -              }
+       587 -  
+       588 -              try
+       589 -              {
+       590 -                  // Safe logging - get method name on main 
+           - thread
+       591 -                  string methodName = action.Method?.Name ?? 
+           - "unknown";
+       592 -                  
+           - Debug.Log($"LobbyManager.InvokeActionCoroutine: Invoking 
+           - action {methodName}");
+       593 -                  action.Invoke();
+       594 -                  
+           - Debug.Log("LobbyManager.InvokeActionCoroutine: Action 
+           - invoked successfully");
+       595 -              }
+       596 -              catch (Exception ex)
+       597 -              {
+       598 -                  
+           - Debug.LogError($"LobbyManager.InvokeActionCoroutine: 
+           - Exception invoking action: {ex.Message}");
+       599 -              }
+       600 -          }
+       575        }
+       576    }
+       577   \ No newline at end of file
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Updated Assets/Scripts/Multiplayer/LobbyManager.cs with 17 additions  
+     and 13 removals
+       439                    if (task.IsFaulted)
+       440                    {
+       441                        Debug.LogError($"LobbyManager: Failed 
+             to load players: {task.Exception?.Message}");
+       442 -                      onComplete?.Invoke();
+       442 +                      InvokeOnMainThread(onComplete);
+       443                        return;
+       444                    }
+       445    
+     ...
+       447                    if (!snapshot.Exists)
+       448                    {
+       449                        Debug.Log("LobbyManager: No players 
+             found in lobby");
+       450 -                      onComplete?.Invoke();
+       450 +                      InvokeOnMainThread(onComplete);
+       451                        return;
+       452                    }
+       453    
+       454 -                  _players.Clear();
+       455 -                  foreach (DataSnapshot playerSnapshot in 
+           - snapshot.Children)
+       454 +                  // Process snapshot data on main thread
+       455 +                  InvokeOnMainThread(() =>
+       456                    {
+       457 -                      var playerDict = playerSnapshot.Value 
+           - as Dictionary<string, object>;
+       458 -                      if (playerDict != null)
+       457 +                      _players.Clear();
+       458 +                      foreach (DataSnapshot playerSnapshot in
+           +  snapshot.Children)
+       459                        {
+       460 -                          var playerData = 
+           - DictionaryToPlayerData(playerDict);
+       461 -                          _players[playerData.PlayerId] = 
+           - playerData;
+       462 -                          Debug.Log($"LobbyManager: Loaded 
+           - player {playerData.DisplayName} ({playerData.PlayerId})");
+       460 +                          var playerDict = 
+           + playerSnapshot.Value as Dictionary<string, object>;
+       461 +                          if (playerDict != null)
+       462 +                          {
+       463 +                              var playerData = 
+           + DictionaryToPlayerData(playerDict);
+       464 +                              _players[playerData.PlayerId] =
+           +  playerData;
+       465 +                              Debug.Log($"LobbyManager: 
+           + Loaded player {playerData.DisplayName} 
+           + ({playerData.PlayerId})");
+       466 +                          }
+       467                        }
+       468 -                  }
+       468    
+       469 -                  
+           -  Debug.Log($"LobbyManager: Loaded {_players.Count} 
+           -  players");
+       470 -                  // TODO: Trigger UI update event if needed
+       471 -                  onComplete?.Invoke();
+       469 +                      
+           +  Debug.Log($"LobbyManager: Loaded {_players.Count} 
+           +  players");
+       470 +                      
+           +  // TODO: Trigger UI update event if needed
+       471 +                      onComplete?.Invoke();
+       472 +                  });
+       473                });
+       474            }
+       475    
+
+
+
