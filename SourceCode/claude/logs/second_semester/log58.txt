@@ -1,0 +1,38 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Search(pattern: "StartListeningForLobby", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 77 lines
+
+● Search(pattern: "class PlayerGameData", path:
+        "~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner",
+        output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Search(pattern: "**/GameManager.cs")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 100 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 100 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 150 lines
+
+● Search(pattern: "OnLobbyCreated", path:
+        "Assets/Scripts/Multiplayer/MultiplayerManager.cs", output_mode:
+        "content")
+  ⎿  Found 3 lines (ctrl+o to expand)
+
+
+

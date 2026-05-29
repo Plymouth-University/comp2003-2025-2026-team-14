@@ -1,0 +1,146 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+══════════════════ Conversation compacted · ctrl+o for history ═════════════════
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 15 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Error editing file
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 10 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 37 additions             
+       652            }
+       653        }
+       654    
+       655 +      /// <summary>
+       656 +      /// Check if all players have completed the current 
+           + turn.
+       657 +      /// Called when a player's turn completion is received.
+       658 +      /// </summary>
+       659 +      private void CheckAllPlayersCompletedTurn()
+       660 +      {
+       661 +          if (!waitingForOtherPlayers) return;
+       662    
+       663 +          // Get the multiplayer manager to access player 
+           + list
+       664 +          MultiplayerManager multiplayerManager = 
+           + MultiplayerManager.Instance;
+       665 +          if (multiplayerManager == null || 
+           + !multiplayerManager.IsMultiplayerMode)
+       666 +          {
+       667 +              Debug.LogWarning("GameManager: Cannot check all
+           +  players completed - multiplayer manager not available");
+       668 +              return;
+       669 +          }
+       670 +  
+       671 +          // Get all player IDs in the lobby
+       672 +          var allPlayerIds = multiplayerManager.Players.Keys;
+       673 +          int totalPlayers = allPlayerIds.Count;
+       674 +          int completedPlayers = 
+           + playersCompletedCurrentTurn.Count;
+       675 +  
+       676 +          Debug.Log($"GameManager: Turn completion progress -
+           +  {completedPlayers}/{totalPlayers} players completed turn 
+           + {currentTurn}");
+       677 +  
+       678 +          // Check if all players have completed this turn
+       679 +          if (playersCompletedCurrentTurn.Count >= 
+           + totalPlayers)
+       680 +          {
+       681 +              Debug.Log($"GameManager: All {totalPlayers} 
+           + players have completed turn {currentTurn}");
+       682 +  
+       683 +              // Clear the tracking for this turn
+       684 +              playersCompletedCurrentTurn.Clear();
+       685 +              waitingForOtherPlayers = false;
+       686 +  
+       687 +              // Optional: Trigger UI update or other actions
+       688 +              // OnAllPlayersCompletedTurn?.Invoke();
+       689 +          }
+       690 +      }
+       691 +  
+       692 +  
+       693        /// <summary>
+       694        /// Convert ShapeType to dice face index (0-5).
+       695        /// </summary>
+
+● Search(pattern: "OnShapePlacementConfirmed", path:
+        "Assets/Scripts/GameManager.cs", output_mode: "content")
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 50 lines
+
+● Search(pattern: "startNewTurn", path: "Assets/Scripts/GameManager.cs",
+        output_mode: "content")
+  ⎿  Found 2 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 60 lines
+
+● Search(pattern: "BroadcastGameEndToMultiplayer", path:
+        "Assets/Scripts/GameManager.cs", output_mode: "content")
+  ⎿  Found 5 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 15 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 20 lines
+
+● Update(Assets/Scripts/GameManager.cs)
+  ⎿  Updated Assets/Scripts/GameManager.cs with 16 additions           
+       533                );
+       534            }
+       535    
+       536 +          // Broadcast turn completion in multiplayer mode
+       537 +          if (SyncManager != null && 
+           + MultiplayerManager.Instance != null && 
+           + MultiplayerManager.Instance.IsMultiplayerMode)
+       538 +          {
+       539 +              string localPlayerId = 
+           + MultiplayerManager.Instance.LocalPlayerId;
+       540 +              if (!string.IsNullOrEmpty(localPlayerId))
+       541 +              {
+       542 +                  // Add local player to completed tracking
+       543 +                  
+           + playersCompletedCurrentTurn.Add(localPlayerId);
+       544 +                  waitingForOtherPlayers = true;
+       545 +  
+       546 +                  // Broadcast turn completion (game not 
+           + ended)
+       547 +                  _ = 
+           + SyncManager.BroadcastTurnCompletion(currentTurn, false);
+       548 +                  Debug.Log($"GameManager: Turn completion 
+           + broadcast for turn {currentTurn}");
+       549 +              }
+       550 +          }
+       551 +  
+       552            // Start new turn (will roll dice and clear 
+             selection)
+       553            startNewTurn();
+       554        }
+
+● Search(pattern: "TriggerGameEnd", path: "Assets/Scripts/GameManager.cs",
+        output_mode: "content")
+  ⎿  Found 7 lines (ctrl+o to expand)
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/GameManager.cs)
+  ⎿  Read 10 lines
+
+
+

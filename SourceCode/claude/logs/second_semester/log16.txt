@@ -1,0 +1,836 @@
+
+ ▐▛███▜▌   Claude Code v2.0.61
+▝▜█████▛▘  deepseek-v4-pro[1m] · API Usage Billing
+  ▘▘ ▝▝    ~/Desktop/comp2003-2025-2026-team-14/SourceCode/PocketPlanner
+
+  /model to try Opus 4.5
+
+> Read multiplayer-implementation-plan.md. Can you write the 
+Assets/UI/Lobby/LobbyUIManager.cs for the Lobby scene while also integrating
+ it using the current multiplayer implementation. Some of the basic 
+requirements are: The text elements for game settings must be updated using 
+one of the multiplayer managers on scene load, the start game button is only
+ interactable by the host, the playerKickButtons must also only be 
+interactable by the host, the playerListPanels are in order from player 1 to
+ player 8 (starting from index 0) and the number of panels that should be 
+active in the scene should equal the max players (the rest should be 
+disabled), moreover the playerNameTexts should update (use deviceid for now)
+ as each player joins, leaves or gets kicked and interactibility of 
+playerKickButtons should also dynamically update for the host. Thanks! 
+
+● Read(multiplayer-implementation-plan.md)
+  ⎿  Read 486 lines
+
+● Search(pattern: "Assets/Scripts/UI/Lobby/**")
+  ⎿  Found 2 files (ctrl+o to expand)
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 41 lines
+
+● Explore(Find multiplayer manager scripts)
+  ⎿  Done (15 tool uses · 56.4k tokens · 3m 49s)                           
+
+● Read(Assets/Scripts/Multiplayer/PlayerData.cs)
+  ⎿  Read 265 lines
+
+● Read(Assets/Scripts/Multiplayer/MultiplayerManager.cs)
+  ⎿  Read 481 lines
+
+● Read(Assets/Scripts/Multiplayer/LobbyManager.cs)
+  ⎿  Read 483 lines
+
+● Read(Assets/Scripts/Multiplayer/Utils/NetworkConstants.cs)
+  ⎿  Read 107 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 250 additions  
+     and 7 removals
+        6    
+        7    public class LobbyUIManager : MonoBehaviour
+        8    {
+        9 -  
+        9        [Header("Multiplayer Managers")]
+       10        [SerializeField] private FirebaseManager 
+            firebaseManager;
+       11        [SerializeField] private MultiplayerManager 
+            multiplayerManager;
+     ...
+        23    
+        24        [Header("Player List UI")]
+        25        [SerializeField] private List<GameObject> 
+             playerListPanels; // List of 8 UI panels (max 8 players) for
+              displaying player information in the lobby;
+        26 -      [SerializeField] private List<Text
+           -  > playerNameTexts; // List of 8 Text components (max 8 
+           -  players) for displaying player names in the lobby;
+        26 +      [SerializeField] private List<TextMeshProUGUI
+           +  > playerNameTexts; // List of 8 Text components (max 8 
+           +  players) for displaying player names in the lobby;
+        27        [SerializeField] private List<Button> 
+             playerKickButtons; // List of 7 Buttons (player 2 - 8) for 
+             kicking players from the lobby (only visible to host);
+        28    
+        29 -      // Start is called once before the first execution of 
+           - Update after the MonoBehaviour is created
+        29 +      private const int MAX_PLAYERS = 8;
+        30 +      private bool isHost = false;
+        31 +      private string localPlayerId = string.Empty;
+        32 +  
+        33 +      private void OnEnable()
+        34 +      {
+        35 +          SubscribeToEvents();
+        36 +      }
+        37 +  
+        38 +      private void OnDisable()
+        39 +      {
+        40 +          UnsubscribeFromEvents();
+        41 +      }
+        42 +  
+        43        void Start()
+        44        {
+        45 -          // Find Managers in scene if not assigned in 
+           - inspector
+        45 +          FindManagersIfMissing();
+        46 +          ValidateUIReferences();
+        47 +          InitializeUI();
+        48 +          UpdateGameSettingsUI();
+        49 +          UpdatePlayerListUI();
+        50 +          UpdateButtonInteractability();
+        51 +      }
+        52    
+        53 +      private void FindManagersIfMissing()
+        54 +      {
+        55 +          if (firebaseManager == null) firebaseManager = 
+           + FirebaseManager.Instance;
+        56 +          if (multiplayerManager == null) multiplayerManager 
+           + = MultiplayerManager.Instance;
+        57 +          if (lobbyManager == null) lobbyManager = 
+           + LobbyManager.Instance;
+        58 +          if (syncManager == null) syncManager = 
+           + SyncManager.Instance;
+        59 +      }
+        60    
+        61 -          // Update all game settings text fields with values
+           -  passed from the lobby manager?
+        62 -          // of the Form: "Room Code: XXXX", "Max Players: 
+           - X", "Turn Time Limit: XX seconds", "Host: XXXXX"
+        63 -          
+        61 +      private void ValidateUIReferences()
+        62 +      {
+        63 +          if (playerListPanels == null || 
+           + playerListPanels.Count != MAX_PLAYERS)
+        64 +          {
+        65 +              Debug.LogError($"LobbyUIManager: 
+           + playerListPanels must have exactly {MAX_PLAYERS} 
+           + elements.");
+        66 +          }
+        67 +          if (playerNameTexts == null || 
+           + playerNameTexts.Count != MAX_PLAYERS)
+        68 +          {
+        69 +              Debug.LogError($"LobbyUIManager: 
+           + playerNameTexts must have exactly {MAX_PLAYERS} elements.");
+        70 +          }
+        71 +          if (playerKickButtons == null || 
+           + playerKickButtons.Count != MAX_PLAYERS - 1)
+        72 +          {
+        73 +              Debug.LogError($"LobbyUIManager: 
+           + playerKickButtons must have exactly {MAX_PLAYERS - 1} 
+           + elements (player 2-8).");
+        74 +          }
+        75        }
+        76    
+        77 +      private void InitializeUI()
+        78 +      {
+        79 +          // Activate panels up to MAX_PLAYERS, disable the 
+           + rest
+        80 +          for (int i = 0; i < playerListPanels.Count; i++)
+        81 +          {
+        82 +              playerListPanels[i].SetActive(i < MAX_PLAYERS);
+        83 +          }
+        84 +  
+        85 +          // Initially hide all kick buttons
+        86 +          foreach (var button in playerKickButtons)
+        87 +          {
+        88 +              button.gameObject.SetActive(false);
+        89 +          }
+        90 +  
+        91 +          startGameButton.interactable = false;
+        92 +      }
+        93 +  
+        94 +      private void SubscribeToEvents()
+        95 +      {
+        96 +          if (multiplayerManager != null)
+        97 +          {
+        98 +              multiplayerManager.OnPlayerJoined += 
+           + OnPlayerJoined;
+        99 +              multiplayerManager.OnPlayerLeft += 
+           + OnPlayerLeft;
+       100 +              multiplayerManager.OnPlayerReadyChanged += 
+           + OnPlayerReadyChanged;
+       101 +              multiplayerManager.OnAllPlayersReady += 
+           + OnAllPlayersReady;
+       102 +              multiplayerManager.OnGameStarted += 
+           + OnGameStarted;
+       103 +              multiplayerManager.OnLobbyJoined += 
+           + OnLobbyJoined;
+       104 +          }
+       105 +      }
+       106 +  
+       107 +      private void UnsubscribeFromEvents()
+       108 +      {
+       109 +          if (multiplayerManager != null)
+       110 +          {
+       111 +              multiplayerManager.OnPlayerJoined -= 
+           + OnPlayerJoined;
+       112 +              multiplayerManager.OnPlayerLeft -= 
+           + OnPlayerLeft;
+       113 +              multiplayerManager.OnPlayerReadyChanged -= 
+           + OnPlayerReadyChanged;
+       114 +              multiplayerManager.OnAllPlayersReady -= 
+           + OnAllPlayersReady;
+       115 +              multiplayerManager.OnGameStarted -= 
+           + OnGameStarted;
+       116 +              multiplayerManager.OnLobbyJoined -= 
+           + OnLobbyJoined;
+       117 +          }
+       118 +      }
+       119 +  
+       120 +      private void UpdateGameSettingsUI()
+       121 +      {
+       122 +          if (multiplayerManager == null) return;
+       123 +  
+       124 +          // Room code
+       125 +          string lobbyCode = multiplayerManager.LobbyCode;
+       126 +          roomCodeText.text = $"Room Code: {lobbyCode}";
+       127 +  
+       128 +          // Max players (hardcoded to 8 for now)
+       129 +          maxPlayersText.text = $"Max Players: 
+           + {NetworkConstants.MAX_PLAYERS_PER_LOBBY}";
+       130 +  
+       131 +          // Turn time limit (not yet implemented, 
+           + placeholder)
+       132 +          turnTimeText.text = "Turn Time Limit: Unlimited";
+       133 +  
+       134 +          // Host name: find host player
+       135 +          string hostName = "Unknown";
+       136 +          var players = multiplayerManager.Players;
+       137 +          foreach (var player in players.Values)
+       138 +          {
+       139 +              if (player.IsHost)
+       140 +              {
+       141 +                  hostName = player.DisplayName;
+       142 +                  break;
+       143 +              }
+       144 +          }
+       145 +          hostNameText.text = $"Host: {hostName}";
+       146 +      }
+       147 +  
+       148 +      private void UpdatePlayerListUI()
+       149 +      {
+       150 +          if (multiplayerManager == null) return;
+       151 +  
+       152 +          var players = multiplayerManager.Players;
+       153 +          int playerIndex = 0;
+       154 +  
+       155 +          // Clear all player name texts
+       156 +          foreach (var text in playerNameTexts)
+       157 +          {
+       158 +              text.text = "";
+       159 +          }
+       160 +  
+       161 +          // Hide all kick buttons initially
+       162 +          foreach (var button in playerKickButtons)
+       163 +          {
+       164 +              button.gameObject.SetActive(false);
+       165 +          }
+       166 +  
+       167 +          // Assign each player to a panel in order of 
+           + joining (based on dictionary order)
+       168 +          foreach (var player in players.Values)
+       169 +          {
+       170 +              if (playerIndex >= MAX_PLAYERS) break;
+       171 +  
+       172 +              // Update player name text
+       173 +              playerNameTexts[playerIndex].text = 
+           + $"{player.DisplayName} {(player.IsReady ? "✓" : "")}";
+       174 +  
+       175 +              // If host and player is not self, show kick 
+           + button
+       176 +              if (isHost && !player.IsHost && playerIndex > 
+           + 0) // player 2-8
+       177 +              {
+       178 +                  int kickButtonIndex = playerIndex - 1; // 
+           + kick buttons list is 0-6 for player 2-8
+       179 +                  if (kickButtonIndex < 
+           + playerKickButtons.Count)
+       180 +                  {
+       181 +                      playerKickButtons[kickButtonIndex].game
+           + Object.SetActive(true);
+       182 +                      // Store playerId in button's data for 
+           + kick action
+       183 +                      playerKickButtons[kickButtonIndex].onCl
+           + ick.RemoveAllListeners();
+       184 +                      string playerId = player.PlayerId;
+       185 +                      
+           + playerKickButtons[kickButtonIndex].onClick.AddListener(() =>
+           +  OnKickPlayerClicked(playerId));
+       186 +                  }
+       187 +              }
+       188 +  
+       189 +              playerIndex++;
+       190 +          }
+       191 +  
+       192 +          // Disable unused panels
+       193 +          for (int i = playerIndex; i < MAX_PLAYERS; i++)
+       194 +          {
+       195 +              playerNameTexts[i].text = "Waiting for 
+           + player...";
+       196 +          }
+       197 +      }
+       198 +  
+       199 +      private void UpdateButtonInteractability()
+       200 +      {
+       201 +          if (multiplayerManager == null) return;
+       202 +  
+       203 +          isHost = multiplayerManager.IsLobbyHost;
+       204 +          startGameButton.interactable = isHost && 
+           + multiplayerManager.GetPlayerCount() > 0;
+       205 +  
+       206 +          // Update kick buttons interactability based on 
+           + host status
+       207 +          foreach (var button in playerKickButtons)
+       208 +          {
+       209 +              button.interactable = isHost;
+       210 +          }
+       211 +      }
+       212 +  
+       213 +      // Event handlers
+       214 +      private void OnPlayerJoined(string playerId)
+       215 +      {
+       216 +          Debug.Log($"LobbyUIManager: Player joined 
+           + {playerId}");
+       217 +          UpdatePlayerListUI();
+       218 +          UpdateButtonInteractability();
+       219 +      }
+       220 +  
+       221 +      private void OnPlayerLeft(string playerId)
+       222 +      {
+       223 +          Debug.Log($"LobbyUIManager: Player left 
+           + {playerId}");
+       224 +          UpdatePlayerListUI();
+       225 +          UpdateButtonInteractability();
+       226 +      }
+       227 +  
+       228 +      private void OnPlayerReadyChanged(string playerId, bool
+           +  isReady)
+       229 +      {
+       230 +          Debug.Log($"LobbyUIManager: Player {playerId} ready
+           +  state changed to {isReady}");
+       231 +          UpdatePlayerListUI();
+       232 +          UpdateButtonInteractability();
+       233 +      }
+       234 +  
+       235 +      private void OnAllPlayersReady()
+       236 +      {
+       237 +          Debug.Log("LobbyUIManager: All players ready!");
+       238 +          if (isHost)
+       239 +          {
+       240 +              startGameButton.interactable = true;
+       241 +          }
+       242 +      }
+       243 +  
+       244 +      private void OnGameStarted()
+       245 +      {
+       246 +          Debug.Log("LobbyUIManager: Game started!");
+       247 +          // Optionally disable UI or show loading
+       248 +      }
+       249 +  
+       250 +      private void OnLobbyJoined(string lobbyCode)
+       251 +      {
+       252 +          Debug.Log($"LobbyUIManager: Joined lobby 
+           + {lobbyCode}");
+       253 +          UpdateGameSettingsUI();
+       254 +          UpdatePlayerListUI();
+       255 +          UpdateButtonInteractability();
+       256 +      }
+       257 +  
+       258 +      // Button click handlers
+       259 +      public void OnStartGameClicked()
+       260 +      {
+       261 +          if (multiplayerManager != null && isHost)
+       262 +          {
+       263 +              multiplayerManager.StartGame();
+       264 +          }
+       265 +      }
+       266 +  
+       267 +      private void OnKickPlayerClicked(string playerId)
+       268 +      {
+       269 +          if (lobbyManager != null && isHost)
+       270 +          {
+       271 +              lobbyManager.KickPlayer(playerId);
+       272 +          }
+       273 +      }
+       274 +  
+       275 +      public void OnLeaveLobbyClicked()
+       276 +      {
+       277 +          // This would be attached to a Leave Lobby button 
+           + in the UI
+       278 +          if (multiplayerManager != null)
+       279 +          {
+       280 +              multiplayerManager.DisableMultiplayerMode();
+       281 +              // Scene transition back to main menu should be
+           +  handled elsewhere
+       282 +          }
+       283 +      }
+       284    }
+
+● Read(Assets/Scripts/Multiplayer/SyncManager.cs)
+  ⎿  Read 50 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition and 
+      removal
+       22    
+       23        [Header("Player List UI")]
+       24        [SerializeField] private List<GameObject> 
+            playerListPanels; // List of 8 UI panels (max 8 players) for 
+            displaying player information in the lobby;
+       25 -      [SerializeField] private List<TextMeshProUGUI
+          -  > playerNameTexts; // List of 8 Text components (max 8 
+          -  players) for displaying player names in the lobby;
+       25 +      [SerializeField] private List<Text
+          +  > playerNameTexts; // List of 8 Text components (max 8 
+          +  players) for displaying player names in the lobby;
+       26        [SerializeField] private List<Button> playerKickButtons;
+             // List of 7 Buttons (player 2 - 8) for kicking players from
+             the lobby (only visible to host);
+       27    
+       28        private const int MAX_PLAYERS = 8;
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 11 additions an
+      1 removal
+       53        {
+       54            if (firebaseManager == null) firebaseManager = 
+            FirebaseManager.Instance;
+       55            if (multiplayerManager == null) multiplayerManager =
+             MultiplayerManager.Instance;
+       56 -          if (lobbyManager == null) lobbyManager = 
+          - LobbyManager.Instance;
+       56 +  
+       57 +          // LobbyManager doesn't have a singleton instance; 
+          + it's attached to the same GameObject as MultiplayerManager
+       58 +          if (lobbyManager == null && multiplayerManager != 
+          + null)
+       59 +          {
+       60 +              lobbyManager = 
+          + multiplayerManager.GetComponent<LobbyManager>();
+       61 +              if (lobbyManager == null)
+       62 +              {
+       63 +                  Debug.LogWarning("LobbyUIManager: 
+          + LobbyManager not found on MultiplayerManager GameObject.");
+       64 +              }
+       65 +          }
+       66 +  
+       67            if (syncManager == null) syncManager = 
+            SyncManager.Instance;
+       68        }
+       69    
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 50 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 8 additions and
+     4 removals
+
+       173                button.gameObject.SetActive(false);
+       174            }
+       175    
+       176 -          // Assign each player to a panel in order of 
+           - joining (based on dictionary order)
+       177 -          foreach (var player in players.Values)
+       176 +          // Create sorted list of players by join order 
+           + (host first, then others by JoinedAt)
+       177 +          List<PlayerData> sortedPlayers = new 
+           + List<PlayerData>(players.Values);
+       178 +          sortedPlayers.Sort((a, b) => 
+           + a.JoinedAt.CompareTo(b.JoinedAt));
+       179 +  
+       180 +          // Assign each player to a panel in order (panel 0 
+           + = host, panel 1 = second player, etc.)
+       181 +          foreach (var player in sortedPlayers)
+       182            {
+       183                if (playerIndex >= MAX_PLAYERS) break;
+       184    
+       185                // Update player name text
+       186                playerNameTexts[playerIndex].text = 
+             $"{player.DisplayName} {(player.IsReady ? "✓" : "")}";
+       187    
+       188 -              // If host and player is not self, show kick 
+           -  button
+       189 -              if (isHost && !player.IsHost && playerIndex > 
+           -  0) // player 2-8
+       188 +              // If host and player is not self, show kick 
+           +  button (player 2-8)
+       189 +              if (isHost && !player.IsHost && playerIndex > 
+           +  0)
+       190                {
+       191                    int kickButtonIndex = playerIndex - 1; // 
+             kick buttons list is 0-6 for player 2-8
+       192                    if (kickButtonIndex < 
+             playerKickButtons.Count)
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 18 additions an
+      1 removal
+       214            if (multiplayerManager == null) return;
+       215    
+       216            isHost = multiplayerManager.IsLobbyHost;
+       217 -          startGameButton.interactable = isHost && 
+           - multiplayerManager.GetPlayerCount() > 0;
+       217 +          var players = multiplayerManager.Players;
+       218 +          int playerCount = players.Count;
+       219    
+       220 +          // Start game button: only host can click, and only
+           +  when all players are ready
+       221 +          bool allPlayersReady = false;
+       222 +          if (playerCount > 0)
+       223 +          {
+       224 +              allPlayersReady = true;
+       225 +              foreach (var player in players.Values)
+       226 +              {
+       227 +                  if (!player.IsReady)
+       228 +                  {
+       229 +                      allPlayersReady = false;
+       230 +                      break;
+       231 +                  }
+       232 +              }
+       233 +          }
+       234 +          startGameButton.interactable = isHost && 
+           + playerCount > 0 && allPlayersReady;
+       235 +  
+       236            // Update kick buttons interactability based on 
+             host status
+       237            foreach (var button in playerKickButtons)
+       238            {
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 30 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition and 
+      removals
+       265        private void OnAllPlayersReady()
+       266        {
+       267            Debug.Log("LobbyUIManager: All players ready!");
+       268 -          if (isHost)
+       269 -          {
+       270 -              startGameButton.interactable = true;
+       271 -          }
+       268 +          UpdateButtonInteractability(); // Update start 
+           + button interactability
+       269        }
+       270    
+       271        private void OnGameStarted()
+
+● Search(pattern: "Assets/Scenes/*Lobby*.unity")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition
+       1 +  using System.Collections;
+       2    using System.Collections.Generic;
+       3    using TMPro;
+       4    using UnityEngine;
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 6 additions  
+       30        private bool isHost = false;
+       31        private string localPlayerId = string.Empty;
+       32    
+       33 +      // Polling for player list changes (fallback if events 
+          + don't fire)
+       34 +      private Dictionary<string, PlayerData> lastKnownPlayers 
+          + = new Dictionary<string, PlayerData>();
+       35 +      private string lastLobbyCode = string.Empty;
+       36 +      private bool lastIsHost = false;
+       37 +      private Coroutine pollingCoroutine;
+       38 +  
+       39        private void OnEnable()
+       40        {
+       41            SubscribeToEvents();
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 2 additions  
+       39        private void OnEnable()
+       40        {
+       41            SubscribeToEvents();
+       42 +          // Start polling for player list changes as fallback
+       43 +          pollingCoroutine = 
+          + StartCoroutine(PollPlayerListChanges());
+       44        }
+       45    
+       46        private void OnDisable()
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 6 additions
+       46        private void OnDisable()
+       47        {
+       48            UnsubscribeFromEvents();
+       49 +          // Stop polling coroutine
+       50 +          if (pollingCoroutine != null)
+       51 +          {
+       52 +              StopCoroutine(pollingCoroutine);
+       53 +              pollingCoroutine = null;
+       54 +          }
+       55        }
+       56    
+       57        void Start()
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 30 lines
+
+● Read(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Read 18 lines
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 56 additions 
+       323                // Scene transition back to main menu should be
+              handled elsewhere
+       324            }
+       325        }
+       326 +  
+       327 +      private IEnumerator PollPlayerListChanges()
+       328 +      {
+       329 +          while (true)
+       330 +          {
+       331 +              yield return new WaitForSeconds(1.0f); // Check
+           +  every second
+       332 +  
+       333 +              if (multiplayerManager == null) continue;
+       334 +  
+       335 +              bool changed = false;
+       336 +              var currentPlayers = 
+           + multiplayerManager.Players;
+       337 +              string currentLobbyCode = 
+           + multiplayerManager.LobbyCode;
+       338 +              bool currentIsHost = 
+           + multiplayerManager.IsLobbyHost;
+       339 +  
+       340 +              // Check lobby code change
+       341 +              if (lastLobbyCode != currentLobbyCode)
+       342 +              {
+       343 +                  lastLobbyCode = currentLobbyCode;
+       344 +                  changed = true;
+       345 +              }
+       346 +  
+       347 +              // Check host status change
+       348 +              if (lastIsHost != currentIsHost)
+       349 +              {
+       350 +                  lastIsHost = currentIsHost;
+       351 +                  changed = true;
+       352 +              }
+       353 +  
+       354 +              // Check player list changes
+       355 +              if (lastKnownPlayers.Count != 
+           + currentPlayers.Count)
+       356 +              {
+       357 +                  changed = true;
+       358 +              }
+       359 +              else
+       360 +              {
+       361 +                  // Compare each player
+       362 +                  foreach (var kvp in currentPlayers)
+       363 +                  {
+       364 +                      if 
+           + (!lastKnownPlayers.ContainsKey(kvp.Key))
+       365 +                      {
+       366 +                          changed = true;
+       367 +                          break;
+       368 +                      }
+       369 +                      // Optionally compare ready state or 
+           + other properties
+       370 +                  }
+       371 +              }
+       372 +  
+       373 +              if (changed)
+       374 +              {
+       375 +                  lastKnownPlayers = new Dictionary<string, 
+           + PlayerData>(currentPlayers);
+       376 +                  UpdateGameSettingsUI();
+       377 +                  UpdatePlayerListUI();
+       378 +                  UpdateButtonInteractability();
+       379 +              }
+       380 +          }
+       381 +      }
+       382    }
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 1 addition
+       59            FindManagersIfMissing();
+       60            ValidateUIReferences();
+       61            InitializeUI();
+       62 +          UpdateLastKnownPlayers();
+       63            UpdateGameSettingsUI();
+       64            UpdatePlayerListUI();
+       65            UpdateButtonInteractability();
+
+● Update(Assets/Scripts/UI/Lobby/LobbyUIManager.cs)
+  ⎿  Updated Assets/Scripts/UI/Lobby/LobbyUIManager.cs with 10 additions
+        99            }
+       100        }
+       101    
+       102 +      private void UpdateLastKnownPlayers()
+       103 +      {
+       104 +          if (multiplayerManager != null)
+       105 +          {
+       106 +              lastKnownPlayers = new Dictionary<string, 
+           + PlayerData>(multiplayerManager.Players);
+       107 +              lastLobbyCode = multiplayerManager.LobbyCode;
+       108 +              lastIsHost = multiplayerManager.IsLobbyHost;
+       109 +          }
+       110 +      }
+       111 +  
+       112        private void InitializeUI()
+       113        {
+       114            // Activate panels up to MAX_PLAYERS, disable the 
+             rest
+
+● Read(developer-instructions.md)
+  ⎿  Read 425 lines
+
+● Update(developer-instructions.md)
+  ⎿  Updated developer-instructions.md with 73 additions and 1 removal   
+       421       - Enable debug logs in Console to see AutoEndDetector 
+             validation steps
+       422       - Look for "AutoEndDetector: Checking valid placements" 
+             messages
+       423    
+       424 +  ## Lobby UI Manager Integration (2026-04-17)
+       425    
+       426 -  *Last Updated: 2026-04-15*
+       426   \ No newline at end of file
+       427 +  The `LobbyUIManager.cs` script has been created to handle 
+           + the Lobby scene UI, integrating with the existing 
+           + multiplayer managers.
+       428 +  
+       429 +  ### Script Location
+       430 +  `Assets/Scripts/UI/Lobby/LobbyUIManager.cs`
+       431 +  
+       432 +  ### Setup Instructions
+       433 +  
+       434 +  1. **Open the Lobby Scene**:
+       435 +     - Open `Assets/Scenes/LobbyScene.unity`
+       436 +     - Ensure the scene contains the required UI elements:
+       437 +       - Room code display (TextMeshProUGUI)
+       438 +       - Max players display (TextMeshProUGUI)
+       439 +       - Turn time limit display (TextMeshProUGUI)
+       440 +       - Host name display (TextMeshProUGUI)
+       441 +       - Start Game button (Button)
+       442 +       - Eight player list panels (GameObject) with child 
+           + Text components for player names
+       443 +       - Seven kick buttons (Buttons) for players 2-8 
+           + (optional)
+       444 +  
+       445 +  2. **Add LobbyUIManager Component**:
+       446 +     - Select the main UI Canvas or a dedicated GameObject 
+           + for lobby management
+       447 +     - Add the `LobbyUIManager` component via Add Component >
+           +  Scripts > LobbyUIManager
+       448 +  
+       449 +  3. **Assign Manager References** (optional, can be 
+           + auto-filled):
+       450 +     - `FirebaseManager`: Leave empty, script will find 
+           + singleton instance
+       451 +     - `MultiplayerManager`: Leave empty, script will find 
+           + singleton instance
+       452 +     - `LobbyManager`: Leave empty, script will find on 
+           + MultiplayerManager's GameObject
+       453 +     - `SyncManager`: Leave empty, script will find singleton
+           +  instance
+       454 +  
+       455 +  4. **Assign UI Element References**:
+       456 +     - `Room Code Text`: Drag the TextMeshProUGUI element 
+           + displaying room code
+       457 +     - `Max Players Text`: Drag the TextMeshProUGUI element 
+           + displaying max players
+       458 +     - `Turn Time Text`: Drag the TextMeshProUGUI element 
+           + displaying turn time limit
+       459 +     - `Host Name Text`: Drag the TextMeshProUGUI element 
+           + displaying host name
+       460 +     - `Start Game Button`: Drag the Button for starting the 
+           + game
+       461 +  
+       462 +  5. **Assign Player List UI Arrays**:
+       463 +     - `Player List Panels`: Assign the eight GameObjects 
+           + representing each player slot (in order: player 1 to player 
+           + 8)
+       464 +     - `Player Name Texts`: Assign the eight Text components 
+           + (UnityEngine.UI.Text) for player names (in same order)
+       465 +     - `Player Kick Buttons`: Assign the seven Buttons for 
+           + kicking players 2-8 (optional, can be left empty if not 
+           + implemented)
+       466 +  
+       467 +  6. **Connect Button Events**:
+       468 +     - For the Start Game button, in the Button's OnClick 
+           + list, add the LobbyUIManager GameObject and select 
+           + `LobbyUIManager.OnStartGameClicked`
+       469 +     - For each Kick button, the script will dynamically 
+           + assign click listeners (no manual setup needed)
+       470 +     - Add a Leave Lobby button elsewhere and connect to 
+           + `LobbyUIManager.OnLeaveLobbyClicked`
+       471 +  
+       472 +  7. **Verify Multiplayer Manager Singletons**:
+       473 +     - Ensure that `MultiplayerManager`, `FirebaseManager`, 
+           + and `SyncManager` are present in the scene (they are 
+           + DontDestroyOnLoad singletons and should persist from 
+           + previous scenes)
+       474 +     - If testing in isolation, add a `MultiplayerTester` 
+           + GameObject and run basic tests to initialize Firebase.
+       475 +  
+       476 +  ### Functionality Overview
+       477 +  
+       478 +  - **Dynamic UI Updates**: The UI updates automatically when
+           +  players join/leave, change ready state, or when host status
+           +  changes.
+       479 +  - **Host-Only Controls**: Start game button and kick 
+           + buttons are only interactable for the lobby host.
+       480 +  - **Fallback Polling**: If multiplayer events are not 
+           + fired, a polling system checks for changes every second.
+       481 +  - **Sorted Player List**: Players are displayed in join 
+           + order (host first, then others by join timestamp).
+       482 +  
+       483 +  ### Testing
+       484 +  
+       485 +  1. **Enter Lobby Scene** from the main menu via Create Game
+           +  or Join Game.
+       486 +  2. **Verify UI Updates**: Room code, max players, host name
+           +  should display correctly.
+       487 +  3. **Simulate Player Joins**: Use MultiplayerTester to 
+           + simulate additional players joining.
+       488 +  4. **Test Host Controls**: As host, start game button 
+           + should be interactable only when all players are ready.
+       489 +  5. **Test Kick Functionality**: Host can click kick buttons
+           +  (if implemented in LobbyManager).
+       490 +  
+       491 +  ### Notes
+       492 +  
+       493 +  - The LobbyUIManager uses 
+           + `NetworkConstants.MAX_PLAYERS_PER_LOBBY` (8) for max players
+           +  display.
+       494 +  - Turn time limit is currently hardcoded as "Unlimited" 
+           + (not yet implemented in multiplayer system).
+       495 +  - Player names use `PlayerData.DisplayName` (set to "Host" 
+           + for host, "PlayerX" for others).
+       496 +  - Kick functionality depends on `LobbyManager.KickPlayer()`
+           +  which is currently a stub.
+       497 +  
+       498 +  *Last Updated: 2026-04-17*
+       499   \ No newline at end of file
+
+
+
